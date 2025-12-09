@@ -21,7 +21,8 @@ import { useAuth } from './AuthContext.jsx'
 import { useQr } from './QrContext.jsx'
 import { useTheme } from './ThemeContext.jsx'
 
-import { crearPreferenciaEntrada } from '../services/mercadopago.js'
+import { crearPreferenciaEntrada } from '../services/mpEntradas.js'
+
 import Swal from 'sweetalert2'
 
 const EntradasContext = createContext()

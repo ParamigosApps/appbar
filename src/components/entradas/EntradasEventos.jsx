@@ -16,25 +16,21 @@ export default function EntradasEventos() {
   // 🔍 NORMALIZAR LOTES (con logs)
   // --------------------------------------------------------------
   function normalizarLotes(lotesRaw, eventoId) {
-    console.log('📦 Lotes RAW del evento', eventoId, ':', lotesRaw)
-
     if (!lotesRaw) {
       console.log('❌ lotesRaw es NULL/undefined')
       return []
     }
 
     if (Array.isArray(lotesRaw)) {
-      console.log('✅ lotesRaw es ARRAY ->', lotesRaw)
       return lotesRaw
     }
 
     if (typeof lotesRaw === 'object') {
       const arr = Object.values(lotesRaw)
-      console.log('🔄 lotesRaw era OBJECT -> convertido a ARRAY:', arr)
+
       return arr
     }
 
-    console.log('⚠️ lotesRaw es de un tipo raro:', typeof lotesRaw)
     return []
   }
 
@@ -51,11 +47,6 @@ export default function EntradasEventos() {
 
         const lista = snap.docs.map(doc => {
           const data = doc.data()
-
-          console.log('========================================')
-          console.log('📌 EVENTO CARGADO:', doc.id)
-          console.log('Data:', data)
-          console.log('========================================')
 
           return {
             id: doc.id,
@@ -110,13 +101,6 @@ export default function EntradasEventos() {
 
         const lotes = normalizarLotes(evento.lotes, evento.id)
         const tieneLotes = lotes.length > 0
-
-        console.log(
-          `🎫 Evento ${evento.id} → tieneLotes =`,
-          tieneLotes,
-          '| lotes =',
-          lotes
-        )
 
         return (
           <div key={evento.id} className="card p-3 shadow-sm rounded-4">
