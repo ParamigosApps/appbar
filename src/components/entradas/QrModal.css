@@ -1,0 +1,47 @@
+.qr-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 4000;
+}
+
+.qr-modal {
+  background: white;
+  padding: 20px;
+  width: 90%;
+  max-width: 350px;
+  border-radius: 12px;
+  text-align: center;
+  animation: pop 0.2s ease;
+}
+
+.qr-grande {
+  width: 220px;
+  height: 220px;
+  margin: 15px auto;
+}
+
+.btn-cerrar {
+  background: #ff3b3b;
+  color: white;
+  border: none;
+  width: 100%;
+  padding: 10px;
+  font-weight: bold;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

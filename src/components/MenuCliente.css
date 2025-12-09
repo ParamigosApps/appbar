@@ -1,0 +1,94 @@
+.menu-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 40px 12px;
+  margin: 12px; /* margen lateral en cel también */
+}
+
+.menu-box {
+  width: 90%;
+  max-width: 520px;
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+}
+
+/* Cada bloque (Catálogo / Entradas / Ubicación / etc) */
+.menu-item {
+  margin-bottom: 10px;
+}
+
+.menu-header {
+  width: 100%;
+  background: #f8f9fa;
+  border: none;
+  border-radius: 10px;
+  padding: 16px 18px;
+  font-size: 1.1rem;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.menu-header:hover {
+  background: #eef1f4;
+}
+
+.menu-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menu-emoji {
+  font-size: 1.3rem;
+}
+
+.arrow {
+  transition: transform 0.25s ease;
+}
+
+.arrow.open {
+  transform: rotate(180deg);
+}
+
+.menu-content {
+  margin-top: 6px;
+  margin-bottom: 12px;
+  background: #ffffff;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px solid #e7e7e7;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Links internos */
+.menu-content a {
+  text-decoration: none;
+  color: #333;
+  font-size: 1rem;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.menu-content a:hover {
+  background: #f2f2f2;
+}
+
+/* Ajustes responsivos tipo “app móvil” */
+@media (max-width: 480px) {
+  .menu-box {
+    width: 94%;
+  }
+}
+
+@media (min-width: 1000px) {
+  .menu-box {
+    max-width: 540px;
+  }
+}

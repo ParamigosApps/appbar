@@ -1,0 +1,120 @@
+.catalogo-wrapper {
+  margin-top: 10px;
+  padding: 10px;
+}
+
+.titulo-seccion {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+/* -----------------------------
+   BOTONES DE CATEGORÍAS
+-------------------------------- */
+.categorias-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cat-btn {
+  flex: 1;
+  padding: 8px 12px;
+  background: #f2f2f2;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: 0.2s;
+  text-align: center;
+}
+
+.cat-btn:hover {
+  background: #e7e7e7;
+}
+
+.cat-btn.active {
+  background: #111827;
+  color: white;
+  font-weight: bold;
+}
+
+/* -----------------------------
+   MENSAJE
+-------------------------------- */
+.mensaje-filtro {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 5px;
+  margin-bottom: 10px;
+}
+
+/* -----------------------------
+   GRILLA DE PRODUCTOS
+-------------------------------- */
+.productos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: 14px;
+}
+
+/* -----------------------------
+   TARJETA DE PRODUCTO
+-------------------------------- */
+.producto-card {
+  background: white;
+  border-radius: 14px;
+  padding: 12px;
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.07);
+  transition: transform 0.15s ease;
+}
+
+.producto-card:hover {
+  transform: scale(1.03);
+}
+
+.producto-card img {
+  width: 100%;
+  height: 130px;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+
+.producto-card h3 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.prod-desc {
+  font-size: 13px;
+  color: #777;
+  margin: 6px 0;
+}
+
+.prod-precio {
+  font-size: 18px;
+  font-weight: bold;
+  margin: 8px 0;
+}
+
+/* BOTÓN AGREGAR */
+.btn-agregar {
+  width: 100%;
+  padding: 10px;
+  background: #14a8e2;
+  color: white;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.btn-agregar:hover {
+  background: #0c8bbd;
+}
