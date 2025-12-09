@@ -15,7 +15,6 @@ export async function crearPreferenciaEntrada({
       cantidad > 1 ? 's' : ''
     } — ${nombreEvento}`
 
-    // Body que tu backend espera
     const body = {
       title: titulo,
       quantity: cantidad,
@@ -40,8 +39,7 @@ export async function crearPreferenciaEntrada({
       return null
     }
 
-    // Preferimos sandbox SIEMPRE
-    if (data?.sandbox_init_point) return data.sandbox_init_point
+    // 🔥 SOLO USAR init_point (real o sandbox según token)
     if (data?.init_point) return data.init_point
 
     console.error('⚠️ Mercado Pago no devolvió init_point:', data)
