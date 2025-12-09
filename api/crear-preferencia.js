@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   console.log('🔵 /api/crear-preferencia INICIADA')
 
   // ======================================================
-  // LEER RAW BODY (Vercel edge)
+  // LEER RAW BODY
   // ======================================================
   let rawBody = ''
   await new Promise(resolve => {
@@ -20,11 +20,11 @@ export default async function handler(req, res) {
     console.log('📌 BODY PARSEADO:', body)
   } catch (err) {
     console.error('❌ ERROR PARSEANDO JSON:', err)
-    return res.status(400).json({ error: 'JSON inválido', raw: rawBody })
+    return res.status(400).json({ error: 'JSON inválido' })
   }
 
   // ======================================================
-  // VALIDAR TOKEN MP (PRODUCCIÓN)
+  // VALIDAR TOKEN
   // ======================================================
   const ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN
 
@@ -43,7 +43,7 @@ export default async function handler(req, res) {
   const preference = new Preference(client)
 
   // ======================================================
-  // ITEMS — NORMALIZACIÓN
+  // ITEMS
   // ======================================================
   let items = body.items
 
@@ -62,15 +62,12 @@ export default async function handler(req, res) {
     ]
   }
 
-  console.log('📦 ITEMS:', items)
+  console.log('📦 ITEMS DEFINITIVOS:', items)
 
-  // ======================================================
-  // BASE URL DEL PROYECTO (PRODUCCIÓN)
-  // ======================================================
   const BASE_URL = 'https://appbar-react-final.vercel.app'
 
   // ======================================================
-  // CONSTRUCCIÓN DE LA PREFERENCIA
+  // CREAR PREFERENCIA
   // ======================================================
   try {
     console.log('🚀 Creando preferencia en Mercado Pago…')
@@ -87,26 +84,23 @@ export default async function handler(req, res) {
           pending: `${BASE_URL}/pago-pendiente.html`,
         },
 
-        // IMPORTANTE: esto NO fuerza sandbox.
-        // Si usás PROD ACCESS_TOKEN → usa entorno real, pero
-        // las tarjetas APRO simulan pagos sin cobrar.
         metadata: { origen: 'appbar', tipo: 'entrada' },
       },
     })
 
-    console.log('✅ PREFERENCIA CREADA:', result)
+    console.log('✅ RESULTADO PREFERENCIA:', result)
 
     return res.status(200).json({
-      id: result.id,
-      init_point: result.init_point,
-      sandbox_init_point: result.sandbox_init_point, // útil si usaras token sandbox
+      id: result.id ?? null,
+      init_point: result.init_point ?? null,
+      sandbox_init_point: result.sandbox_init_point ?? null,
     })
   } catch (error) {
-    console.error('❌ ERROR PREFERENCIA:', error)
+    console.error('❌ ERROR AL CREAR PREFERENCIA:', error)
 
     return res.status(500).json({
       error: error.message,
-      data: error,
+      detalles: error,
     })
   }
 }

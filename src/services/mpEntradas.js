@@ -1,5 +1,5 @@
 // --------------------------------------------------------------
-// Servicio Mercado Pago — ENTRADAS (Funciona con tu API en Vercel)
+// Servicio Mercado Pago — ENTRADAS (Frontend)
 // --------------------------------------------------------------
 
 export async function crearPreferenciaEntrada({
@@ -39,7 +39,9 @@ export async function crearPreferenciaEntrada({
       return null
     }
 
-    // 🔥 SOLO USAR init_point (real o sandbox según token)
+    console.log('🔵 RESPUESTA MP (Frontend):', data)
+
+    // 👉 SIEMPRE USAR init_point
     if (data?.init_point) return data.init_point
 
     console.error('⚠️ Mercado Pago no devolvió init_point:', data)
