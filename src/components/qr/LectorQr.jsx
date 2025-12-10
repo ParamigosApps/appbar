@@ -244,17 +244,23 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
       if (modo === 'entradas') {
         if (!payload.esEntrada)
           return mostrarError('Este QR es de COMPRA, no de ENTRADA.')
+
         res = await validarTicket(payload, eventoSeleccionado)
       } else {
         if (!payload.esCompra)
           return mostrarError('Este QR es de ENTRADA, no de COMPRA.')
+
         res = await validarCompra(payload)
       }
 
       mostrarResultado(res)
 
       if (res?.ok && modo === 'entradas') {
-        cargarEstadisticasEvento(eventoSeleccionado)
+        // Asegurarse que se marca antes
+        await marcarEntradaUsada(res.data.id)
+
+        const evId = res.data.eventoId || eventoSeleccionado
+        await cargarEstadisticasEvento(evId)
       }
     } finally {
       setTimeout(() => (leyendo.current = false), 1500)
@@ -272,7 +278,6 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
 
     res?.ok ? beepOk() : beepError()
 
-    if (res?.ok && res.tipo === 'entrada') marcarEntradaUsada(res.data.id)
     if (res?.ok && res.tipo === 'compra') marcarCompraRetirada(res.data.id)
   }
 
