@@ -188,3 +188,23 @@
   border-color: #212529;
   transform: translateY(-1px);
 }
+
+.admin-user-info {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 12px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-user-info .user-name {
+  font-weight: bold;
+  font-size: 0.95rem;
+  color: #fff;
+}
+
+.admin-user-info .user-role {
+  font-size: 0.8rem;
+  color: #ddd;
+  margin-top: 3px;
+}

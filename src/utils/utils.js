@@ -21,6 +21,20 @@ export function formatearFecha(fecha = new Date()) {
     return 'Fecha inválida'
   }
 }
+export function formatearSoloFecha(fecha = new Date()) {
+  try {
+    const d = fecha instanceof Date ? fecha : new Date(fecha)
+
+    const dia = String(d.getDate()).padStart(2, '0')
+    const mes = String(d.getMonth() + 1).padStart(2, '0')
+    const año = d.getFullYear()
+
+    return `${dia}/${mes}/${año}`
+  } catch (e) {
+    console.error('Error formatearFecha:', e)
+    return 'Fecha inválida'
+  }
+}
 
 // Fecha exacta de compra
 export function obtenerFechaCompra() {

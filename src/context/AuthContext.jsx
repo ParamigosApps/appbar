@@ -1,34 +1,44 @@
 // -----------------------------------------------------------
-// 📌 AUTH CONTEXT — versión ESTABLE con ADMIN manual
+// 📌 AUTH CONTEXT — versión FINAL con persistencia REAL
 // -----------------------------------------------------------
 import { createContext, useContext, useEffect, useState } from 'react'
 import { auth, db } from '../Firebase.js'
+
+import {
+  doc,
+  getDoc,
+  setDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  serverTimestamp,
+} from 'firebase/firestore'
 
 import {
   GoogleAuthProvider,
   FacebookAuthProvider,
   signInWithPopup,
   signOut,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
   onAuthStateChanged,
 } from 'firebase/auth'
 
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import Swal from 'sweetalert2'
 
 const AuthContext = createContext()
 export const useAuth = () => useContext(AuthContext)
 
 // -----------------------------------------------------------
-// ADMIN MANUAL
+// LOGIN ADMIN MANUAL (NO FIREBASE) – PERO PERSISTE EN LOCALSTORAGE
 // -----------------------------------------------------------
 const MASTER_USER = 'admin'
 const MASTER_PASS = '1234'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
-  const [rolUsuario, setRolUsuario] = useState('invitado')
+  const [rolUsuario, setRolUsuario] = useState(0)
+  const [permisos, setPermisos] = useState({})
+  const [loading, setLoading] = useState(true)
 
   const [loginSettings, setLoginSettings] = useState({
     google: true,
@@ -38,6 +48,7 @@ export function AuthProvider({ children }) {
 
   const [loginAbierto, setLoginAbierto] = useState(false)
 
+  // -----------------------------------------------------------
   function abrirLoginGlobal() {
     setLoginAbierto(true)
     document.dispatchEvent(new CustomEvent('abrir-login'))
@@ -47,63 +58,99 @@ export function AuthProvider({ children }) {
   }
 
   // -----------------------------------------------------------
-  // LOGIN ADMIN MANUAL
+  // 🔥 LOGIN ADMIN MANUAL CON PERSISTENCIA LOCAL
   // -----------------------------------------------------------
   async function loginAdminManual(usuario, pass) {
-    if (usuario === MASTER_USER && pass === MASTER_PASS) {
-      const adminUser = {
-        uid: 'admin-master',
-        displayName: 'Administrador',
+    try {
+      if (usuario === MASTER_USER && pass === MASTER_PASS) {
+        const adminUser = {
+          uid: 'admin-master',
+          displayName: 'Administrador',
+          email: 'admin@app.com',
+          manual: true,
+        }
+
+        setUser(adminUser)
+        setRolUsuario(4)
+        localStorage.setItem('adminTemp', JSON.stringify(adminUser))
+
+        Swal.fire('Ingreso correcto', 'Bienvenido administrador', 'success')
+        cerrarLoginGlobal()
+        return true
       }
 
-      setUser(adminUser)
-      setRolUsuario('admin')
+      // Empleado normal
+      const q = query(
+        collection(db, 'empleados'),
+        where('email', '==', usuario),
+        where('password', '==', pass)
+      )
 
-      // FLAG para AdminRoute
-      localStorage.setItem('adminTemp', 'true')
+      const snap = await getDocs(q)
+      if (snap.empty) {
+        Swal.fire('Error', 'Usuario o contraseña incorrectos', 'error')
+        return false
+      }
 
-      Swal.fire('Ingreso correcto', 'Bienvenido, administrador', 'success')
+      const data = snap.docs[0].data()
+
+      const empleadoUser = {
+        uid: data.uid,
+        displayName: data.nombre,
+        email: data.email,
+        manual: true,
+      }
+
+      setUser(empleadoUser)
+      setRolUsuario(Number(data.nivel) || 1)
+
+      localStorage.setItem('adminTemp', JSON.stringify(empleadoUser))
+
+      Swal.fire('Ingreso correcto', `Bienvenido, ${data.nombre}`, 'success')
       cerrarLoginGlobal()
       return true
+    } catch (err) {
+      console.error('ERROR loginAdminManual:', err)
+      Swal.fire('Error', 'No se pudo iniciar sesión', 'error')
+      return false
     }
-
-    Swal.fire('Error', 'Usuario o contraseña incorrectos', 'error')
-    return false
   }
 
   // -----------------------------------------------------------
-  // LOGIN SETTINGS
-  // -----------------------------------------------------------
-  async function cargarLoginSettings() {
+  async function cargarPermisos() {
     try {
-      const ref = doc(db, 'configuracion', 'loginMetodos')
+      const ref = doc(db, 'configuracion', 'permisos')
       const snap = await getDoc(ref)
-      if (snap.exists()) setLoginSettings(snap.data())
-    } catch {}
+      if (snap.exists()) setPermisos(snap.data())
+    } catch (err) {
+      console.error('Error cargando permisos:', err)
+    }
   }
 
-  // -----------------------------------------------------------
-  // CARGAR ROL
-  // -----------------------------------------------------------
   async function cargarRol(uid) {
     try {
       if (uid === 'admin-master') {
-        setRolUsuario('admin')
+        setRolUsuario(4)
         return
       }
 
-      const ref = doc(db, 'roles', uid)
-      const snap = await getDoc(ref)
+      const q = query(collection(db, 'empleados'), where('uid', '==', uid))
+      const snap = await getDocs(q)
 
-      if (snap.exists()) setRolUsuario(snap.data().rol)
-      else setRolUsuario('invitado')
-    } catch {
-      setRolUsuario('invitado')
+      if (!snap.empty) {
+        const data = snap.docs[0].data()
+        setRolUsuario(Number(data.nivel) || 1)
+        return
+      }
+
+      setRolUsuario(0)
+    } catch (err) {
+      console.error('Error rol:', err)
     }
   }
 
   // -----------------------------------------------------------
-  // GOOGLE
+  // LOGIN GOOGLE
   // -----------------------------------------------------------
   async function loginGoogle() {
     try {
@@ -132,19 +179,17 @@ export function AuthProvider({ children }) {
   }
 
   // -----------------------------------------------------------
-  // FACEBOOK
-  // -----------------------------------------------------------
   async function loginFacebook() {
     try {
       const provider = new FacebookAuthProvider()
-      const result = await signInWithPopup(auth, provider)
-      const u = result.user
+      const res = await signInWithPopup(auth, provider)
+      const u = res.user
 
       await setDoc(
         doc(db, 'usuarios', u.uid),
         {
           nombre: u.displayName,
-          email: u.email || '',
+          email: u.email,
           uid: u.uid,
           provider: 'facebook',
           creadoEn: serverTimestamp(),
@@ -167,44 +212,55 @@ export function AuthProvider({ children }) {
   async function logout() {
     await signOut(auth)
     setUser(null)
-    setRolUsuario('invitado')
+    setRolUsuario(0)
     localStorage.removeItem('adminTemp')
   }
 
   // -----------------------------------------------------------
-  // OBSERVAR SESIÓN
+  // 🔥 RESTAURAR SESIÓN MANUAL + SESIÓN FIREBASE
   // -----------------------------------------------------------
   useEffect(() => {
-    cargarLoginSettings()
+    cargarPermisos()
 
+    // 1) Revisar login manual
+    const temp = localStorage.getItem('adminTemp')
+    if (temp) {
+      const saved = JSON.parse(temp)
+      setUser(saved)
+      setRolUsuario(saved.uid === 'admin-master' ? 4 : 1)
+      setLoading(false)
+      return
+    }
+
+    // 2) Revisar login Firebase
     const unsub = onAuthStateChanged(auth, async u => {
-      setUser(u || null)
-
       if (u) {
+        setUser(u)
         await cargarRol(u.uid)
       } else {
-        setRolUsuario('invitado')
+        setUser(null)
+        setRolUsuario(0)
       }
+      setLoading(false)
     })
 
     return () => unsub()
   }, [])
 
   // -----------------------------------------------------------
-  // CONTEXT VALUE
-  // -----------------------------------------------------------
   return (
     <AuthContext.Provider
       value={{
         user,
         rolUsuario,
+        permisos,
+        loading,
 
         loginSettings,
 
         loginGoogle,
         loginFacebook,
         loginAdminManual,
-
         logout,
 
         abrirLoginGlobal,

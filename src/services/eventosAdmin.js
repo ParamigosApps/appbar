@@ -1,3 +1,7 @@
+// --------------------------------------------------------------
+// src/services/eventosAdmin.js — VERSIÓN FINAL PRO 2025
+// --------------------------------------------------------------
+
 import { db, storage } from '../Firebase.js'
 
 import {
@@ -10,6 +14,7 @@ import {
   serverTimestamp,
   orderBy,
   query,
+  getDoc,
 } from 'firebase/firestore'
 
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
@@ -31,7 +36,7 @@ export async function subirImagenEvento(archivo) {
 }
 
 /* ============================================================
-   🔵 CREAR EVENTO (CON LOTES)
+   🔵 CREAR EVENTO (CON LOTES + CAMPOS NUEVOS)
 ============================================================ */
 export async function crearEvento(datos, imagenArchivo = null) {
   try {
@@ -49,20 +54,20 @@ export async function crearEvento(datos, imagenArchivo = null) {
       precio: Number(datos.precio) || 0,
       descripcion: datos.descripcion || '',
 
-      // 🔥 CAMPOS NUEVOS
+      // Campos nuevos
       entradasMaximasEvento: Number(datos.entradasMaximasEvento) || 0,
       entradasPorUsuario: Number(datos.entradasPorUsuario) || 1,
 
-      // 🔥 LOTES (array)
+      // Lotes
       lotes: Array.isArray(datos.lotes) ? datos.lotes : [],
 
-      // 🔥 Imagen correcta
       imagenEventoUrl: imagenUrl,
 
+      estado: 'activo', // Nuevo: estado del evento
       creadoEn: serverTimestamp(),
     }
 
-    console.log('📦 Evento guardado:', evento)
+    console.log('📦 Evento creado:', evento)
 
     await addDoc(collection(db, 'eventos'), evento)
     return true
@@ -86,9 +91,11 @@ export async function editarEvento(id, datos, imagenArchivo = null) {
     const nuevosDatos = {
       ...datos,
       imagenEventoUrl: imagenUrl,
+      actualizadoEn: serverTimestamp(),
     }
 
     await updateDoc(doc(db, 'eventos', id), nuevosDatos)
+
     return true
   } catch (err) {
     console.error('❌ Error al editar evento:', err)
@@ -97,7 +104,7 @@ export async function editarEvento(id, datos, imagenArchivo = null) {
 }
 
 /* ============================================================
-   🔴 ELIMINAR EVENTO
+   🔴 ELIMINAR EVENTO (solo se llama si UI validó que no tiene ventas)
 ============================================================ */
 export async function eliminarEvento(id) {
   try {
@@ -110,7 +117,24 @@ export async function eliminarEvento(id) {
 }
 
 /* ============================================================
-   🔵 ESCUCHAR EVENTOS
+   🟠 CANCELAR EVENTO (SIN BORRAR NADA)
+============================================================ */
+export async function cancelarEvento(id, motivo = '') {
+  try {
+    await updateDoc(doc(db, 'eventos', id), {
+      estado: 'cancelado',
+      motivoCancelacion: motivo,
+      canceladoEn: serverTimestamp(),
+    })
+    return true
+  } catch (err) {
+    console.error('❌ Error al cancelar evento:', err)
+    return false
+  }
+}
+
+/* ============================================================
+   🔵 ESCUCHAR EVENTOS (ordenados por fecha)
 ============================================================ */
 export function escucharEventos(callback) {
   const q = query(collection(db, 'eventos'), orderBy('fecha', 'asc'))
@@ -118,4 +142,19 @@ export function escucharEventos(callback) {
     const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }))
     callback(lista)
   })
+}
+
+/* ============================================================
+   🔵 OBTENER EVENTO POR ID (para editar)
+============================================================ */
+export async function obtenerEventoPorId(id) {
+  try {
+    const ref = doc(db, 'eventos', id)
+    const snap = await getDoc(ref)
+    if (!snap.exists()) return null
+    return { id, ...snap.data() }
+  } catch (err) {
+    console.error('❌ Error al obtener evento:', err)
+    return null
+  }
 }

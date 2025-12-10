@@ -8,7 +8,7 @@ import { db } from '../Firebase.js'
    FECHA → dd/mm/aaaa
    ============================================================ */
 function formatearFechaDMY(fechaStr) {
-  const [a, m, d] = fechaStr.split('-') // yyyy-mm-dd
+  const [a, m, d] = fechaStr.split('-')
   return `${d}/${m}/${a}`
 }
 
@@ -38,7 +38,7 @@ export function decodificarQr(rawText) {
 }
 
 /* ============================================================
-   ANALIZAR PAYLOAD / NORMALIZAR
+   ANALIZAR PAYLOAD
    ============================================================ */
 export function analizarPayload(info) {
   if (!info || !info.payload)
@@ -78,23 +78,30 @@ export async function obtenerEvento(eventoId) {
 }
 
 /* ============================================================
-   INTERVALO DE TIEMPO (maneja medianoche)
+   INTERVALO DE TIEMPO
    ============================================================ */
-function buildDate(fechaString, horaString) {
-  const [h, m] = horaString.split(':').map(n => parseInt(n))
-  return new Date(
-    `${fechaString}T${String(h).padStart(2, '0')}:${String(m).padStart(
-      2,
-      '0'
-    )}:00`
-  )
+function buildLocalDate(fechaString, horaString) {
+  const [a, m, d] = fechaString.split('-').map(n => Number(n))
+  const [hh, mm] = horaString.split(':').map(n => Number(n))
+
+  const date = new Date()
+  date.setFullYear(a)
+  date.setMonth(m - 1)
+  date.setDate(d)
+  date.setHours(hh)
+  date.setMinutes(mm)
+  date.setSeconds(0)
+  date.setMilliseconds(0)
+
+  return date
 }
 
 function intervaloEvento(fecha, desde, hasta) {
-  const start = buildDate(fecha, desde)
-  let end = buildDate(fecha, hasta)
+  const start = buildLocalDate(fecha, desde)
+  const end = buildLocalDate(fecha, hasta)
 
-  if (end <= start) end.setDate(end.getDate() + 1) // cruza medianoche
+  if (end <= start) end.setDate(end.getDate() + 1)
+
   return { start, end }
 }
 
@@ -127,8 +134,7 @@ function validarHorarioFree(lote, fechaEvento) {
 }
 
 /* ============================================================
-   VALIDAR HORARIO EVENTO  
-   (esta función YA contempla medianoche correctamente)
+   VALIDAR HORARIO DE EVENTO
    ============================================================ */
 function validarHorarioEvento(evento) {
   const now = new Date()
@@ -143,6 +149,7 @@ function validarHorarioEvento(evento) {
 
   if (now < start)
     return { ok: false, motivo: `El evento inicia a las <b>${desde}</b> hs.` }
+
   if (now > end)
     return { ok: false, motivo: `El evento finalizó a las <b>${hasta}</b> hs.` }
 
@@ -150,7 +157,7 @@ function validarHorarioEvento(evento) {
 }
 
 /* ============================================================
-   COLOR DEL LOTE
+   COLOR DE LOTE
    ============================================================ */
 function colorPorLote(data) {
   const nombre = (data.loteNombre || '').toLowerCase()
@@ -169,103 +176,58 @@ function colorPorLote(data) {
 }
 
 /* ============================================================
-   VALIDAR ENTRADA (PRO MAX CORREGIDO)
+   VALIDAR ENTRADA — VERSIÓN FINAL CON EVENTO FORZADO
    ============================================================ */
-export async function validarTicket(payload) {
+export async function validarTicket(payload, eventoForzado = null) {
   const { entradaId } = payload
 
   if (!entradaId)
-    return rechazoEntrada(
-      'QR inválido',
-      'El QR no contiene un ID de entrada válido.'
-    )
+    return rechazoEntrada('QR inválido', 'El QR no contiene un ID válido.')
 
   const snap = await getDoc(doc(db, 'entradas', entradaId))
   if (!snap.exists())
-    return rechazoEntrada(
-      'Entrada inexistente',
-      'No se encontró en el sistema.'
-    )
+    return rechazoEntrada('Entrada inexistente', 'No figura en el sistema.')
 
   const data = snap.data()
 
-  // ======= EVENTO =======
-  const evento = await obtenerEvento(data.eventoId)
+  // Evento seleccionado o evento real de la entrada
+  const eventoIdFinal = eventoForzado || data.eventoId
+  const evento = await obtenerEvento(eventoIdFinal)
+
   if (!evento)
     return rechazoEntrada('Evento no encontrado', 'Este evento ya no existe.')
 
   const fechaLarga = formatearFechaDMY(evento.fecha)
 
-  // ============================================================
-  // 1. VALIDACIÓN: ACTUALIZADA PARA EVENTOS QUE CRUZAN MEDIANOCHE
-  // ============================================================
-
+  // VALIDAR HORARIO DEL EVENTO
   const validEv = validarHorarioEvento(evento)
 
-  // ⬅ Si el evento está ACTIVO ahora → OK directo
-  if (validEv.ok) {
-    // seguimos validando entrada normalmente más abajo
-  } else {
-    // ⬅ Si todavía NO empezó
-    if (validEv.motivo.includes('inicia')) {
-      const hoyISO = new Date().toISOString().slice(0, 10)
-      const mañanaISO = new Date(Date.now() + 86400000)
-        .toISOString()
-        .slice(0, 10)
+  if (!validEv.ok) {
+    if (validEv.motivo.includes('inicia'))
+      return rechazoEntrada('Aún no habilitado', validEv.motivo)
 
-      if (mañanaISO === evento.fecha) {
-        return rechazoEntrada(
-          '¡El evento es mañana!',
-          `Esta entrada corresponde al evento <b>"${
-            evento.nombre
-          }"</b> del día <b>${fechaLarga}</b> a partir de las <b>${
-            validEv.motivo.match(/\d{2}:\d{2}/)?.[0] || ''
-          }</b> hs.`
-        )
-      }
-
-      // evento es HOY pero todavía no empezó
-      if (hoyISO === evento.fecha)
-        return rechazoEntrada(
-          'Este evento comienza más tarde..',
-          validEv.motivo
-        )
-
-      // evento NO es hoy NI mañana → no corresponde
-      return rechazoEntrada(
-        'Fecha incorrecta',
-        `Esta entrada corresponde al evento <b>"${evento.nombre}"</b> del día <b>${fechaLarga}</b>.`
-      )
-    }
-
-    // ⬅ Si ya terminó → rechazo definitivo
     if (validEv.motivo.includes('finalizó'))
       return rechazoEntrada('Fuera de horario', validEv.motivo)
+
+    return rechazoEntrada('Fecha incorrecta', `Evento: ${fechaLarga}`)
   }
 
-  // ============================================================
-  // 2. YA USADA
-  // ============================================================
+  // YA USADA
   if (data.usado) {
     const tiempo = tiempoTranscurrido(data.usadoEn)
     return rechazoEntrada('Entrada ya usada', `Validada hace ${tiempo}.`)
   }
 
-  // ============================================================
-  // 3. VALIDACIÓN FREE
-  // ============================================================
+  // FREE
   if (data.precio === 0) {
     const lote = evento.lotes?.[data.loteIndice]
     if (lote) {
-      const freeVal = validarHorarioFree(lote, evento.fecha)
-      if (!freeVal.ok)
-        return rechazoEntrada('Free fuera de horario', freeVal.motivo)
+      const val = validarHorarioFree(lote, evento.fecha)
+      if (!val.ok) return rechazoEntrada('Free fuera de horario', val.motivo)
     }
   }
 
-  // ============================================================
-  // 4. RESULTADO OK
-  // ============================================================
+  // OK
   const color = colorPorLote(data)
   const categoria =
     color === 'pink' ? 'Lote Mujeres' : color === 'purple' ? 'VIP' : 'General'
@@ -273,10 +235,9 @@ export async function validarTicket(payload) {
   return {
     ok: true,
     tipo: 'entrada',
-    estado: 'ok',
     color,
     titulo: `Entrada válida — ${categoria}`,
-    mensaje: `Evento: <b>${evento.nombre}</b> · Lote: <b>${data.loteNombre}</b> · Titular: <b>${data.usuarioNombre}</b>`,
+    mensaje: `Evento: <b>${evento.nombre}</b><br>Lote: <b>${data.loteNombre}</b><br>Titular: <b>${data.usuarioNombre}</b>`,
     data: { id: entradaId, ...data },
   }
 }
@@ -290,22 +251,21 @@ export async function validarCompra(payload) {
 
   const snap = await getDoc(doc(db, 'compras', compraId))
   if (!snap.exists())
-    return rechazoCompra('Compra inexistente', 'No se encontró en el sistema.')
+    return rechazoCompra('Compra inexistente', 'No se encontró.')
 
   const data = snap.data()
 
   if (data.retirada) {
     const tiempo = tiempoTranscurrido(data.retiradaEn)
-    return rechazoCompra('Ya retirada', `Pedido entregado hace ${tiempo}.`)
+    return rechazoCompra('Ya retirada', `Hace ${tiempo}.`)
   }
 
   return {
     ok: true,
     tipo: 'compra',
-    estado: 'ok',
     color: 'blue',
     titulo: 'Compra válida',
-    mensaje: `Pedido listo para entregar.`,
+    mensaje: 'Pedido listo para entregar.',
     data: { id: compraId, ...data },
   }
 }
@@ -317,7 +277,6 @@ function rechazoEntrada(titulo, msg) {
   return {
     ok: false,
     tipo: 'entrada',
-    estado: 'rechazada',
     color: 'red',
     titulo,
     mensaje: msg,
@@ -328,7 +287,6 @@ function rechazoCompra(titulo, msg) {
   return {
     ok: false,
     tipo: 'compra',
-    estado: 'rechazada',
     color: 'red',
     titulo,
     mensaje: msg,

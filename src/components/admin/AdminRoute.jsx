@@ -1,19 +1,28 @@
 // --------------------------------------------------------------
-// AdminRoute.jsx — FIX LOOP INFINITO
+// AdminRoute.jsx — Protección REAL con loading + permisos
 // --------------------------------------------------------------
-import { Navigate, useLocation } from 'react-router-dom'
+import { Navigate, Outlet } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext.jsx'
 
-export default function AdminRoute({ children }) {
-  const adminTemp = localStorage.getItem('adminTemp') === 'true'
-  const location = useLocation()
+export default function AdminRoute({ modulo }) {
+  const { user, rolUsuario, permisos, loading } = useAuth()
 
-  // Si es admin → pasa
-  if (adminTemp) return children
+  // Esperar a que Firebase / LocalStorage terminen de cargar
+  if (loading) return null
 
-  // Si ya estamos en /empleado → NO redirigir de nuevo
-  if (location.pathname === '/empleado') {
-    return null
-  }
+  // No está logueado
+  if (!user) return <Navigate to="/login-empleado" replace />
 
-  return <Navigate to="/empleado" replace />
+  // Permisos aún no cargados
+  if (!permisos || !permisos[`nivel${rolUsuario}`]) return null
+
+  const lista = permisos[`nivel${rolUsuario}`]
+
+  // Acceso total
+  if (lista.includes('*')) return <Outlet />
+
+  // Validar acceso al módulo
+  if (!lista.includes(modulo)) return <Navigate to="/" replace />
+
+  return <Outlet />
 }

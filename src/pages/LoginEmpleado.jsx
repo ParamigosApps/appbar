@@ -37,7 +37,8 @@ export default function LoginEmpleado() {
   // REDIRECCIÓN SI YA ESTÁ LOGUEADO
   // -------------------------------------------------------
   useEffect(() => {
-    if (user && rolUsuario !== 'invitado') {
+    // rolUsuario: 0 = invitado, 1..4 = niveles válidos
+    if (user && rolUsuario > 0) {
       navigate('/admin', { replace: true })
     }
   }, [user, rolUsuario, navigate])
@@ -54,11 +55,11 @@ export default function LoginEmpleado() {
 
       <div className="text-muted my-3">o acceder con usuario/contraseña</div>
 
-      {/* FORMULARIO CORRECTO */}
+      {/* FORMULARIO */}
       <form onSubmit={loginLocal}>
         <input
           className="form-control mb-2"
-          placeholder="Usuario"
+          placeholder="Mail"
           value={usuario}
           onChange={e => setUsuario(e.target.value)}
         />
