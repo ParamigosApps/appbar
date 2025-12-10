@@ -1,5 +1,5 @@
 // --------------------------------------------------------------
-// src/components/qr/LectorQr.jsx — VERSION RESPONSIVE 2025 QR PRO
+// src/components/qr/LectorQr.jsx — VERSION FINAL 2025 QR PRO
 // --------------------------------------------------------------
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -41,7 +41,6 @@ function fechaLarga(fecha) {
 // --------------------------------------------------------------
 function eventoEstaVigente(ev) {
   if (!ev?.fecha) return false
-
   const hoy = new Date()
   const [a, m, d] = ev.fecha.split('-').map(Number)
   const diaEvento = new Date(a, m - 1, d)
@@ -58,7 +57,6 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
 
   const [modo] = useState(modoInicial)
   const [resultado, setResultado] = useState(null)
-  const [eventos, setEventos] = useState([])
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null)
   const [eventoInfo, setEventoInfo] = useState(null)
   const [infoAbierto, setInfoAbierto] = useState(false)
@@ -66,7 +64,7 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   const html5Qr = useRef(null)
   const running = useRef(false)
   const initialized = useRef(false)
-  const leyendo = useRef(false)
+  const leyendo = useRef(false) // control de cooldown
 
   // --------------------------------------------------------------
   // BEEPS
@@ -92,41 +90,36 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   const beepOk = () => beep(900, 130)
 
   // --------------------------------------------------------------
-  // CARGAR EVENTOS CON SWEETALERT (RESPONSIVE)
+  // CARGAR EVENTOS CON SWEETALERT RESPONSIVE
   // --------------------------------------------------------------
   useEffect(() => {
     async function cargarEventos() {
       const snap = await getDocs(query(collection(db, 'eventos')))
       const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      setEventos(arr)
 
       if (!arr.length) return
 
-      // HTML para Swal
+      // Select limpio (SIN duplicado)
       let html = `
-  <div class="swal-content-wrapper">
-    <div class="swal-label">Seleccioná el evento a validar:</div>
-
-    <select id="evento-select" class="swal2-select swal-select-fixed">
-      <option disabled selected value="">Elegí un evento</option>
-`
-
-      arr.forEach(ev => {
-        if (!eventoEstaVigente(ev)) return
-        html += `
-    <option value="${ev.id}">
-      ${ev.nombre} — ${fechaLarga(ev.fecha)}
-    </option>`
-      })
-
-      html += `</select></div>`
+        <div style="font-size:15px;margin-bottom:8px;color:#444">Seleccioná el evento a validar:</div>
+        <select id="evento-select" class="swal2-select" style="
+          width:100%;
+          padding:12px;
+          font-size:17px;
+          border-radius:10px;
+          border:1px solid #ccc;
+        ">
+          <option disabled selected value="">Elegí un evento</option>
+      `
 
       arr.forEach(ev => {
-        if (!eventoEstaVigente(ev)) return
-        html += `
-        <option value="${ev.id}">
-          ${ev.nombre} — ${fechaLarga(ev.fecha)}
-        </option>`
+        if (eventoEstaVigente(ev)) {
+          html += `
+            <option value="${ev.id}">
+              ${ev.nombre} — ${fechaLarga(ev.fecha)}
+            </option>
+          `
+        }
       })
 
       html += `</select>`
@@ -136,34 +129,19 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
         html,
         confirmButtonText: 'Continuar',
         confirmButtonColor: '#111',
-
-        // ---------------- RESPONSIVE PRO ----------------
         width: '100%',
         maxWidth: '420px',
-        padding: '1.2rem',
+        padding: '1rem',
         background: '#fafafa',
-
         allowOutsideClick: false,
         scrollbarPadding: false,
-
-        customClass: {
-          popup: 'swal-popup-pro-resp',
-          title: 'swal-title-resp',
-        },
-
         didOpen: () => {
-          // Mejora en mobile
           const sel = document.getElementById('evento-select')
-          if (sel) {
-            sel.style.fontSize = '18px'
-            sel.style.padding = '12px'
-            sel.style.borderRadius = '10px'
-          }
+          if (sel) sel.style.fontSize = '18px'
         },
-
         preConfirm: () => {
           const el = document.getElementById('evento-select')
-          if (!el.value) {
+          if (!el?.value) {
             Swal.showValidationMessage('Seleccioná un evento válido')
             return false
           }
@@ -179,11 +157,9 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   }, [])
 
   // --------------------------------------------------------------
-  // CARGAR ESTADÍSTICAS DEL EVENTO
+  // ESTADÍSTICAS DEL EVENTO
   // --------------------------------------------------------------
   async function cargarEstadisticasEvento(eventoId) {
-    if (!eventoId) return
-
     const snapEv = await getDoc(doc(db, 'eventos', eventoId))
     if (!snapEv.exists()) return
 
@@ -231,14 +207,14 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
 
   async function iniciarScanner() {
     const el = document.getElementById('qr-reader')
-    if (!el) return setTimeout(iniciarScanner, 100)
+    if (!el) return setTimeout(iniciarScanner, 80)
     if (running.current) return
 
     if (!html5Qr.current) html5Qr.current = new Html5Qrcode('qr-reader')
 
     const cams = await Html5Qrcode.getCameras()
     if (!cams.length) {
-      Swal.fire('Sin cámara', 'No se encontró cámara.', 'error')
+      Swal.fire('Sin cámara', 'No se detectó cámara disponible.', 'error')
       return
     }
 
@@ -263,7 +239,7 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   }
 
   // --------------------------------------------------------------
-  // RESULTADO QR
+  // RESULTADO QR (con cooldown SIN pisar mensajes)
   // --------------------------------------------------------------
   async function onScanSuccess(text) {
     if (leyendo.current) return
@@ -283,12 +259,10 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
       if (modo === 'entradas') {
         if (!payload.esEntrada)
           return mostrarError('Este QR es de COMPRA, no de ENTRADA.')
-
         res = await validarTicket(payload, eventoSeleccionado)
       } else {
         if (!payload.esCompra)
           return mostrarError('Este QR es de ENTRADA, no de COMPRA.')
-
         res = await validarCompra(payload)
       }
 
@@ -296,32 +270,32 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
 
       if (res?.ok && modo === 'entradas') {
         await marcarEntradaUsada(res.data.id)
-
-        const evId = res.data.eventoId || eventoSeleccionado
-        await cargarEstadisticasEvento(evId)
+        await cargarEstadisticasEvento(res.data.eventoId || eventoSeleccionado)
       }
     } finally {
-      setTimeout(() => (leyendo.current = false), 1500)
+      // COOLDOWN EXACTO = 3.5 segundos (igual que el mensaje)
+      setTimeout(() => {
+        leyendo.current = false
+      }, 3500)
     }
   }
 
   // --------------------------------------------------------------
-  // MOSTRAR RESULTADO
+  // MOSTRAR RESULTADO (dura 3.5s)
   // --------------------------------------------------------------
   function mostrarResultado(res) {
     setResultado(res)
     setTimeout(() => setResultado(null), 3500)
 
     navigator.vibrate?.([120, 80, 120])
-
     res?.ok && beepOk()
+
     if (res?.ok && res.tipo === 'compra') marcarCompraRetirada(res.data.id)
   }
 
   function mostrarError(msg) {
     mostrarResultado({
       ok: false,
-      color: 'red',
       titulo: 'QR incorrecto',
       mensaje: msg,
     })
@@ -349,7 +323,7 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
           </span>
         </div>
 
-        {/* PANEL DESPLEGABLE DE ESTADÍSTICAS */}
+        {/* PANEL DESPLEGABLE DE ESTADISTICAS */}
         {eventoInfo && (
           <div className="evento-info-card mb-3">
             <div
