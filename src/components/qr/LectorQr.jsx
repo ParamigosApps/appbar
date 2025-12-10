@@ -1,8 +1,8 @@
 // --------------------------------------------------------------
-// LectorQr.jsx — VERSIÓN FINAL DEFINITIVA (Html5Qrcode)
+// LectorQr.jsx — VERSIÓN FINAL (Entradas / Compras + Auto/Manual)
 // --------------------------------------------------------------
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import { Html5QrcodeScanner } from 'html5-qrcode'
 
@@ -17,14 +17,15 @@ import ValidacionResultado from './ValidacionResultado.jsx'
 
 export default function LectorQr() {
   const navigate = useNavigate()
-  const [params] = useSearchParams()
-  const modo = params.get('modo') || 'entradas'
 
   const initialized = useRef(false)
   const [resultado, setResultado] = useState(null)
 
+  // 🔵 MODOS DE VALIDACIÓN
+  const [modo, setModo] = useState('auto') // auto | manual
+
   // --------------------------------------------------------------
-  // Inicializar el escáner UNA sola vez
+  // Inicializar escáner UNA sola vez
   // --------------------------------------------------------------
   useEffect(() => {
     if (initialized.current) return
@@ -32,90 +33,39 @@ export default function LectorQr() {
 
     const scanner = new Html5QrcodeScanner(
       'reader',
-      {
-        fps: 10,
-        qrbox: 250,
-      },
+      { fps: 10, qrbox: 250 },
       false
     )
 
     scanner.render(
       async decodedText => {
-        try {
-          // 1) Decodificar
-          const payload = decodificarQr(decodedText)
+        if (modo === 'manual') return // no validar automáticamente
 
-          if (!payload) {
-            Swal.fire('QR inválido', 'No contiene estructura válida', 'error')
-            setResultado({
-              ok: false,
-              tipo: 'error',
-              mensaje: 'QR inválido',
-            })
-            return
-          }
-
-          // 2) Saber si es "entrada" o "compra"
-          const tipo = analizarPayload(payload)
-
-          if (!tipo) {
-            Swal.fire('Error', 'Formato de QR desconocido', 'error')
-            setResultado({
-              ok: false,
-              tipo: 'desconocido',
-              mensaje: 'El QR no es de AppBar',
-            })
-            return
-          }
-
-          // 3) Validar según tipo
-          if (tipo === 'entrada') {
-            const res = await validarTicket(payload.ticketId)
-            setResultado({ tipo, ...res })
-
-            if (res.valido) Swal.fire('Entrada válida', res.mensaje, 'success')
-            else Swal.fire('Entrada inválida', res.mensaje, 'error')
-          }
-
-          if (tipo === 'compra') {
-            const res = await validarCompra(payload.ticketId)
-            setResultado({ tipo, ...res })
-
-            if (res.valido) Swal.fire('Compra válida', res.mensaje, 'success')
-            else Swal.fire('Compra inválida', res.mensaje, 'error')
-          }
-        } catch (err) {
-          console.error(err)
-          Swal.fire('Error', 'Falló el procesamiento del QR', 'error')
-        }
+        procesarCodigo(decodedText)
       },
-      errorMessage => {
-        // Ignorar errores menores del escáner
-      }
+      () => {}
     )
 
-    return () => {
-      scanner.clear()
-    }
-  }, [])
+    return () => scanner.clear()
+  }, [modo])
 
   // --------------------------------------------------------------
-  // Validación manual (input)
+  // PROCESAR CÓDIGO (auto o manual)
   // --------------------------------------------------------------
-  async function validarManual() {
-    const v = document.getElementById('manual-input')?.value.trim()
-    if (!v) return
-
+  async function procesarCodigo(texto) {
     try {
-      const payload = decodificarQr(v)
+      const payload = decodificarQr(texto)
+
       if (!payload) {
-        Swal.fire('Error', 'QR inválido o malformado', 'error')
+        setResultado({ ok: false, tipo: 'error', mensaje: 'QR inválido' })
+        Swal.fire('QR inválido', 'Código malformado', 'error')
         return
       }
 
       const tipo = analizarPayload(payload)
       if (!tipo) {
-        Swal.fire('Desconocido', 'El QR no es de AppBar', 'error')
+        setResultado({ ok: false, tipo: 'error', mensaje: 'QR desconocido' })
+        Swal.fire('Error', 'Código no pertenece a AppBar', 'error')
         return
       }
 
@@ -123,64 +73,91 @@ export default function LectorQr() {
         const res = await validarTicket(payload.ticketId)
         setResultado({ tipo, ...res })
 
-        if (res.valido) Swal.fire('Entrada válida', res.mensaje, 'success')
-        else Swal.fire('Entrada inválida', res.mensaje, 'error')
+        Swal.fire({
+          title: res.valido ? 'Entrada válida' : 'Entrada inválida',
+          text: res.mensaje,
+          icon: res.valido ? 'success' : 'error',
+        })
       }
 
       if (tipo === 'compra') {
         const res = await validarCompra(payload.ticketId)
         setResultado({ tipo, ...res })
 
-        if (res.valido) Swal.fire('Compra válida', res.mensaje, 'success')
-        else Swal.fire('Compra inválida', res.mensaje, 'error')
+        Swal.fire({
+          title: res.valido ? 'Compra válida' : 'Compra inválida',
+          text: res.mensaje,
+          icon: res.valido ? 'success' : 'error',
+        })
       }
     } catch (err) {
       console.error(err)
-      Swal.fire('Error', 'No se pudo procesar el código', 'error')
+      Swal.fire('Error', 'No se pudo procesar el QR', 'error')
     }
   }
 
   // --------------------------------------------------------------
-  // Render UI
+  // Validación manual
+  // --------------------------------------------------------------
+  function validarManual() {
+    const value = document.getElementById('manual-input').value.trim()
+    if (!value) return
+    procesarCodigo(value)
+  }
+
+  // --------------------------------------------------------------
+  // Render
   // --------------------------------------------------------------
   return (
-    <div className="container py-4">
-      <h2 className="fw-bold mb-4 text-center">
-        {modo === 'compras' ? 'Validador de Compras' : 'Validador de Entradas'}
-      </h2>
+    <div className="container py-4" style={{ maxWidth: 600 }}>
+      <h2 className="fw-bold text-center mb-4">Validador de QR</h2>
 
-      {/* Scanner */}
-      <div id="reader" style={{ width: '100%' }}></div>
-
-      {/* Resultado visual */}
-      {resultado && (
-        <div className="mt-4">
-          <ValidacionResultado data={resultado} />
-        </div>
-      )}
-
-      {/* Entrada manual */}
-      <div className="input-group mt-4">
-        <input
-          id="manual-input"
-          className="form-control"
-          placeholder="Código manual"
-          onKeyDown={e => {
-            if (e.key === 'Enter') validarManual()
-          }}
-        />
-
-        <button className="btn btn-primary" onClick={validarManual}>
-          Validar
+      {/* Selector de modo */}
+      <div className="btn-group w-100 mb-3">
+        <button
+          className={`btn ${
+            modo === 'auto' ? 'btn-success' : 'btn-outline-success'
+          }`}
+          onClick={() => setModo('auto')}
+        >
+          Automático
+        </button>
+        <button
+          className={`btn ${
+            modo === 'manual' ? 'btn-primary' : 'btn-outline-primary'
+          }`}
+          onClick={() => setModo('manual')}
+        >
+          Manual
         </button>
       </div>
 
-      {/* Volver */}
+      {/* Lector */}
+      {modo === 'auto' && <div id="reader" style={{ width: '100%' }}></div>}
+
+      {/* Entrada manual */}
+      {modo === 'manual' && (
+        <div className="input-group mb-4">
+          <input
+            id="manual-input"
+            className="form-control"
+            placeholder="Ingresar código QR"
+            onKeyDown={e => e.key === 'Enter' && validarManual()}
+          />
+          <button className="btn btn-primary" onClick={validarManual}>
+            Validar
+          </button>
+        </div>
+      )}
+
+      {/* Resultado visual con colores */}
+      {resultado && <ValidacionResultado data={resultado} />}
+
       <button
         className="btn btn-danger w-100 mt-4"
         onClick={() => navigate('/admin')}
       >
-        Volver al panel
+        Volver
       </button>
     </div>
   )

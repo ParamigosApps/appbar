@@ -95,3 +95,34 @@
 .admin-registro-box {
   background: #fafafa;
 }
+
+/* Caja general */
+.resultado-validacion {
+  border-left: 6px solid transparent;
+  margin-top: 1rem;
+  background: #f8f9fa;
+}
+
+/* HOMBRE — Verde */
+.res-green {
+  border-color: #2ecc71;
+  background: #2ecc7122;
+}
+
+/* MUJER — Rosa */
+.res-pink {
+  border-color: #ff77c8;
+  background: #ff77c822;
+}
+
+/* CANCELADA / RECHAZADA — Rojo */
+.res-red {
+  border-color: #e74c3c;
+  background: #e74c3c22;
+}
+
+/* Info JSON */
+.info-box {
+  background: #1e1e1e;
+  color: #7cff7c;
+}

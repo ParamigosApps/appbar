@@ -1,0 +1,293 @@
+/* ============================================================
+   ENTRADAS CARD — ESTILO GOLD VIP + PROGRESS BAR + SOLD OUT
+   ============================================================ */
+
+/* ----------- VARIABLES ----------- */
+:root {
+  --gold: #d4af37;
+  --gold-soft: #f5e6b1;
+  --vip-bg: #fff8dd;
+  --vip-border: #d4af37;
+
+  --general-bg: #ffffff;
+  --general-border: #e4e4e4;
+
+  --agotado-bg: #f3f3f3;
+  --agotado-text: #999;
+}
+
+/* ============================================================
+   CARD BASE
+   ============================================================ */
+
+.entrada-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  background: var(--general-bg);
+  border-radius: 16px;
+  padding: 15px 4px;
+
+  border: 2px solid var(--general-border);
+  cursor: pointer;
+
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.entrada-card:hover:not(.agotado) {
+  transform: translateY(-2px);
+  border-color: var(--gold);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ============================================================
+   TIPOS DE LOTES (VIP - GENERAL)
+   ============================================================ */
+
+.entrada-card.vip {
+  background: var(--vip-bg);
+  border-color: var(--vip-border);
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.25);
+}
+
+.entrada-card.vip:hover {
+  box-shadow: 0 0 18px rgba(212, 175, 55, 0.4);
+  transform: translateY(-3px);
+}
+
+/* ============================================================
+   AGOTADO
+   ============================================================ */
+
+.entrada-card.agotado {
+  background: var(--agotado-bg);
+  border-color: #ddd;
+  color: var(--agotado-text);
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.entrada-card.agotado:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: #ddd;
+}
+
+/* BADGE AGOTADO */
+.badge-agotado {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  background: #d9534f;
+  color: white;
+  font-size: 0.7rem;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+/* ============================================================
+   ICONO Y TEXTOS
+   ============================================================ */
+
+.entrada-icono {
+  font-size: 1.8rem;
+}
+
+.entrada-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.entrada-titulo {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #111;
+}
+
+.entrada-horario {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+/* ============================================================
+   BARRA DE PROGRESO
+   ============================================================ */
+
+.progress-wrapper {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.progress-bar-bg {
+  width: 100%;
+  height: 7px;
+  background: #e8e8e8;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 7px;
+  background: var(--gold);
+  border-radius: 10px;
+  transition: width 0.3s ease;
+}
+
+/* ============================================================
+   MODAL OVERLAY
+   ============================================================ */
+
+.entradas-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+}
+
+/* CARD CENTRAL */
+
+.entradas-modal-card {
+  width: 90%;
+  max-width: 380px;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 20px 18px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+
+.entradas-modal-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.entradas-modal-sub {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 12px;
+}
+
+.entradas-lotes-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+/* ============================================================
+   DARK MODE
+   ============================================================ */
+
+.dark .entrada-card {
+  background: #1d1d1f;
+  border-color: #333;
+  color: #eee;
+}
+
+.dark .entrada-card.vip {
+  background: #3a3007;
+  border-color: #c3a538;
+}
+
+.dark .entrada-card.agotado {
+  background: #2a2a2a;
+  border-color: #444;
+  color: #777;
+}
+
+.dark .badge-agotado {
+  background: #c0392b;
+}
+
+.dark .progress-bar-bg {
+  background: #444;
+}
+
+.dark .entradas-modal-card {
+  background: #121212;
+}
+
+.dark .entrada-titulo {
+  color: white;
+}
+
+.dark .entrada-horario {
+  color: #aaa;
+}
+
+/* -------------------------------
+   BADGES DE TIPOS DE LOTES
+--------------------------------*/
+.badge-lote {
+  display: inline-block;
+  width: 180px;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+
+.badge-free {
+  background: #4caf50;
+  color: white;
+}
+
+.badge-general {
+  background: #1976d2;
+  color: white;
+}
+
+.badge-anticipada {
+  background: #9c27b0;
+  color: white;
+}
+
+.badge-vip {
+  background: #d4af37;
+  color: black;
+}
+
+/* -------------------------------
+   BARRA DE PROGRESO
+--------------------------------*/
+.progress-bar-container {
+  width: 100%;
+  height: 6px;
+  background: #ddd;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* -------------------------------
+   AGOTADO
+--------------------------------*/
+.entrada-card.agotado {
+  background: #f2f2f2;
+  border-color: #ccc;
+  color: #999;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
+
+.entrada-card.agotado:hover {
+  transform: none;
+  box-shadow: none;
+}

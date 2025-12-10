@@ -1,0 +1,342 @@
+/* ============================================================
+   DASHBOARD — THEME PRO (Light + Dark)
+   ============================================================ */
+
+:root {
+  --color-accent: #14a8e2;
+  --color-accent-2: #ff4d4d;
+
+  --radius: 14px;
+  --shadow-soft: 0 4px 16px rgba(0, 0, 0, 0.15);
+  --transition: 0.25s ease;
+}
+
+/* ============================================================
+   THEME CLARO
+   ============================================================ */
+body.light .pro-dashboard {
+  --bg: #f5f7fa;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f0f3f7;
+  --text: #1b1b1b;
+  --text-soft: #555;
+  --border: #d9d9d9;
+}
+
+/* ============================================================
+   THEME OSCURO
+   ============================================================ */
+body.dark .pro-dashboard {
+  --bg: #0f0f11;
+  --bg-card: #1a1c1f;
+  --bg-card-hover: #222529;
+  --text: #f3f4f6;
+  --text-soft: #aaa;
+  --border: #2a2d31;
+}
+
+.pro-dashboard {
+  background: var(--bg);
+  color: var(--text);
+  padding: 20px;
+  border-radius: 0 0 12px 12px;
+  min-height: 100vh;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+/* ============================================================
+   HEADER + BUSCADOR
+   ============================================================ */
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.dashboard-header h2 {
+  font-weight: 600;
+}
+
+.searchbox {
+  max-width: 340px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  transition: var(--transition);
+}
+
+.searchbox:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px rgba(20, 168, 226, 0.3);
+}
+
+/* ============================================================
+   FILTROS
+   ============================================================ */
+
+.filters-row select,
+.filters-row input[type='date'] {
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  transition: var(--transition);
+}
+
+.filters-row select:hover,
+.filters-row input[type='date']:hover {
+  background: var(--bg-card-hover);
+}
+
+/* ============================================================
+   CARDS DE MÉTRICAS
+   ============================================================ */
+
+.dashboard-cards {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.dash-card.pro {
+  flex: 1;
+  min-width: 180px;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow-soft);
+  transition: var(--transition);
+  cursor: pointer;
+  text-align: center;
+  border: 1px solid var(--border);
+}
+
+.dash-card.pro:hover {
+  transform: translateY(-4px);
+  background: var(--bg-card-hover);
+}
+
+.dash-card.pro h3 {
+  color: var(--color-accent);
+  font-weight: 700;
+  font-size: 2rem;
+  margin-bottom: 6px;
+}
+
+.dash-card.pro p {
+  color: var(--text-soft);
+  font-size: 0.9rem;
+}
+
+/* ============================================================
+   SECCIONES / TÍTULOS
+   ============================================================ */
+
+.section-title {
+  margin-top: 35px;
+  font-weight: 600;
+}
+
+/* ============================================================
+   CARDS DE LISTA (Compras / Entradas)
+   ============================================================ */
+
+.lista-admin {
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.admin-card {
+  background: var(--bg-card);
+  padding: 16px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft);
+  transition: var(--transition);
+  cursor: pointer;
+}
+
+.admin-card.pro-item:hover {
+  transform: scale(1.03);
+  background: var(--bg-card-hover);
+}
+
+.admin-card strong {
+  color: var(--color-accent);
+}
+
+.admin-card span.badge {
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-weight: 600;
+  margin-top: 6px;
+  display: inline-block;
+}
+
+.badge.used {
+  background: rgba(20, 168, 226, 0.2);
+  color: var(--color-accent);
+}
+
+.badge.pending {
+  background: rgba(255, 77, 77, 0.25);
+  color: var(--color-accent-2);
+}
+
+/* ============================================================
+   MODAL DETALLE SWAL
+   ============================================================ */
+
+.detalle-modal {
+  text-align: left;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.detalle-modal hr {
+  border-color: var(--border);
+}
+
+.item-detalle {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  color: var(--text-soft);
+}
+
+/* ============================================================
+   CANVAS GRÁFICOS
+   ============================================================ */
+
+canvas {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  margin-bottom: 25px;
+}
+
+/* ============================================================
+   BOTÓN CSV
+   ============================================================ */
+
+.btn-success {
+  border-radius: var(--radius);
+  background: var(--color-accent);
+  border: none !important;
+}
+
+.btn-success:hover {
+  background: #0e88bb;
+}
+
+/* --------------------------------------------------------------
+   EVENTOS CARD PRO
+-------------------------------------------------------------- */
+
+.evento-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-soft);
+}
+
+.evento-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+.evento-stats {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  padding: 4px 10px;
+  background: var(--bg-card-hover);
+  border-radius: var(--radius);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.stat-item.money {
+  background: rgba(20, 168, 226, 0.2);
+  color: var(--color-accent);
+}
+
+.evento-body {
+  margin-top: 10px;
+}
+
+.detalle-grid {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.detalle-item {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+/* CARD PRINCIPAL */
+.evento-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-soft);
+}
+
+/* CABECERA */
+.evento-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+
+/* RESUMEN DERECHA */
+.evento-stats {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.stat-item {
+  background: var(--bg-card-hover);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.stat-item.money {
+  background: rgba(20, 168, 226, 0.25);
+  color: var(--color-accent);
+}
+
+/* DETALLE */
+.evento-body {
+  margin-top: 12px;
+}
+
+.detalle-grid {
+  display: flex;
+  gap: 25px;
+}
+
+.detalle-item {
+  border-bottom: 1px solid var(--border);
+  padding: 4px 0;
+}

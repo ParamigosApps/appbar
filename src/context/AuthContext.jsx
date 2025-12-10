@@ -1,5 +1,5 @@
 // -----------------------------------------------------------
-// 📌 AUTH CONTEXT — versión corregida COMPLETA
+// 📌 AUTH CONTEXT — versión COMPLETA con ADMIN manual
 // -----------------------------------------------------------
 import { createContext, useContext, useEffect, useState } from 'react'
 import { auth, db } from '../Firebase.js'
@@ -15,7 +15,6 @@ import {
 } from 'firebase/auth'
 
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
-
 import Swal from 'sweetalert2'
 
 // CONTEXTO
@@ -23,10 +22,19 @@ const AuthContext = createContext()
 export const useAuth = () => useContext(AuthContext)
 
 // -----------------------------------------------------------
+// 📌 ADMIN MANUAL (usuario + contraseña local)
+// -----------------------------------------------------------
+
+const MASTER_USER = 'admin'
+const MASTER_PASS = '1234'
+
+// -----------------------------------------------------------
 // 📌 PROVIDER
 // -----------------------------------------------------------
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
+  const [rolUsuario, setRolUsuario] = useState(null)
+
   const [loginSettings, setLoginSettings] = useState({
     google: true,
     facebook: true,
@@ -46,6 +54,28 @@ export function AuthProvider({ children }) {
   }
 
   // ------------------------------------------------------------
+  // 📌 LOGIN MANUAL ADMIN (usuario + contraseña)
+  // ------------------------------------------------------------
+  async function loginAdminManual(usuario, pass) {
+    if (usuario === MASTER_USER && pass === MASTER_PASS) {
+      const adminUser = {
+        uid: 'admin-master',
+        displayName: 'Administrador',
+      }
+
+      setUser(adminUser)
+      setRolUsuario('admin')
+
+      Swal.fire('Ingreso correcto', 'Bienvenido, administrador', 'success')
+      cerrarLoginGlobal()
+      return true
+    }
+
+    Swal.fire('Error', 'Usuario o contraseña incorrectos', 'error')
+    return false
+  }
+
+  // ------------------------------------------------------------
   // 📌 Cargar configuración Firestore
   // ------------------------------------------------------------
   async function cargarLoginSettings() {
@@ -55,6 +85,27 @@ export function AuthProvider({ children }) {
       if (snap.exists()) setLoginSettings(snap.data())
     } catch (e) {
       console.error('Error cargando login settings:', e)
+    }
+  }
+
+  // ------------------------------------------------------------
+  // 📌 Cargar rol desde Firestore
+  // ------------------------------------------------------------
+  async function cargarRol(uid) {
+    try {
+      if (uid === 'admin-master') {
+        setRolUsuario('admin')
+        return
+      }
+
+      const ref = doc(db, 'roles', uid)
+      const snap = await getDoc(ref)
+
+      if (snap.exists()) setRolUsuario(snap.data().rol)
+      else setRolUsuario('invitado')
+    } catch (err) {
+      console.error('Error rol:', err)
+      setRolUsuario('invitado')
     }
   }
 
@@ -79,6 +130,7 @@ export function AuthProvider({ children }) {
       )
 
       setUser(u)
+      await cargarRol(u.uid)
       cerrarLoginGlobal()
     } catch (err) {
       if (
@@ -112,6 +164,7 @@ export function AuthProvider({ children }) {
       )
 
       setUser(u)
+      await cargarRol(u.uid)
       cerrarLoginGlobal()
     } catch (err) {
       if (
@@ -137,7 +190,9 @@ export function AuthProvider({ children }) {
       window.recaptchaVerifier = new RecaptchaVerifier(
         auth,
         'recaptcha-container',
-        { size: 'invisible' }
+        {
+          size: 'invisible',
+        }
       )
 
       confirmationResult = await signInWithPhoneNumber(
@@ -177,6 +232,7 @@ export function AuthProvider({ children }) {
       )
 
       setUser(u)
+      await cargarRol(u.uid)
       cerrarLoginGlobal()
     } catch {
       Swal.fire('Error', 'Código inválido', 'error')
@@ -189,6 +245,7 @@ export function AuthProvider({ children }) {
   async function logout() {
     await signOut(auth)
     setUser(null)
+    setRolUsuario(null)
   }
 
   // ------------------------------------------------------------
@@ -196,17 +253,24 @@ export function AuthProvider({ children }) {
   // ------------------------------------------------------------
   useEffect(() => {
     cargarLoginSettings()
-    const unsub = onAuthStateChanged(auth, u => setUser(u || null))
+
+    const unsub = onAuthStateChanged(auth, async u => {
+      setUser(u || null)
+      if (u) await cargarRol(u.uid)
+    })
+
     return () => unsub()
   }, [])
 
   // ------------------------------------------------------------
-  // 📌 VALUE DEL CONTEXT (todo lo disponible)
+  // 📌 VALUE DEL CONTEXT
   // ------------------------------------------------------------
   return (
     <AuthContext.Provider
       value={{
         user,
+        rolUsuario,
+
         loginSettings,
 
         // Métodos de login:
@@ -214,6 +278,8 @@ export function AuthProvider({ children }) {
         loginFacebook,
         loginTelefonoEnviarCodigo,
         loginTelefonoValidarCodigo,
+        loginAdminManual, // 🔥 NUEVO
+
         logout,
 
         // 🔥 Funciones globales:

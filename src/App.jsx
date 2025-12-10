@@ -1,5 +1,5 @@
 // --------------------------------------------------------------
-// src/App.jsx — Versión FINAL con sistema de accesos y empleados
+// src/App.jsx — Versión CORREGIDA y con export default válido
 // --------------------------------------------------------------
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 
@@ -20,38 +20,46 @@ import LoginEmpleado from './pages/LoginEmpleado.jsx'
 import AdminRoute from './components/admin/AdminRoute.jsx'
 import AdminPage from './pages/AdminPage.jsx'
 
+// Modales globales
+import ModalSeleccionLote from './components/entradas/ModalSeleccionLote.jsx'
+import ModalMetodoPago from './components/entradas/ModalMetodoPago.jsx'
+
 export default function App() {
+  // ⬅⬅⬅ IMPORTANTE
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* ---------------------------------------------------------------- */}
-        {/*                      RUTAS PÚBLICAS CON LAYOUT                   */}
-        {/* ---------------------------------------------------------------- */}
-        <Route element={<Layout />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/catalogo" element={<CatalogoSection />} />
-          <Route path="/mis-entradas" element={<MisEntradas />} />
-          <Route path="/historial" element={<HistorialEntradas />} />
+    <>
+      {/* Modales globales */}
+      <ModalSeleccionLote />
+      <ModalMetodoPago />
 
-          {/* Acceso: Usuario / Empleado / Admin */}
+      <BrowserRouter>
+        <Routes>
+          {/* RUTAS PÚBLICAS SIN LAYOUT */}
           <Route path="/acceso" element={<Acceso />} />
+          <Route path="/login-empleado" element={<LoginEmpleado />} />
 
-          {/* Login de empleados/admin */}
-          <Route path="/empleado" element={<LoginEmpleado />} />
-        </Route>
+          {/* RUTAS CON LAYOUT */}
+          <Route element={<Layout />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/catalogo" element={<CatalogoSection />} />
+            <Route path="/mis-entradas" element={<MisEntradas />} />
+            <Route path="/historial" element={<HistorialEntradas />} />
 
-        {/* ---------------------------------------------------------------- */}
-        {/*                             PANEL ADMIN                         */}
-        {/* ---------------------------------------------------------------- */}
-        <Route
-          path="/admin"
-          element={
-            <AdminRoute>
-              <AdminPage />
-            </AdminRoute>
-          }
-        />
-      </Routes>
-    </BrowserRouter>
+            {/* Ruta previa (compatibilidad) */}
+            <Route path="/empleado" element={<LoginEmpleado />} />
+          </Route>
+
+          {/* RUTA ADMIN PROTEGIDA */}
+          <Route
+            path="/admin"
+            element={
+              <AdminRoute>
+                <AdminPage />
+              </AdminRoute>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
+    </>
   )
 }

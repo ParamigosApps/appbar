@@ -12,7 +12,9 @@ import AdminProductos from '../components/admin/AdminProductos.jsx'
 import AdminEmpleados from '../components/admin/AdminEmpleados.jsx'
 import LectorQr from '../components/qr/LectorQr.jsx'
 import AdminConfiguracion from '../components/admin/AdminConfiguracion.jsx'
-
+import ComprasAdmin from '../components/admin/ComprasAdmin.jsx'
+import EntradasAdmin from '../components/admin/EntradasAdmin.jsx'
+import DashboardVentas from '../components/admin/DashboardVentas.jsx'
 import '../components/admin/admin.css'
 
 export default function AdminPage() {
@@ -27,16 +29,22 @@ export default function AdminPage() {
         return <CrearEvento />
       case 'eventos-lista':
         return <ListaEventos />
+
+      // 🔥 NUEVOS COMPONENTES ADMIN
       case 'entradas-pendientes':
-        return <EntradasPendientes />
+        return <EntradasAdmin />
       case 'compras-pendientes':
-        return <PedidosPendientes />
+        return <ComprasAdmin />
+      case 'dashboard':
+        return <DashboardVentas />
       case 'productos':
         return <AdminProductos />
       case 'empleados':
         return <AdminEmpleados />
       case 'qr':
         return <LectorQr />
+      case 'dashboard':
+        return <DashboardVentas />
       case 'config':
         return <AdminConfiguracion />
 
@@ -94,6 +102,15 @@ export default function AdminPage() {
           }}
         >
           🛒 Compras
+        </button>
+        <button
+          className="side-btn"
+          onClick={() => {
+            setSeccion('dashboard')
+            setSidebarOpen(false)
+          }}
+        >
+          📊 Dashboard
         </button>
 
         <button

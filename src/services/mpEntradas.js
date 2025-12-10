@@ -34,6 +34,7 @@ export async function crearPreferenciaEntrada({
     let data
     try {
       data = await res.json()
+      console.log('🔵 RESPUESTA MP (Frontend):', data)
     } catch (err) {
       console.error('❌ ERROR: respuesta no es JSON:', err)
       return null

@@ -1,5 +1,5 @@
 // --------------------------------------------------------------
-// EntradasEventos.jsx — Versión con LOGS de diagnóstico
+// EntradasEventos.jsx — VERSIÓN FINAL
 // --------------------------------------------------------------
 import React, { useEffect, useState } from 'react'
 import { collection, getDocs, query, orderBy } from 'firebase/firestore'
@@ -13,29 +13,17 @@ export default function EntradasEventos() {
   const { pedirEntrada } = useEntradas()
 
   // --------------------------------------------------------------
-  // 🔍 NORMALIZAR LOTES (con logs)
+  // NORMALIZAR LOTES
   // --------------------------------------------------------------
-  function normalizarLotes(lotesRaw, eventoId) {
-    if (!lotesRaw) {
-      console.log('❌ lotesRaw es NULL/undefined')
-      return []
-    }
-
-    if (Array.isArray(lotesRaw)) {
-      return lotesRaw
-    }
-
-    if (typeof lotesRaw === 'object') {
-      const arr = Object.values(lotesRaw)
-
-      return arr
-    }
-
+  function normalizarLotes(lotesRaw) {
+    if (!lotesRaw) return []
+    if (Array.isArray(lotesRaw)) return lotesRaw
+    if (typeof lotesRaw === 'object') return Object.values(lotesRaw)
     return []
   }
 
   // --------------------------------------------------------------
-  // Cargar eventos
+  // CARGAR EVENTOS
   // --------------------------------------------------------------
   useEffect(() => {
     async function cargarEventos() {
@@ -45,14 +33,10 @@ export default function EntradasEventos() {
         const q = query(collection(db, 'eventos'), orderBy('fecha', 'asc'))
         const snap = await getDocs(q)
 
-        const lista = snap.docs.map(doc => {
-          const data = doc.data()
-
-          return {
-            id: doc.id,
-            ...data,
-          }
-        })
+        const lista = snap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }))
 
         setEventos(lista)
       } catch (error) {
@@ -66,10 +50,10 @@ export default function EntradasEventos() {
   }, [])
 
   // --------------------------------------------------------------
-  // Texto del precio (considera lotes)
+  // TEXTO DEL PRECIO (CONSIDERA LOTES)
   // --------------------------------------------------------------
   function getTextoPrecio(evento) {
-    const lotes = normalizarLotes(evento.lotes, evento.id)
+    const lotes = normalizarLotes(evento.lotes)
 
     if (lotes.length > 0) {
       const precios = lotes
@@ -84,6 +68,9 @@ export default function EntradasEventos() {
     return `$${evento.precio}`
   }
 
+  // --------------------------------------------------------------
+  // RENDER
+  // --------------------------------------------------------------
   if (loading)
     return <p className="text-center text-muted my-3">Cargando eventos...</p>
 
@@ -98,8 +85,7 @@ export default function EntradasEventos() {
     <div className="d-flex flex-column gap-3 mt-3">
       {eventos.map(evento => {
         const imgUrl = evento.imagenEventoUrl || evento.imagen || ''
-
-        const lotes = normalizarLotes(evento.lotes, evento.id)
+        const lotes = normalizarLotes(evento.lotes)
         const tieneLotes = lotes.length > 0
 
         return (
@@ -127,7 +113,7 @@ export default function EntradasEventos() {
               💲 <strong>{getTextoPrecio(evento)}</strong>
             </p>
 
-            {/* Mostrar LOTES */}
+            {/* LOTES */}
             {tieneLotes && (
               <div
                 className="mt-2 mb-2 p-2 rounded"
@@ -143,6 +129,7 @@ export default function EntradasEventos() {
               </div>
             )}
 
+            {/* BOTÓN */}
             <button
               className="btn btn-dark mt-2 w-100"
               onClick={() => pedirEntrada(evento)}
