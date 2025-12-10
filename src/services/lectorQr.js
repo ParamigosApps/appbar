@@ -237,7 +237,12 @@ export async function validarTicket(payload, eventoForzado = null) {
     tipo: 'entrada',
     color,
     titulo: `Entrada válida — ${categoria}`,
-    mensaje: `Evento: <b>${evento.nombre}</b><br>Lote: <b>${data.loteNombre}</b><br>Titular: <b>${data.usuarioNombre}</b>`,
+    mensaje: `
+  Evento: <b>${evento.nombre}</b><br>
+  ${data.loteNombre ? `Lote: <b>${data.loteNombre}</b><br>` : ''}
+  Titular: <b>${data.usuarioNombre}</b>
+`,
+
     data: { id: entradaId, ...data },
   }
 }

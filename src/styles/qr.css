@@ -110,18 +110,35 @@
 
 .qr-reader-box {
   width: 100%;
-  max-width: 520px;
-  min-height: 320px;
-
-  margin: 8px auto 0 auto;
+  max-width: 420px; /* MÁS ANCHO */
+  min-height: 320px; /* MÁS ALTO */
+  margin: 12px auto 0 auto;
   border-radius: 14px;
   overflow: hidden;
   border: 1px solid #bbb;
-
   background: #fdfdfd;
+
   display: flex;
   justify-content: center;
   align-items: center;
+}
+#qr-reader__scan_region {
+  width: 50% !important;
+  height: 100% !important;
+  padding: 0 !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+#qr-reader__scan_region video {
+  width: 105% !important; /* 5% más grande */
+  height: auto !important;
+  border-radius: 14px !important;
+  transform: scale(1.02); /* ESCALA MÁS GRANDE */
+}
+#qr-reader__camera_selection,
+#qr-reader__dashboard_section {
+  display: none !important;
 }
 
 /* Fuerza borde y redondeo del lector interno */
@@ -130,8 +147,8 @@
 }
 
 #qr-reader__scan_region video {
-  width: 300px !important;
-  height: 300px !important;
+  width: 100% !important;
+  height: auto !important;
   border-radius: 12px !important;
 }
 
