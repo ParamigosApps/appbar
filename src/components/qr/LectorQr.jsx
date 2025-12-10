@@ -126,11 +126,26 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
       const { value } = await Swal.fire({
         title: 'Seleccionar Evento',
         html,
-        width: 450,
         confirmButtonText: 'Continuar',
         confirmButtonColor: '#111',
+
+        // RESPONSIVE
+        width: '100%',
+        maxWidth: '380px',
+        padding: '1rem',
         background: '#f8f8f8',
+
         allowOutsideClick: false,
+        customClass: {
+          popup: 'swal-popup-pro',
+        },
+
+        didOpen: () => {
+          // Aumentar tamaño del select en mobile
+          const sel = document.getElementById('evento-select')
+          if (sel) sel.style.fontSize = '18px'
+        },
+
         preConfirm: () => {
           const el = document.getElementById('evento-select')
           if (!el.value) {
@@ -152,17 +167,27 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   // CARGAR ESTADÍSTICAS DEL EVENTO
   // --------------------------------------------------------------
   async function cargarEstadisticasEvento(eventoId) {
+    if (!eventoId) return
+
     const snapEv = await getDoc(doc(db, 'eventos', eventoId))
     if (!snapEv.exists()) return
 
     const ev = snapEv.data()
 
+    // VALIDACIONES CRÍTICAS PARA EVITAR TU ERROR
+    const fechaEv =
+      typeof ev.fecha === 'string' && ev.fecha.includes('-') ? ev.fecha : null
+
+    const horarioEv = ev.horario || 'No especificado'
+
+    // Entradas totales
     const qTot = query(
       collection(db, 'entradas'),
       where('eventoId', '==', eventoId)
     )
     const tot = await getDocs(qTot)
 
+    // Entradas usadas
     const qUsed = query(
       collection(db, 'entradas'),
       where('eventoId', '==', eventoId),
@@ -172,10 +197,12 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
 
     setEventoInfo({
       ...ev,
+      fecha: fechaEv, // puede ser null si está mal cargado -> EVITA EL ERROR
+      horario: horarioEv,
       totales: tot.size,
       usadas: usados.size,
       noUsadas: tot.size - usados.size,
-      capacidad: ev.capacidad || null,
+      capacidad: ev.capacidad ?? null,
     })
   }
 
@@ -205,7 +232,7 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
 
     try {
       await html5Qr.current.start(
-        cams[0].id,
+        cams[cams.length - 1].id,
         { fps: 10, qrbox: 250 },
         onScanSuccess
       )
@@ -274,9 +301,9 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
     setResultado(res)
     setTimeout(() => setResultado(null), 3500)
 
-    navigator.vibrate?.(80)
+    navigator.vibrate?.([120, 80, 120])
 
-    res?.ok ? beepOk() : beepError()
+    res?.ok && beepOk()
 
     if (res?.ok && res.tipo === 'compra') marcarCompraRetirada(res.data.id)
   }
@@ -326,7 +353,12 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
             {infoAbierto && (
               <div className="evento-info-body">
                 <p>
-                  <strong>Fecha:</strong> {fechaLarga(eventoInfo.fecha)}
+                  <p>
+                    <strong>Fecha:</strong>{' '}
+                    {eventoInfo.fecha
+                      ? fechaLarga(eventoInfo.fecha)
+                      : 'No definida'}
+                  </p>
                 </p>
                 <p>
                   <strong>Horario:</strong> {eventoInfo.horario}

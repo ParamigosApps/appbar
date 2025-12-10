@@ -230,3 +230,12 @@
     padding: 30px !important;
   }
 }
+
+.qr-reader-box {
+  min-height: 420px;
+}
+
+#qr-reader__scan_region video {
+  transform: scale(1.25);
+  transform-origin: center;
+}
