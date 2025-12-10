@@ -273,10 +273,9 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
         await cargarEstadisticasEvento(res.data.eventoId || eventoSeleccionado)
       }
     } finally {
-      // COOLDOWN EXACTO = 3.5 segundos (igual que el mensaje)
       setTimeout(() => {
         leyendo.current = false
-      }, 3500)
+      }, 2500)
     }
   }
 
