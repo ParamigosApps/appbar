@@ -8,16 +8,17 @@ import Swal from 'sweetalert2'
 
 import googleIcon from '../assets/img/google.png'
 
+console.log('LOGIN EMPLEADO CARGADO OK')
+
 export default function LoginEmpleado() {
   const { loginGoogle, loginAdminManual, user, rolUsuario } = useAuth()
-
   const navigate = useNavigate()
 
   const [usuario, setUsuario] = useState('')
   const [pass, setPass] = useState('')
 
   // -------------------------------------------------------
-  // LOGIN MANUAL (admin / 1234)
+  // LOGIN MANUAL
   // -------------------------------------------------------
   async function loginLocal(e) {
     e.preventDefault()
@@ -33,11 +34,9 @@ export default function LoginEmpleado() {
   }
 
   // -------------------------------------------------------
-  // REDIRECCIÓN SI YA ESTÁ LOGUEADO (SIN LOOP)
+  // REDIRECCIÓN SI YA ESTÁ LOGUEADO
   // -------------------------------------------------------
   useEffect(() => {
-    // Evita redirecciones infinitas:
-    // Solo redirige si NO estás ya en /admin
     if (user && rolUsuario !== 'invitado') {
       navigate('/admin', { replace: true })
     }

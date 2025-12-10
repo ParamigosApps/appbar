@@ -1,13 +1,15 @@
 // --------------------------------------------------------------
-// LectorQr.jsx — VERSIÓN FINAL 2025 FUNCIONAL
+// src/components/qr/LectorQr.jsx — Lector QR PRO ULTRA ESTABLE 2025
 // --------------------------------------------------------------
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Html5QrcodeScanner } from 'html5-qrcode'
+import Swal from 'sweetalert2'
+import { Html5Qrcode } from 'html5-qrcode'
 
 import {
   decodificarQr,
   analizarPayload,
+  detectarTipoPorFirestore,
   validarTicket,
   validarCompra,
   marcarEntradaUsada,
@@ -16,101 +18,161 @@ import {
 
 export default function LectorQr() {
   const navigate = useNavigate()
-  const scannerRef = useRef(null)
-  const initialized = useRef(false)
 
-  const [modo, setModo] = useState('entradas') // entradas | caja
+  // UI
+  const [modo, setModo] = useState('entradas')
   const [resultado, setResultado] = useState(null)
 
+  // Scanner
+  const html5Qr = useRef(null)
+  const running = useRef(false)
+  const initialized = useRef(false)
+  const leyendo = useRef(false)
+
   // --------------------------------------------------------------
-  // INICIALIZAR SCANNER UNA SOLA VEZ
+  // INIT
   // --------------------------------------------------------------
   useEffect(() => {
-    if (initialized.current) return
-    initialized.current = true
+    if (!initialized.current) {
+      initialized.current = true
+      setTimeout(() => iniciarScanner(), 200)
+    }
 
-    const scanner = new Html5QrcodeScanner(
-      'qr-reader',
-      {
-        fps: 10,
-        qrbox: 250,
-        aspectRatio: 1.0,
-        rememberLastUsedCamera: true,
-      },
-      false
-    )
-
-    scanner.render(onScanSuccess, onScanError)
-    scannerRef.current = scanner
+    return () => detenerScanner()
   }, [])
 
+  // Reiniciar al cambiar modo
+  useEffect(() => {
+    if (!initialized.current) return
+    ;(async () => {
+      await detenerScanner()
+      setResultado(null)
+      setTimeout(() => iniciarScanner(), 200)
+    })()
+  }, [modo])
+
   // --------------------------------------------------------------
-  // CALLBACK SCAN OK
+  // INICIAR SCANNER
+  // --------------------------------------------------------------
+  async function iniciarScanner() {
+    const el = document.getElementById('qr-reader')
+    if (!el) {
+      setTimeout(iniciarScanner, 100)
+      return
+    }
+
+    if (running.current) return
+    if (iniciarScanner.isStarting) return
+
+    iniciarScanner.isStarting = true
+
+    try {
+      if (!html5Qr.current) html5Qr.current = new Html5Qrcode('qr-reader')
+
+      const state = html5Qr.current.getState?.()
+      if (state === 1 || state === 2) {
+        await detenerScanner()
+      }
+
+      const cams = await Html5Qrcode.getCameras()
+      if (!cams.length) {
+        Swal.fire('Sin cámara', 'No se detectó ninguna cámara.', 'error')
+        iniciarScanner.isStarting = false
+        return
+      }
+
+      await html5Qr.current.start(
+        cams[0].id,
+        { fps: 10, qrbox: 250 },
+        onScanSuccess,
+        () => {}
+      )
+
+      running.current = true
+    } catch (err) {
+      console.error('Error cámara:', err)
+
+      if (String(err).includes('transition')) {
+        setTimeout(() => iniciarScanner(), 300)
+      } else {
+        Swal.fire('Error', 'No se pudo iniciar la cámara.', 'error')
+      }
+    } finally {
+      iniciarScanner.isStarting = false
+    }
+  }
+
+  // --------------------------------------------------------------
+  // DETENER SCANNER
+  // --------------------------------------------------------------
+  async function detenerScanner() {
+    if (!html5Qr.current || !running.current) return
+    try {
+      await html5Qr.current.stop()
+    } catch (_) {}
+    running.current = false
+  }
+
+  // --------------------------------------------------------------
+  // LECTURA QR
   // --------------------------------------------------------------
   async function onScanSuccess(text) {
+    if (leyendo.current) return
+    leyendo.current = true
+
     try {
       const dec = decodificarQr(text)
-      const payload = analizarPayload(dec)
+      let payload = analizarPayload(dec)
 
-      // VALIDACIÓN POR MODO
+      if (!payload.esEntrada && !payload.esCompra) {
+        const idRaw = payload.entradaId || payload.compraId || payload.id
+        const auto = await detectarTipoPorFirestore(idRaw)
+        payload = { ...payload, ...auto }
+      }
+
       let res = null
 
       if (modo === 'entradas') {
-        if (!payload.esEntrada) {
-          setResultado({
-            color: 'red',
-            titulo: 'QR incorrecto',
-            mensaje: 'Este QR es de COMPRA, no de ENTRADA.',
-          })
-          return
-        }
+        if (!payload.esEntrada)
+          return mostrarError('QR de COMPRA leído en modo ENTRADAS.')
         res = await validarTicket(payload)
       }
 
       if (modo === 'caja') {
-        if (!payload.esCompra) {
-          setResultado({
-            color: 'red',
-            titulo: 'QR incorrecto',
-            mensaje: 'Este QR es de ENTRADA, no de COMPRA.',
-          })
-          return
-        }
+        if (!payload.esCompra)
+          return mostrarError('QR de ENTRADA leído en modo CAJA.')
         res = await validarCompra(payload)
       }
 
-      setResultado(res)
-    } catch (err) {
-      setResultado({
-        color: 'red',
-        titulo: 'Error',
-        mensaje: 'No se pudo procesar el QR.',
-      })
+      mostrarResultado(res)
+    } finally {
+      setTimeout(() => (leyendo.current = false), 1500)
     }
   }
 
   // --------------------------------------------------------------
-  // ERRORES DE ESCANEO (ruido normal)
+  // RESULTADOS
   // --------------------------------------------------------------
-  function onScanError(err) {
-    // se ignora el spam
+  function mostrarResultado(res) {
+    if (!res) return
+    setResultado(res)
+    if (navigator.vibrate) navigator.vibrate(80)
+
+    if (res.ok) {
+      if (res.tipo === 'entrada') marcarEntradaUsada(res.data.id)
+      if (res.tipo === 'compra') marcarCompraRetirada(res.data.id)
+    }
   }
 
-  // --------------------------------------------------------------
-  // ACCIONES DE CONFIRMACIÓN
-  // --------------------------------------------------------------
-  async function confirmarAccion() {
-    if (!resultado?.data) return
-
-    if (resultado.tipo === 'entrada') {
-      await marcarEntradaUsada(resultado.data.id)
-      setResultado({ ...resultado, estado: 'usada-confirmada' })
-    }
-
-    if (resultado.tipo === 'compra') {
-      await marcarCompraRetirada(resultado.data.id)
-      setResultado({ ...resultado, estado: 'retirada-confirmada' })
-    }
+  function mostrarError(msg) {
+    setResultado({
+      ok: false,
+      color: 'red',
+      titulo: 'QR incorrecto',
+      mensaje: msg,
+    })
+    if (navigator.vibrate) navigator.vibrate(80)
+    leyendo.current = false
   }
 
   // --------------------------------------------------------------
@@ -118,38 +180,32 @@ export default function LectorQr() {
   // --------------------------------------------------------------
   return (
     <div className="container py-4">
-      <div className="card shadow p-4">
-        {/* HEADER */}
+      <div className="card shadow-sm p-4">
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h4 className="fw-bold mb-0">Validador QR</h4>
           <button
-            className="btn btn-sm btn-outline-secondary"
+            className="btn btn-outline-secondary"
             onClick={() => navigate(-1)}
           >
             Volver
           </button>
         </div>
 
-        {/* BOTONES DE MODO */}
+        {/* MODOS */}
         <div className="d-flex gap-2 mb-3">
           <button
             className={
               'btn ' +
-              (modo === 'entradas'
-                ? 'btn-danger text-white'
-                : 'btn-outline-danger')
+              (modo === 'entradas' ? 'btn-danger' : 'btn-outline-danger')
             }
             onClick={() => setModo('entradas')}
           >
-            🎟️ Entradas
+            🎫 Entradas
           </button>
 
           <button
             className={
-              'btn ' +
-              (modo === 'caja'
-                ? 'btn-primary text-white'
-                : 'btn-outline-primary')
+              'btn ' + (modo === 'caja' ? 'btn-primary' : 'btn-outline-primary')
             }
             onClick={() => setModo('caja')}
           >
@@ -157,38 +213,27 @@ export default function LectorQr() {
           </button>
         </div>
 
-        {/* CONTENEDOR DEL QR SCANNER */}
-        <div id="qr-reader" style={{ width: '100%' }}></div>
+        {/* SCANNER */}
+        <div id="qr-reader" style={{ width: '100%', minHeight: 260 }} />
 
         {/* RESULTADO */}
         {resultado && (
           <div
-            className="mt-4 p-3 rounded"
+            className="mt-3 p-3 rounded"
             style={{
-              background:
-                resultado.color === 'green'
-                  ? '#d4edda'
-                  : resultado.color === 'pink'
-                  ? '#fce4ec'
-                  : resultado.color === 'purple'
-                  ? '#ede7f6'
-                  : resultado.color === 'blue'
-                  ? '#e3f2fd'
-                  : resultado.color === 'yellow'
-                  ? '#fff9c4'
-                  : '#f8d7da',
-              borderLeft: '6px solid ' + resultado.color,
+              border: `3px solid ${resultado.color || 'gray'}`,
+              background: '#fafafa',
             }}
           >
-            <h5 className="fw-bold">{resultado.titulo}</h5>
-            <p className="mb-2">{resultado.mensaje}</p>
+            <h5
+              className="fw-bold"
+              style={{ color: resultado.color || 'black' }}
+            >
+              {resultado.titulo}
+            </h5>
 
-            {/* BOTÓN CONFIRMAR */}
-            {resultado.ok && (
-              <button className="btn btn-success" onClick={confirmarAccion}>
-                Confirmar
-              </button>
-            )}
+            {/* Render HTML seguro */}
+            <p dangerouslySetInnerHTML={{ __html: resultado.mensaje }}></p>
           </div>
         )}
       </div>
