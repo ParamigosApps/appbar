@@ -1,9 +1,8 @@
 // --------------------------------------------------------------
-// LectorQr.jsx — VERSIÓN FINAL (Entradas / Compras + Auto/Manual)
+// LectorQr.jsx — VERSIÓN FINAL 2025 FUNCIONAL
 // --------------------------------------------------------------
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Swal from 'sweetalert2'
 import { Html5QrcodeScanner } from 'html5-qrcode'
 
 import {
@@ -11,154 +10,188 @@ import {
   analizarPayload,
   validarTicket,
   validarCompra,
+  marcarEntradaUsada,
+  marcarCompraRetirada,
 } from '../../services/lectorQr.js'
-
-import ValidacionResultado from './ValidacionResultado.jsx'
 
 export default function LectorQr() {
   const navigate = useNavigate()
-
+  const scannerRef = useRef(null)
   const initialized = useRef(false)
+
+  const [modo, setModo] = useState('entradas') // entradas | caja
   const [resultado, setResultado] = useState(null)
 
-  // 🔵 MODOS DE VALIDACIÓN
-  const [modo, setModo] = useState('auto') // auto | manual
-
   // --------------------------------------------------------------
-  // Inicializar escáner UNA sola vez
+  // INICIALIZAR SCANNER UNA SOLA VEZ
   // --------------------------------------------------------------
   useEffect(() => {
     if (initialized.current) return
     initialized.current = true
 
     const scanner = new Html5QrcodeScanner(
-      'reader',
-      { fps: 10, qrbox: 250 },
+      'qr-reader',
+      {
+        fps: 10,
+        qrbox: 250,
+        aspectRatio: 1.0,
+        rememberLastUsedCamera: true,
+      },
       false
     )
 
-    scanner.render(
-      async decodedText => {
-        if (modo === 'manual') return // no validar automáticamente
-
-        procesarCodigo(decodedText)
-      },
-      () => {}
-    )
-
-    return () => scanner.clear()
-  }, [modo])
+    scanner.render(onScanSuccess, onScanError)
+    scannerRef.current = scanner
+  }, [])
 
   // --------------------------------------------------------------
-  // PROCESAR CÓDIGO (auto o manual)
+  // CALLBACK SCAN OK
   // --------------------------------------------------------------
-  async function procesarCodigo(texto) {
+  async function onScanSuccess(text) {
     try {
-      const payload = decodificarQr(texto)
+      const dec = decodificarQr(text)
+      const payload = analizarPayload(dec)
 
-      if (!payload) {
-        setResultado({ ok: false, tipo: 'error', mensaje: 'QR inválido' })
-        Swal.fire('QR inválido', 'Código malformado', 'error')
-        return
+      // VALIDACIÓN POR MODO
+      let res = null
+
+      if (modo === 'entradas') {
+        if (!payload.esEntrada) {
+          setResultado({
+            color: 'red',
+            titulo: 'QR incorrecto',
+            mensaje: 'Este QR es de COMPRA, no de ENTRADA.',
+          })
+          return
+        }
+        res = await validarTicket(payload)
       }
 
-      const tipo = analizarPayload(payload)
-      if (!tipo) {
-        setResultado({ ok: false, tipo: 'error', mensaje: 'QR desconocido' })
-        Swal.fire('Error', 'Código no pertenece a AppBar', 'error')
-        return
+      if (modo === 'caja') {
+        if (!payload.esCompra) {
+          setResultado({
+            color: 'red',
+            titulo: 'QR incorrecto',
+            mensaje: 'Este QR es de ENTRADA, no de COMPRA.',
+          })
+          return
+        }
+        res = await validarCompra(payload)
       }
 
-      if (tipo === 'entrada') {
-        const res = await validarTicket(payload.ticketId)
-        setResultado({ tipo, ...res })
-
-        Swal.fire({
-          title: res.valido ? 'Entrada válida' : 'Entrada inválida',
-          text: res.mensaje,
-          icon: res.valido ? 'success' : 'error',
-        })
-      }
-
-      if (tipo === 'compra') {
-        const res = await validarCompra(payload.ticketId)
-        setResultado({ tipo, ...res })
-
-        Swal.fire({
-          title: res.valido ? 'Compra válida' : 'Compra inválida',
-          text: res.mensaje,
-          icon: res.valido ? 'success' : 'error',
-        })
-      }
+      setResultado(res)
     } catch (err) {
-      console.error(err)
-      Swal.fire('Error', 'No se pudo procesar el QR', 'error')
+      setResultado({
+        color: 'red',
+        titulo: 'Error',
+        mensaje: 'No se pudo procesar el QR.',
+      })
     }
   }
 
   // --------------------------------------------------------------
-  // Validación manual
+  // ERRORES DE ESCANEO (ruido normal)
   // --------------------------------------------------------------
-  function validarManual() {
-    const value = document.getElementById('manual-input').value.trim()
-    if (!value) return
-    procesarCodigo(value)
+  function onScanError(err) {
+    // se ignora el spam
   }
 
   // --------------------------------------------------------------
-  // Render
+  // ACCIONES DE CONFIRMACIÓN
+  // --------------------------------------------------------------
+  async function confirmarAccion() {
+    if (!resultado?.data) return
+
+    if (resultado.tipo === 'entrada') {
+      await marcarEntradaUsada(resultado.data.id)
+      setResultado({ ...resultado, estado: 'usada-confirmada' })
+    }
+
+    if (resultado.tipo === 'compra') {
+      await marcarCompraRetirada(resultado.data.id)
+      setResultado({ ...resultado, estado: 'retirada-confirmada' })
+    }
+  }
+
+  // --------------------------------------------------------------
+  // UI
   // --------------------------------------------------------------
   return (
-    <div className="container py-4" style={{ maxWidth: 600 }}>
-      <h2 className="fw-bold text-center mb-4">Validador de QR</h2>
-
-      {/* Selector de modo */}
-      <div className="btn-group w-100 mb-3">
-        <button
-          className={`btn ${
-            modo === 'auto' ? 'btn-success' : 'btn-outline-success'
-          }`}
-          onClick={() => setModo('auto')}
-        >
-          Automático
-        </button>
-        <button
-          className={`btn ${
-            modo === 'manual' ? 'btn-primary' : 'btn-outline-primary'
-          }`}
-          onClick={() => setModo('manual')}
-        >
-          Manual
-        </button>
-      </div>
-
-      {/* Lector */}
-      {modo === 'auto' && <div id="reader" style={{ width: '100%' }}></div>}
-
-      {/* Entrada manual */}
-      {modo === 'manual' && (
-        <div className="input-group mb-4">
-          <input
-            id="manual-input"
-            className="form-control"
-            placeholder="Ingresar código QR"
-            onKeyDown={e => e.key === 'Enter' && validarManual()}
-          />
-          <button className="btn btn-primary" onClick={validarManual}>
-            Validar
+    <div className="container py-4">
+      <div className="card shadow p-4">
+        {/* HEADER */}
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <h4 className="fw-bold mb-0">Validador QR</h4>
+          <button
+            className="btn btn-sm btn-outline-secondary"
+            onClick={() => navigate(-1)}
+          >
+            Volver
           </button>
         </div>
-      )}
 
-      {/* Resultado visual con colores */}
-      {resultado && <ValidacionResultado data={resultado} />}
+        {/* BOTONES DE MODO */}
+        <div className="d-flex gap-2 mb-3">
+          <button
+            className={
+              'btn ' +
+              (modo === 'entradas'
+                ? 'btn-danger text-white'
+                : 'btn-outline-danger')
+            }
+            onClick={() => setModo('entradas')}
+          >
+            🎟️ Entradas
+          </button>
 
-      <button
-        className="btn btn-danger w-100 mt-4"
-        onClick={() => navigate('/admin')}
-      >
-        Volver
-      </button>
+          <button
+            className={
+              'btn ' +
+              (modo === 'caja'
+                ? 'btn-primary text-white'
+                : 'btn-outline-primary')
+            }
+            onClick={() => setModo('caja')}
+          >
+            🧾 Caja / Barra
+          </button>
+        </div>
+
+        {/* CONTENEDOR DEL QR SCANNER */}
+        <div id="qr-reader" style={{ width: '100%' }}></div>
+
+        {/* RESULTADO */}
+        {resultado && (
+          <div
+            className="mt-4 p-3 rounded"
+            style={{
+              background:
+                resultado.color === 'green'
+                  ? '#d4edda'
+                  : resultado.color === 'pink'
+                  ? '#fce4ec'
+                  : resultado.color === 'purple'
+                  ? '#ede7f6'
+                  : resultado.color === 'blue'
+                  ? '#e3f2fd'
+                  : resultado.color === 'yellow'
+                  ? '#fff9c4'
+                  : '#f8d7da',
+              borderLeft: '6px solid ' + resultado.color,
+            }}
+          >
+            <h5 className="fw-bold">{resultado.titulo}</h5>
+            <p className="mb-2">{resultado.mensaje}</p>
+
+            {/* BOTÓN CONFIRMAR */}
+            {resultado.ok && (
+              <button className="btn btn-success" onClick={confirmarAccion}>
+                Confirmar
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

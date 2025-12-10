@@ -2,7 +2,7 @@
 // src/App.jsx — Versión CORREGIDA y con export default válido
 // --------------------------------------------------------------
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-
+import './styles/SwalTheme.css'
 // Layout general
 import Layout from './components/layout/Layout.jsx'
 
@@ -21,17 +21,10 @@ import AdminRoute from './components/admin/AdminRoute.jsx'
 import AdminPage from './pages/AdminPage.jsx'
 
 // Modales globales
-import ModalSeleccionLote from './components/entradas/ModalSeleccionLote.jsx'
-import ModalMetodoPago from './components/entradas/ModalMetodoPago.jsx'
-
 export default function App() {
   // ⬅⬅⬅ IMPORTANTE
   return (
     <>
-      {/* Modales globales */}
-      <ModalSeleccionLote />
-      <ModalMetodoPago />
-
       <BrowserRouter>
         <Routes>
           {/* RUTAS PÚBLICAS SIN LAYOUT */}

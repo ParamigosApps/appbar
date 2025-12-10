@@ -19,7 +19,9 @@ export default function LoginEmpleado() {
   // -------------------------------------------------------
   // LOGIN MANUAL (admin / 1234)
   // -------------------------------------------------------
-  async function loginLocal() {
+  async function loginLocal(e) {
+    e.preventDefault()
+
     if (!usuario || !pass) {
       Swal.fire('Error', 'Completá los campos', 'error')
       return
@@ -31,13 +33,15 @@ export default function LoginEmpleado() {
   }
 
   // -------------------------------------------------------
-  // REDIRECCIÓN SI YA ESTÁ LOGUEADO
+  // REDIRECCIÓN SI YA ESTÁ LOGUEADO (SIN LOOP)
   // -------------------------------------------------------
   useEffect(() => {
+    // Evita redirecciones infinitas:
+    // Solo redirige si NO estás ya en /admin
     if (user && rolUsuario !== 'invitado') {
-      navigate('/admin')
+      navigate('/admin', { replace: true })
     }
-  }, [user, rolUsuario])
+  }, [user, rolUsuario, navigate])
 
   return (
     <div className="container py-5 text-center" style={{ maxWidth: 450 }}>
@@ -51,28 +55,32 @@ export default function LoginEmpleado() {
 
       <div className="text-muted my-3">o acceder con usuario/contraseña</div>
 
-      {/* CAMPOS LOGIN MANUAL */}
-      <input
-        className="form-control mb-2"
-        placeholder="Usuario"
-        onChange={e => setUsuario(e.target.value)}
-      />
+      {/* FORMULARIO CORRECTO */}
+      <form onSubmit={loginLocal}>
+        <input
+          className="form-control mb-2"
+          placeholder="Usuario"
+          value={usuario}
+          onChange={e => setUsuario(e.target.value)}
+        />
 
-      <input
-        className="form-control mb-3"
-        placeholder="Contraseña"
-        type="password"
-        onChange={e => setPass(e.target.value)}
-      />
+        <input
+          className="form-control mb-3"
+          placeholder="Contraseña"
+          type="password"
+          value={pass}
+          onChange={e => setPass(e.target.value)}
+        />
 
-      <button className="btn btn-dark w-100" onClick={loginLocal}>
-        Iniciar sesión
-      </button>
+        <button type="submit" className="btn btn-dark w-100">
+          Iniciar sesión
+        </button>
+      </form>
 
       <p
         className="mt-3 text-primary fw-semibold"
         style={{ cursor: 'pointer' }}
-        onClick={() => navigate('/acceso')}
+        onClick={() => navigate('/')}
       >
         ← Volver
       </p>

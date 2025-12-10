@@ -6,7 +6,6 @@ import { useNavigate } from 'react-router-dom'
 
 import CrearEvento from '../components/admin/CrearEvento.jsx'
 import ListaEventos from '../components/admin/ListaEventos.jsx'
-import EntradasPendientes from '../components/admin/EntradasPendientes.jsx'
 import PedidosPendientes from '../components/admin/PedidosPendientes.jsx'
 import AdminProductos from '../components/admin/AdminProductos.jsx'
 import AdminEmpleados from '../components/admin/AdminEmpleados.jsx'
@@ -43,8 +42,6 @@ export default function AdminPage() {
         return <AdminEmpleados />
       case 'qr':
         return <LectorQr />
-      case 'dashboard':
-        return <DashboardVentas />
       case 'config':
         return <AdminConfiguracion />
 

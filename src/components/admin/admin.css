@@ -126,3 +126,65 @@
   background: #1e1e1e;
   color: #7cff7c;
 }
+
+/* ============================================================
+   TABS ADMIN — COMPATIBLE CON TODO TU PANEL ACTUAL
+   ============================================================ */
+
+.admin-tabs {
+  display: flex;
+  gap: 10px;
+}
+
+.admin-tab-btn {
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: 2px solid #ddd;
+  background: #f8f9fa;
+  font-weight: 600;
+  transition: 0.2s ease;
+}
+
+.admin-tab-btn:hover {
+  background: #ffffff;
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+}
+
+.admin-tab-btn.active {
+  background: #212529;
+  color: white;
+  border-color: #212529;
+  transform: translateY(-1px);
+}
+
+/* ============================================================
+   TABS ADMIN
+   ============================================================ */
+
+.admin-tabs {
+  display: flex;
+  gap: 10px;
+}
+
+.admin-tab-btn {
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: 2px solid #ddd;
+  background: #f8f9fa;
+  font-weight: 600;
+  transition: 0.2s ease;
+}
+
+.admin-tab-btn:hover {
+  background: #ffffff;
+  transform: translateY(-2px);
+  filter: brightness(1.05);
+}
+
+.admin-tab-btn.active {
+  background: #212529;
+  color: white;
+  border-color: #212529;
+  transform: translateY(-1px);
+}

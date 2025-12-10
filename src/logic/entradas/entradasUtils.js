@@ -1,5 +1,5 @@
 // --------------------------------------------------------------
-// entradasUtils.js — Helpers comunes + solicitudes pendientes
+// src/logic/entradas/entradasUtils.js — HELPERS ENTRADAS
 // --------------------------------------------------------------
 
 import {
@@ -20,16 +20,20 @@ import { db } from '../../Firebase.js'
 export async function obtenerDatosBancarios() {
   const ref = doc(db, 'configuracion', 'datosBancarios')
   const snap = await getDoc(ref)
-  return snap.exists() ? snap.data() : {}
+  const data = snap.exists() ? snap.data() : {}
+  console.log('🏦 datosBancarios:', data)
+  return data
 }
 
 // --------------------------------------------------------------
-// 🔹 Obtener redes de contacto
+// 🔹 Obtener redes / contacto
 // --------------------------------------------------------------
 export async function obtenerContacto() {
   const ref = doc(db, 'configuracion', 'social')
   const snap = await getDoc(ref)
-  return snap.exists() ? snap.data() : null
+  const data = snap.exists() ? snap.data() : null
+  console.log('📲 contacto social:', data)
+  return data
 }
 
 // --------------------------------------------------------------
@@ -51,15 +55,23 @@ export async function crearSolicitudPendiente(
   usuarioId,
   entradaBase
 ) {
+  console.log('🧾 crearSolicitudPendiente()', {
+    eventoId,
+    usuarioId,
+    entradaBase,
+  })
+
+  const filtros = [
+    where('eventoId', '==', eventoId),
+    where('usuarioId', '==', usuarioId),
+  ]
+
+  if (entradaBase.loteIndice !== undefined && entradaBase.loteIndice !== null) {
+    filtros.push(where('loteIndice', '==', entradaBase.loteIndice))
+  }
+
   const existentes = await getDocs(
-    query(
-      collection(db, 'entradasPendientes'),
-      where('eventoId', '==', eventoId),
-      where('usuarioId', '==', usuarioId),
-      ...(entradaBase.loteIndice !== undefined
-        ? [where('loteIndice', '==', entradaBase.loteIndice)]
-        : [])
-    )
+    query(collection(db, 'entradasPendientes'), ...filtros)
   )
 
   // Si NO existe → crear nuevo documento
@@ -82,7 +94,7 @@ export async function crearSolicitudPendiente(
     })
   }
 
-  // Si existe → actualizar
+  // Si existe → actualizar cantidad y monto
   const ref = existentes.docs[0].ref
   const prev = existentes.docs[0].data().cantidad || 1
   const updated = prev + entradaBase.cantidad

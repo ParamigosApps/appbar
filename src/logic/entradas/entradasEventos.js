@@ -1,5 +1,5 @@
 // --------------------------------------------------------------
-// entradasEventos.js — CUPOS + LOTES (USADO POR EntradasContext)
+// src/logic/entradas/entradasEventos.js — DEBUG ULTRA PRO
 // --------------------------------------------------------------
 
 import {
@@ -10,24 +10,56 @@ import {
   query,
   where,
 } from 'firebase/firestore'
-import { db } from '../../Firebase'
+import { db } from '../../Firebase.js'
 
 // --------------------------------------------------------------
-// Cargar un solo evento + calcular cupos totales
+// CALCULAR CUPOS Y LÍMITES — VERSIÓN DEBUG 2025
 // --------------------------------------------------------------
 export async function calcularCuposEvento(eventoId, usuarioId) {
+  console.log('══════════════════════════════════════════')
+  console.log('🔵 calcularCuposEvento() INICIO')
+  console.log('eventoId:', eventoId, 'usuarioId:', usuarioId)
+  console.log('══════════════════════════════════════════')
+
+  // 1) Traer evento
   const eventoSnap = await getDoc(doc(db, 'eventos', eventoId))
   if (!eventoSnap.exists()) throw new Error('Evento no encontrado')
 
   const eventoData = eventoSnap.data()
-  const lotes = Array.isArray(eventoData.lotes) ? eventoData.lotes : []
 
-  // Entradas vendidas
+  console.log('📌 EVENTO DATA COMPLETO:', JSON.stringify(eventoData, null, 2))
+
+  // LOTES
+  const lotes = Array.isArray(eventoData.lotes) ? eventoData.lotes : []
+  console.log('📦 LOTES BRUTOS:', lotes)
+
+  // --------------------------------------------------------------
+  // LÍMITES CONFIGURADOS
+  // --------------------------------------------------------------
+  const limitePorUsuario =
+    Number(eventoData.entradasPorUsuario) ||
+    Number(eventoData.maxEntradasUsuario) ||
+    1
+
+  const limiteEvento =
+    Number(eventoData.entradasMaximasEvento) ||
+    Number(eventoData.maxEntradasEvento) ||
+    Infinity
+
+  console.log('⚙️ LIMITES DETECTADOS:', {
+    entradasPorUsuario: eventoData.entradasPorUsuario,
+    maxEntradasUsuario: eventoData.maxEntradasUsuario,
+    LIMITE_POR_USUARIO_FINAL: limitePorUsuario,
+    LIMITE_EVENTO_FINAL: limiteEvento,
+  })
+
+  // --------------------------------------------------------------
+  // CONSULTAR ENTRADAS VENDIDAS / PENDIENTES
+  // --------------------------------------------------------------
   const vendidasSnap = await getDocs(
     query(collection(db, 'entradas'), where('eventoId', '==', eventoId))
   )
 
-  // Entradas pendientes
   const pendientesSnap = await getDocs(
     query(
       collection(db, 'entradasPendientes'),
@@ -35,66 +67,105 @@ export async function calcularCuposEvento(eventoId, usuarioId) {
     )
   )
 
-  // Cupo total del evento
-  const totalVendidas = vendidasSnap.docs.reduce(
-    (a, d) => a + (d.data().cantidad || 1),
-    0
-  )
-  const totalPend = pendientesSnap.docs.reduce(
-    (a, d) => a + (d.data().cantidad || 1),
-    0
-  )
+  console.log('📊 TOTAL DOCS VENDIDAS:', vendidasSnap.size)
+  console.log('📊 TOTAL DOCS PENDIENTES:', pendientesSnap.size)
 
-  const limiteEvento = eventoData.entradasMaximasEvento || null
-
-  const cupoRestante = limiteEvento
-    ? limiteEvento - (totalVendidas + totalPend)
-    : Infinity
-
-  // Cupo por usuario
-  const limiteUsuario = eventoData.entradasPorUsuario || 4
-
-  const userVend = vendidasSnap.docs.reduce(
-    (a, d) => (d.data().usuarioId === usuarioId ? a + d.data().cantidad : a),
-    0
-  )
-  const userPend = pendientesSnap.docs.reduce(
-    (a, d) => (d.data().usuarioId === usuarioId ? a + d.data().cantidad : a),
+  // Totales del evento
+  const totalVendidasEvento = vendidasSnap.docs.reduce(
+    (a, d) => a + Number(d.data().cantidad || 1),
     0
   )
 
-  const maxUser = Math.min(limiteUsuario - (userVend + userPend), cupoRestante)
+  const totalPendEvento = pendientesSnap.docs.reduce(
+    (a, d) => a + Number(d.data().cantidad || 1),
+    0
+  )
 
-  // Procesar lotes
-  const lotesInfo = prepararLotes(lotes, vendidasSnap, pendientesSnap)
+  const cupoRestanteEvento =
+    limiteEvento - (totalVendidasEvento + totalPendEvento)
 
-  return { eventoData, cupoRestante, maxUser, lotesInfo }
-}
+  console.log('📉 CUPOS EVENTO:', {
+    totalVendidasEvento,
+    totalPendEvento,
+    cupoRestanteEvento,
+  })
 
-// --------------------------------------------------------------
-// Añadir restantes a cada lote
-// --------------------------------------------------------------
-export function prepararLotes(lotes, vendidasSnap, pendientesSnap) {
-  if (!Array.isArray(lotes)) return []
+  // --------------------------------------------------------------
+  // CUPOS POR USUARIO
+  // --------------------------------------------------------------
+  const totalUsuarioVendidas = vendidasSnap.docs.reduce(
+    (a, d) =>
+      d.data().usuarioId === usuarioId ? a + Number(d.data().cantidad || 1) : a,
+    0
+  )
 
-  return lotes.map((l, index) => {
+  const totalUsuarioPendientes = pendientesSnap.docs.reduce(
+    (a, d) =>
+      d.data().usuarioId === usuarioId ? a + Number(d.data().cantidad || 1) : a,
+    0
+  )
+
+  const totalUsuario = totalUsuarioVendidas + totalUsuarioPendientes
+
+  console.log('🧍 RESUMEN USUARIO:', {
+    totalUsuarioVendidas,
+    totalUsuarioPendientes,
+    totalUsuario_TOTAL: totalUsuario,
+  })
+
+  // CALCULO FINAL DEL MAXIMO
+  const maxUser = Math.max(
+    0,
+    Math.min(limitePorUsuario - totalUsuario, cupoRestanteEvento)
+  )
+
+  console.log('🚦 MAX USER CALCULADO:', {
+    limitePorUsuario,
+    totalUsuario,
+    cupoRestanteEvento,
+    RESULTADO: maxUser,
+  })
+
+  // --------------------------------------------------------------
+  // CUPOS POR LOTE
+  // --------------------------------------------------------------
+  const lotesInfo = lotes.map((lote, index) => {
     const vend = vendidasSnap.docs.reduce(
       (a, d) =>
-        d.data().loteIndice === index ? a + (d.data().cantidad || 1) : a,
+        d.data().loteIndice === index ? a + Number(d.data().cantidad || 1) : a,
       0
     )
+
     const pend = pendientesSnap.docs.reduce(
       (a, d) =>
-        d.data().loteIndice === index ? a + (d.data().cantidad || 1) : a,
+        d.data().loteIndice === index ? a + Number(d.data().cantidad || 1) : a,
       0
     )
 
-    const restantes = (Number(l.cantidad) || 0) - (vend + pend)
+    const restantes = Number(lote.cantidad || 0) - (vend + pend)
 
-    return {
-      ...l,
-      index,
+    console.log(`📦 LOTE DEBUG #${index}`, {
+      nombre: lote.nombre,
+      cantidad: lote.cantidad,
+      vend,
+      pend,
       restantes,
-    }
+    })
+
+    return { ...lote, index, restantes }
   })
+
+  console.log('📦 LOTES INFO FINAL:', lotesInfo)
+
+  console.log('🔵 calcularCuposEvento() FIN')
+  console.log('══════════════════════════════════════════')
+
+  return {
+    eventoData,
+    limitePorUsuario,
+    totalUsuario,
+    cupoRestanteEvento,
+    maxUser,
+    lotesInfo,
+  }
 }

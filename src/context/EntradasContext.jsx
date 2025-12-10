@@ -1,18 +1,14 @@
 // --------------------------------------------------------------
-// src/context/EntradasContext.jsx — VERSIÓN FINAL MODULAR
+// src/context/EntradasContext.jsx — VERSIÓN FINAL ULTRA PRO 2025
 // --------------------------------------------------------------
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import {
   collection,
-  addDoc,
-  doc,
-  getDoc,
   getDocs,
   query,
   where,
   onSnapshot,
-  updateDoc,
 } from 'firebase/firestore'
 
 import { db } from '../Firebase.js'
@@ -20,11 +16,7 @@ import { useFirebase } from './FirebaseContext.jsx'
 import { useAuth } from './AuthContext.jsx'
 import { useQr } from './QrContext.jsx'
 
-// 🔥 IMPORTAMOS LA LÓGICA MODULAR
-import {
-  calcularCuposEvento,
-  prepararLotes,
-} from '../logic/entradas/entradasEventos.js'
+import { calcularCuposEvento } from '../logic/entradas/entradasEventos.js'
 import {
   pedirEntradaFreeSinLote,
   pedirEntradaFreeConLote,
@@ -33,17 +25,122 @@ import {
   manejarTransferencia,
   manejarMercadoPago,
 } from '../logic/entradas/entradasPago.js'
+import { crearSolicitudPendiente } from '../logic/entradas/entradasUtils.js'
+
 import {
-  obtenerDatosBancarios,
-  obtenerContacto,
-  crearSolicitudPendiente,
-} from '../logic/entradas/entradasUtils.js'
+  abrirSeleccionLote,
+  abrirMetodoPago,
+} from '../services/entradasSwal.js'
 
 import Swal from 'sweetalert2'
 
+// --------------------------------------------------------------
+// CONTEXTO
+// --------------------------------------------------------------
 const EntradasContext = createContext()
 export const useEntradas = () => useContext(EntradasContext)
 
+// --------------------------------------------------------------
+// VERIFICACIÓN FREE — **CORREGIDA**
+// --------------------------------------------------------------
+async function verificarPermisosEntradaFree({
+  eventoId,
+  usuarioId,
+  lote = null,
+}) {
+  console.log('🟦 verificarPermisosEntradaFree()', {
+    eventoId,
+    usuarioId,
+    lote,
+  })
+
+  const snap1 = await getDocs(
+    query(
+      collection(db, 'entradas'),
+      where('usuarioId', '==', usuarioId),
+      where('eventoId', '==', eventoId),
+      where('precio', '==', 0)
+    )
+  )
+  const obtenidas = snap1.docs.map(d => d.data())
+
+  const snap2 = await getDocs(
+    query(
+      collection(db, 'entradasPendientes'),
+      where('usuarioId', '==', usuarioId),
+      where('eventoId', '==', eventoId),
+      where('precio', '==', 0)
+    )
+  )
+  const pendientes = snap2.docs.map(d => d.data())
+
+  const totalObtenidas = obtenidas.reduce((a, e) => a + (e.cantidad || 1), 0)
+  const totalPendientes = pendientes.reduce((a, e) => a + (e.cantidad || 1), 0)
+  const totalUsuario = totalObtenidas + totalPendientes
+
+  console.log('📊 FREE usuario:', {
+    totalObtenidas,
+    totalPendientes,
+    totalUsuario,
+  })
+
+  // ----------------------------------------------------------
+  // 🟣 CASO FREE POR LOTE — NO SE USA maxFreeUser
+  // ----------------------------------------------------------
+  if (lote) {
+    console.log('🟪 FREE por lote detectado → usar lote.restantes')
+
+    if (lote.restantes <= 0) {
+      return {
+        puede: false,
+        motivo: 'Lote lleno',
+        maxPermitidas: 0,
+        totalObtenidas,
+        totalPendientes,
+      }
+    }
+
+    // permitir pedir mientras queden cupos en el lote
+    return {
+      puede: true,
+      maxPermitidas: lote.restantes,
+      totalObtenidas,
+      totalPendientes,
+    }
+  }
+
+  // ----------------------------------------------------------
+  // 🟩 EVENTO SIN LOTES — FREE GLOBAL
+  // ----------------------------------------------------------
+  const snapEv = await getDocs(
+    query(collection(db, 'eventos'), where('__name__', '==', eventoId))
+  )
+  const eventoData = snapEv.docs[0]?.data() || {}
+
+  const maxFree =
+    Number(eventoData.maxFreeUser) || Number(eventoData.maxEntradasFree) || 1
+
+  if (totalUsuario >= maxFree) {
+    return {
+      puede: false,
+      motivo: 'Límite FREE global',
+      maxPermitidas: maxFree,
+      totalObtenidas,
+      totalPendientes,
+    }
+  }
+
+  return {
+    puede: true,
+    maxPermitidas: maxFree,
+    totalObtenidas,
+    totalPendientes,
+  }
+}
+
+// --------------------------------------------------------------
+// PROVIDER ROOT
+// --------------------------------------------------------------
 export function EntradasProvider({ children }) {
   const { user } = useFirebase()
   const { abrirLoginGlobal } = useAuth()
@@ -52,147 +149,153 @@ export function EntradasProvider({ children }) {
   const [eventos, setEventos] = useState([])
   const [misEntradas, setMisEntradas] = useState([])
   const [entradasPendientes, setEntradasPendientes] = useState([])
-  const [entradasUsadas] = useState([])
+  const [entradasUsadas, setEntradasUsadas] = useState([])
   const [loadingEventos, setLoadingEventos] = useState(true)
 
-  // ============================================================
-  // MODALES — SE MANTIENEN IGUAL
-  // ============================================================
-  const [modalSeleccion, setModalSeleccion] = useState({
-    visible: false,
-    lotes: [],
-    evento: null,
-    onSelect: null,
-    onClose: null,
-  })
-
-  function abrirModalSeleccionLote(lotes, evento) {
-    return new Promise(resolve => {
-      setModalSeleccion({
-        visible: true,
-        lotes,
-        evento,
-        onSelect: index => {
-          setModalSeleccion(p => ({ ...p, visible: false }))
-          resolve(index)
-        },
-        onClose: () => {
-          setModalSeleccion(p => ({ ...p, visible: false }))
-          resolve(null)
-        },
-      })
-    })
-  }
-
-  const [modalPago, setModalPago] = useState({
-    visible: false,
-    evento: null,
-    lote: null,
-    precio: 0,
-    maxCantidad: 1,
-    onResult: () => {},
-  })
-
-  function abrirModalMetodoPago({ evento, precio, loteSel, maxCantidad }) {
-    return new Promise(resolve => {
-      setModalPago({
-        visible: true,
-        evento,
-        lote: loteSel,
-        precio,
-        maxCantidad: maxCantidad || 1,
-        onResult: result => {
-          setModalPago(p => ({ ...p, visible: false }))
-          resolve(result)
-        },
-      })
-    })
-  }
-
-  // ============================================================
-  // CARGAR EVENTOS
-  // ============================================================
+  // --------------------------------------------------------------
+  // EVENTOS
+  // --------------------------------------------------------------
   useEffect(() => {
     async function cargar() {
-      setLoadingEventos(true)
       try {
         const snap = await getDocs(collection(db, 'eventos'))
         const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }))
         arr.sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
         setEventos(arr)
       } catch (e) {
-        console.error('Error cargando eventos:', e)
+        console.error('❌ Error cargando eventos:', e)
       }
       setLoadingEventos(false)
     }
     cargar()
   }, [])
 
-  // ============================================================
+  // --------------------------------------------------------------
   // MIS ENTRADAS
-  // ============================================================
+  // --------------------------------------------------------------
   useEffect(() => {
     if (!user) return setMisEntradas([])
     cargarEntradasUsuario(user.uid)
+    cargarEntradasUsadas(user.uid)
   }, [user])
 
   async function cargarEntradasUsuario(uid) {
-    const q = query(collection(db, 'entradas'), where('usuarioId', '==', uid))
-    const snap = await getDocs(q)
+    const snap = await getDocs(
+      query(collection(db, 'entradas'), where('usuarioId', '==', uid))
+    )
     setMisEntradas(snap.docs.map(d => ({ id: d.id, ...d.data() })))
   }
 
-  // ============================================================
-  // PENDIENTES EN TIEMPO REAL
-  // ============================================================
-  useEffect(() => {
-    if (!user) return setEntradasPendientes([])
+  async function cargarEntradasUsadas(uid) {
+    try {
+      const snap = await getDocs(
+        query(collection(db, 'entradasUsadas'), where('usuarioId', '==', uid))
+      )
+      setEntradasUsadas(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    } catch {}
+  }
 
+  // --------------------------------------------------------------
+  // PENDIENTES REALTIME
+  // --------------------------------------------------------------
+  useEffect(() => {
+    if (!user) return
     const q = query(
       collection(db, 'entradasPendientes'),
       where('usuarioId', '==', user.uid)
     )
-
-    const unsub = onSnapshot(q, snap =>
+    return onSnapshot(q, snap => {
       setEntradasPendientes(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    )
-
-    return () => unsub()
+    })
   }, [user])
 
-  // ============================================================
+  async function recargarPendientes(uid) {
+    const snap = await getDocs(
+      query(collection(db, 'entradasPendientes'), where('usuarioId', '==', uid))
+    )
+    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    setEntradasPendientes(data)
+    return data
+  }
+
+  // --------------------------------------------------------------
   // FUNCIÓN PRINCIPAL: PEDIR ENTRADA
-  // ============================================================
+  // --------------------------------------------------------------
   async function pedirEntrada(evento) {
     try {
       if (!user) {
         await Swal.fire({
-          title: 'Debes iniciar sesión',
+          title: 'Iniciá sesión',
+          text: 'Necesitás estar logueado para continuar',
           icon: 'warning',
-          confirmButtonText: 'Iniciar sesión',
         })
-        abrirLoginGlobal()
+
+        // 🔥 CORRECCIÓN PARA EVITAR LOOP INFINITO
+        setTimeout(() => {
+          abrirLoginGlobal()
+        }, 0)
+
         return
       }
 
       const usuarioId = user.uid
       const usuarioNombre = user.displayName || 'Usuario'
 
-      // ========================================================
-      // OBTENER CUPOS / LOTES (usando módulos)
-      // ========================================================
-      const { eventoData, cupoRestante, maxUser, lotesInfo } =
-        await calcularCuposEvento(evento.id, usuarioId)
+      const { eventoData, maxUser, lotesInfo } = await calcularCuposEvento(
+        evento.id,
+        usuarioId
+      )
 
-      // Evento con lotes
+      if (maxUser <= 0) {
+        await Swal.fire({
+          title: 'Límite alcanzado',
+          text: 'Ya alcanzaste el máximo de entradas.',
+          icon: 'info',
+        })
+        return
+      }
+
+      const precioEvento = Number(eventoData.precio || 0)
+
+      // ----------------------------------------------------------
+      // EVENTO CON LOTES
+      // ----------------------------------------------------------
       if (lotesInfo.length > 0) {
-        const indice = await abrirModalSeleccionLote(lotesInfo, evento)
-        if (indice === null) return
+        const idLote = await abrirSeleccionLote(evento, lotesInfo)
+        if (idLote === undefined || idLote === null) return
 
-        const loteSel = lotesInfo.find(x => x.index === indice)
-        const precio = Number(loteSel.precio)
+        let loteSel =
+          lotesInfo.find(l => String(l.id) === String(idLote)) ||
+          lotesInfo.find(l => String(l.index) === String(idLote)) ||
+          lotesInfo[idLote] ||
+          null
 
-        if (precio <= 0) {
+        if (!loteSel) {
+          await Swal.fire('Error', 'No se pudo identificar el lote.', 'error')
+          return
+        }
+
+        const precioLote = Number(loteSel.precio || 0)
+
+        if (precioLote <= 0) {
+          const verif = await verificarPermisosEntradaFree({
+            eventoId: evento.id,
+            usuarioId,
+            lote: loteSel,
+          })
+
+          if (!verif.puede) {
+            return Swal.fire({
+              title: 'Límite alcanzado',
+              html: `
+              <p>Obtenidas: <b>${verif.totalObtenidas}</b></p>
+              <p>Pendientes: <b>${verif.totalPendientes}</b></p>
+              <p>Máximo FREE: <b>${verif.maxPermitidas}</b></p>
+            `,
+              icon: 'info',
+            })
+          }
+
           return pedirEntradaFreeConLote({
             evento,
             loteSel,
@@ -203,20 +306,34 @@ export function EntradasProvider({ children }) {
           })
         }
 
-        const result = await abrirModalMetodoPago({
+        const maxCantidadPago = Math.min(maxUser, loteSel.restantes)
+        if (maxCantidadPago <= 0) {
+          await Swal.fire('Sin cupos', 'No quedan cupos en este lote.', 'info')
+          return
+        }
+
+        const resultPago = await abrirMetodoPago(
           evento,
-          precio,
           loteSel,
-          maxCantidad: Math.min(maxUser, loteSel.restantes),
-        })
+          precioLote,
+          maxCantidadPago
+        )
 
-        if (!result) return
+        if (resultPago?.cancelado) {
+          return Swal.fire(
+            'Compra cancelada',
+            'Compra cancelada por el usuario.',
+            'info'
+          )
+        }
 
-        if (result.metodo === 'transfer') {
+        if (!resultPago) return
+
+        if (resultPago.metodo === 'transfer') {
           return manejarTransferencia({
             evento,
-            precio,
-            cantidadSel: result.cantidad,
+            precio: precioLote,
+            cantidadSel: resultPago.cantidad,
             loteSel,
             usuarioId,
             usuarioNombre,
@@ -225,24 +342,35 @@ export function EntradasProvider({ children }) {
           })
         }
 
-        if (result.metodo === 'mp') {
-          return manejarMercadoPago({
-            evento,
-            precio,
-            cantidadSel: result.cantidad,
-            usuarioId,
-            eventoId: evento.id,
+        return manejarMercadoPago({
+          evento,
+          precio: precioLote,
+          cantidadSel: resultPago.cantidad,
+          usuarioId,
+          eventoId: evento.id,
+        })
+      }
+
+      // ----------------------------------------------------------
+      // EVENTO SIN LOTES — FREE
+      // ----------------------------------------------------------
+      if (precioEvento <= 0) {
+        const verif = await verificarPermisosEntradaFree({
+          eventoId: evento.id,
+          usuarioId,
+        })
+
+        if (!verif.puede) {
+          return Swal.fire({
+            title: 'No podés pedir más',
+            html: `
+            <p>Obtenidas: <b>${verif.totalObtenidas}</b></p>
+            <p>Pendientes: <b>${verif.totalPendientes}</b></p>
+          `,
+            icon: 'info',
           })
         }
 
-        return
-      }
-
-      // ========================================================
-      // Evento sin lotes — FREE
-      // ========================================================
-      const precioEvento = Number(eventoData.precio || 0)
-      if (precioEvento <= 0) {
         return pedirEntradaFreeSinLote({
           evento,
           usuarioId,
@@ -253,15 +381,23 @@ export function EntradasProvider({ children }) {
         })
       }
 
-      // ========================================================
-      // Evento sin lotes — PAGO
-      // ========================================================
-      const resultPago = await abrirModalMetodoPago({
+      // ----------------------------------------------------------
+      // EVENTO SIN LOTES — PAGO
+      // ----------------------------------------------------------
+      const resultPago = await abrirMetodoPago(
         evento,
-        precio: precioEvento,
-        loteSel: null,
-        maxCantidad: maxUser,
-      })
+        null,
+        precioEvento,
+        maxUser
+      )
+
+      if (resultPago?.cancelado) {
+        return Swal.fire(
+          'Compra cancelada',
+          'Compra cancelada por el usuario.',
+          'info'
+        )
+      }
 
       if (!resultPago) return
 
@@ -277,36 +413,36 @@ export function EntradasProvider({ children }) {
         })
       }
 
-      if (resultPago.metodo === 'mp') {
-        return manejarMercadoPago({
-          evento,
-          precio: precioEvento,
-          cantidadSel: resultPago.cantidad,
-          usuarioId,
-          eventoId: evento.id,
-        })
-      }
+      return manejarMercadoPago({
+        evento,
+        precio: precioEvento,
+        cantidadSel: resultPago.cantidad,
+        usuarioId,
+        eventoId: evento.id,
+      })
     } catch (err) {
-      console.error('ERROR pedirEntrada:', err)
+      console.error('❌ ERROR pedirEntrada:', err)
       Swal.fire('Error', 'Ocurrió un problema inesperado.', 'error')
     }
   }
 
-  // ============================================================
-  // PROVIDER
-  // ============================================================
+  // --------------------------------------------------------------
+  // PROVIDER FINAL
+  // --------------------------------------------------------------
   return (
     <EntradasContext.Provider
       value={{
         eventos,
         loadingEventos,
-        pedirEntrada,
+
         misEntradas,
         entradasPendientes,
         entradasUsadas,
 
-        modalSeleccion,
-        modalPago,
+        pedirEntrada,
+        cargarEntradasUsuario,
+        recargarPendientes,
+        cargarEntradasUsadas,
       }}
     >
       {children}

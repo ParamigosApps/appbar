@@ -5,14 +5,9 @@
   padding: 0;
 }
 
-html, body {
-  height: 100%;
-}
-
+html,
 body {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
+  height: 100%;
 }
 
 main {
@@ -459,11 +454,11 @@ div:where(.swal2-container) {
   background-size: 16px 12px;
   padding-right: 2.5rem;
 }
-#form-crear-producto input[type=file].form-control {
+#form-crear-producto input[type='file'].form-control {
   padding: 0.5rem;
   cursor: pointer;
 }
-#form-crear-producto input[type=file].form-control::file-selector-button {
+#form-crear-producto input[type='file'].form-control::file-selector-button {
   padding: 0.5rem 1rem;
   margin-right: 1rem;
   border: 1px solid #dee2e6;
@@ -474,7 +469,8 @@ div:where(.swal2-container) {
   cursor: pointer;
   transition: all 0.2s ease;
 }
-#form-crear-producto input[type=file].form-control::file-selector-button:hover {
+#form-crear-producto
+  input[type='file'].form-control::file-selector-button:hover {
   background-color: #e9ecef;
   border-color: #adb5bd;
 }
@@ -610,7 +606,8 @@ div:where(.swal2-container) {
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
 }
-.empleado-row .empleado-info h4, .empleado-row .empleado-info p {
+.empleado-row .empleado-info h4,
+.empleado-row .empleado-info p {
   margin: 0;
 }
 .empleado-row .empleado-info .empleado-nombre {
@@ -810,7 +807,11 @@ div:where(.swal2-container) {
   border: 1px solid #ccc;
 }
 
-#iconoEntradasPendientes, #iconoEventosDisponibles, #iconoMisEntradas, #iconoPedidosPendientes, #iconoPedidosPagos {
+#iconoEntradasPendientes,
+#iconoEventosDisponibles,
+#iconoMisEntradas,
+#iconoPedidosPendientes,
+#iconoPedidosPagos {
   width: 20px;
   height: 20px;
   font-size: 12px;
@@ -820,7 +821,8 @@ div:where(.swal2-container) {
   background-color: #242;
 }
 
-#iconoPedidosPendientes, #iconoMisEntradas {
+#iconoPedidosPendientes,
+#iconoMisEntradas {
   background-color: #1e88e5;
 }
 
@@ -897,7 +899,8 @@ div:where(.swal2-container) {
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     filter: brightness(1);
   }
@@ -1042,7 +1045,8 @@ header .contadorCarrito:empty {
   font-size: 0.8rem;
 }
 
-#MontoTotalCarrito, .MontoTotalCarritoH2 {
+#MontoTotalCarrito,
+.MontoTotalCarritoH2 {
   font-size: 1.3rem;
 }
 
@@ -1066,7 +1070,7 @@ body.qr-body {
   justify-content: flex-start;
   align-items: center;
   padding: 15px 10px;
-  font-family: "Segoe UI", sans-serif;
+  font-family: 'Segoe UI', sans-serif;
 }
 
 .qr-container {
@@ -1194,7 +1198,8 @@ body.qr-body {
   .manual-qr {
     width: 100%;
   }
-  .btn-primary, .btn-exit {
+  .btn-primary,
+  .btn-exit {
     width: 100%;
     text-align: center;
   }
@@ -1205,7 +1210,8 @@ body.qr-body {
     flex-direction: column;
     gap: 0.5rem;
   }
-  .manual-qr, .btn-primary {
+  .manual-qr,
+  .btn-primary {
     width: 100%;
   }
 }
@@ -1382,11 +1388,11 @@ body.qr-body {
   transform: translateY(-50%) rotate(0deg);
   transition: transform 0.3s ease;
   font-size: 2rem;
-  content: "";
+  content: '';
 }
 
 .btn-collapse .flecha::after {
-  content: "▾";
+  content: '▾';
 }
 
 .btn-collapse:not(.collapsed) .flecha {
@@ -1451,8 +1457,9 @@ body.qr-body {
   font-weight: 600;
   color: #555;
 }
-.login-divider::before, .login-divider::after {
-  content: "";
+.login-divider::before,
+.login-divider::after {
+  content: '';
   flex: 1;
   height: 1px;
   background: #ddd;
@@ -1561,7 +1568,7 @@ body.qr-body {
   border: 1px solid #dadce0;
   background: linear-gradient(145deg, #fff, #f1f3f4);
   color: #202124;
-  font-family: "Roboto", sans-serif;
+  font-family: 'Roboto', sans-serif;
   transition: all 0.25s ease;
 }
 .google-btn img {
@@ -1596,7 +1603,7 @@ body.qr-body {
 }
 
 .facebook-btn-small {
-  background: #1877F2;
+  background: #1877f2;
   color: #fff;
   border: none;
   padding: 10px 14px;
@@ -1612,11 +1619,11 @@ body.qr-body {
   justify-content: center;
   cursor: pointer;
   transition: 0.2s;
-  border: 2px solid #1877F2;
+  border: 2px solid #1877f2;
   margin: 0 auto;
 }
 .facebook-btn-small:hover {
-  background: #166FE5;
+  background: #166fe5;
 }
 
 .facebook-icon-box {
@@ -1651,16 +1658,19 @@ body.qr-body {
     transform: scale(1);
   }
 }
-.btn-resta, .btn-suma {
+.btn-resta,
+.btn-suma {
   color: white !important;
   border-radius: 6px;
   transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
 }
-.btn-resta:hover, .btn-suma:hover {
+.btn-resta:hover,
+.btn-suma:hover {
   animation: bounce-soft 0.25s ease;
   filter: brightness(1.25);
 }
-.btn-resta:active, .btn-suma:active {
+.btn-resta:active,
+.btn-suma:active {
   transform: scale(0.92);
 }
 

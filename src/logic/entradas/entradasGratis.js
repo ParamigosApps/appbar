@@ -1,10 +1,10 @@
 // --------------------------------------------------------------
-// entradasGratis.js — FREE CON LOTE + FREE SIN LOTE
+// src/logic/entradas/entradasGratis.js — FREE CON/SIN LOTE
 // --------------------------------------------------------------
 
 import Swal from 'sweetalert2'
 import { addDoc, collection } from 'firebase/firestore'
-import { db } from '../../Firebase'
+import { db } from '../../Firebase.js'
 
 // --------------------------------------------------------------
 // FREE — Evento con lote seleccionado
@@ -17,20 +17,36 @@ export async function pedirEntradaFreeConLote({
   mostrarQrReact,
   cargarEntradasUsuario,
 }) {
+  console.log('🟦 pedirEntradaFreeConLote()', {
+    eventoId: evento.id,
+    lote: loteSel,
+    usuarioId,
+  })
+
+  const maxPermitido = Math.max(0, Number(loteSel.restantes))
+  if (maxPermitido <= 0) {
+    await Swal.fire(
+      'Sin cupos',
+      'No quedan entradas disponibles en este lote.',
+      'info'
+    )
+    return
+  }
+
   const cant = await Swal.fire({
     title: evento.nombre,
     html: `
       <p>Entrada gratuita (${loteSel.nombre})</p>
       <input id="free-lote" type="number" class="swal2-input"
-             min="1" max="${loteSel.restantes}" value="1">
+             min="1" max="${maxPermitido}" value="1">
     `,
     showCancelButton: true,
     confirmButtonText: 'Solicitar',
     preConfirm: () => {
       const v = Number(document.getElementById('free-lote').value)
       if (!v || v < 1) return Swal.showValidationMessage('Cantidad inválida')
-      if (v > loteSel.restantes)
-        return Swal.showValidationMessage(`Máximo ${loteSel.restantes}`)
+      if (v > maxPermitido)
+        return Swal.showValidationMessage(`Máximo ${maxPermitido}`)
       return v
     },
   }).then(r => (r.isConfirmed ? r.value : null))
@@ -59,10 +75,8 @@ export async function pedirEntradaFreeConLote({
     ids.push(ref.id)
   }
 
-  // Actualiza lista del usuario
   await cargarEntradasUsuario(usuarioId)
 
-  // Mostrar QR solo si es 1
   if (cant === 1 && mostrarQrReact) {
     mostrarQrReact({
       ticketId: ids[0],
@@ -88,19 +102,36 @@ export async function pedirEntradaFreeSinLote({
   mostrarQrReact,
   cargarEntradasUsuario,
 }) {
+  console.log('🟦 pedirEntradaFreeSinLote()', {
+    eventoId: evento.id,
+    usuarioId,
+    maxUser,
+  })
+
+  const maxPermitido = Math.max(0, Number(maxUser))
+  if (maxPermitido <= 0) {
+    await Swal.fire(
+      'Sin cupos',
+      'Ya no tenés cupos disponibles para este evento.',
+      'info'
+    )
+    return
+  }
+
   const cant = await Swal.fire({
     title: evento.nombre,
     html: `
       <p>Entrada gratuita</p>
       <input id="free-sin" type="number" class="swal2-input"
-             min="1" max="${maxUser}" value="1">
+             min="1" max="${maxPermitido}" value="1">
     `,
     showCancelButton: true,
     confirmButtonText: 'Solicitar',
     preConfirm: () => {
       const v = Number(document.getElementById('free-sin').value)
       if (!v || v < 1) return Swal.showValidationMessage('Cantidad inválida')
-      if (v > maxUser) return Swal.showValidationMessage(`Máximo ${maxUser}`)
+      if (v > maxPermitido)
+        return Swal.showValidationMessage(`Máximo ${maxPermitido}`)
       return v
     },
   }).then(r => (r.isConfirmed ? r.value : null))

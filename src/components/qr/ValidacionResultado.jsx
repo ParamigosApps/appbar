@@ -1,133 +1,115 @@
 // --------------------------------------------------------------
-// ValidacionResultado.jsx — Tarjeta visual PRO con colores
+// src/components/qr/ValidacionResultado.jsx — CARD RESULTADO
 // --------------------------------------------------------------
-export default function ValidacionResultado({ data }) {
-  if (!data) return null
+import React from 'react'
 
-  const info = data.data || {}
-
-  // ---------------------------------------------
-  // 1) Lógica de colores / tipo
-  // ---------------------------------------------
-  let color = '#6c757d'
-  let bg = '#f8f9fa'
-  let titulo = ''
-  let icono = ''
-
-  if (data.tipo === 'entrada') {
-    const lote = (info.loteNombre || '').toLowerCase()
-    const estado = info.estado || 'aprobada'
-
-    if (estado !== 'aprobada') {
-      // CANCELADA
-      color = '#d9534f'
-      bg = '#ffe5e5'
-      titulo = 'ENTRADA CANCELADA'
-      icono = '⛔'
-    } else if (lote.includes('mujer')) {
-      // MUJER
-      color = '#e83e8c'
-      bg = '#ffe6f2'
-      titulo = 'ENTRADA MUJER'
-      icono = '💖'
-    } else if (lote.includes('hombre')) {
-      // HOMBRE
-      color = '#007bff'
-      bg = '#e6f0ff'
-      titulo = 'ENTRADA HOMBRE'
-      icono = '💙'
-    } else {
-      // GENERAL
-      color = '#28a745'
-      bg = '#e6ffed'
-      titulo = 'ENTRADA GENERAL'
-      icono = '🎟️'
-    }
+function colorFondo(color) {
+  switch (color) {
+    case 'green':
+      return '#d1f2d1'
+    case 'pink':
+      return '#ffd6ec'
+    case 'purple':
+      return '#e3d4ff'
+    case 'blue':
+      return '#d4e8ff'
+    case 'yellow':
+      return '#fff3cd'
+    case 'red':
+    default:
+      return '#f8d7da'
   }
+}
 
-  if (data.tipo === 'compra') {
-    if (info.estado === 'aprobada') {
-      color = '#28a745'
-      bg = '#e6ffed'
-      titulo = 'COMPRA APROBADA'
-      icono = '🛒✔️'
-    } else {
-      color = '#dc3545'
-      bg = '#ffe5e5'
-      titulo = 'COMPRA RECHAZADA'
-      icono = '🛒❌'
-    }
-  }
+export default function ValidacionResultado({
+  resultado,
+  modo,
+  onMarcarUsada,
+  onCerrar,
+}) {
+  if (!resultado) return null
 
-  // ---------------------------------------------
-  // 2) Estilos dinámicos
-  // ---------------------------------------------
-  const cardStyle = {
-    border: `3px solid ${color}`,
-    background: bg,
-    padding: '16px',
-    borderRadius: '12px',
-    color: '#000',
-  }
+  const { color, titulo, mensaje, tipo, estado, data } = resultado
+  const bg = colorFondo(color)
 
-  const tituloStyle = {
-    fontWeight: 'bold',
-    fontSize: '1.4rem',
-    color,
-    marginBottom: '10px',
-  }
+  const esEntradaOk = tipo === 'entrada' && estado === 'ok'
+  const esCompraOk = tipo === 'compra' && estado === 'ok'
 
   return (
-    <div style={cardStyle} className="shadow-sm">
-      <div style={tituloStyle}>
-        {icono} {titulo}
+    <div
+      className="mt-3 p-3 rounded"
+      style={{
+        background: bg,
+        border: '1px solid rgba(0,0,0,0.08)',
+      }}
+    >
+      <div className="d-flex justify-content-between align-items-start">
+        <div>
+          <h5 className="mb-1">{titulo}</h5>
+          <div style={{ fontSize: '.9rem' }}>{mensaje}</div>
+        </div>
+        <button
+          type="button"
+          className="btn btn-sm btn-outline-secondary"
+          onClick={onCerrar}
+        >
+          Cerrar
+        </button>
       </div>
 
-      <p style={{ marginBottom: 4 }}>
-        <strong>Mensaje:</strong> {data.mensaje}
-      </p>
-
-      {data.tipo === 'entrada' && (
-        <>
-          <p>
-            <strong>Evento:</strong> {info.nombreEvento}
-          </p>
-          <p>
-            <strong>Usuario:</strong> {info.usuarioNombre}
-          </p>
-          <p>
-            <strong>Lote:</strong> {info.loteNombre || 'General'}
-          </p>
-          <p>
-            <strong>Usado:</strong> {info.usado ? 'Sí' : 'No'}
-          </p>
-        </>
+      {/* INFO EXTRA */}
+      {data && (
+        <div className="mt-2" style={{ fontSize: '.82rem', color: '#333' }}>
+          {data.nombreEvento && (
+            <div>
+              <b>Evento:</b> {data.nombreEvento}
+            </div>
+          )}
+          {data.loteNombre && (
+            <div>
+              <b>Lote:</b> {data.loteNombre}
+            </div>
+          )}
+          {data.precio !== undefined && (
+            <div>
+              <b>Precio:</b> ${Number(data.precio || 0).toLocaleString('es-AR')}
+            </div>
+          )}
+          {data.usuarioNombre && (
+            <div>
+              <b>Usuario:</b> {data.usuarioNombre}
+            </div>
+          )}
+          {data.dni && (
+            <div>
+              <b>DNI:</b> {data.dni}
+            </div>
+          )}
+        </div>
       )}
 
-      {data.tipo === 'compra' && (
-        <>
-          <p>
-            <strong>Pedido:</strong> #{info.numeroPedido}
-          </p>
-          <p>
-            <strong>Usuario:</strong> {info.usuarioNombre}
-          </p>
-          <p>
-            <strong>Total:</strong> ${info.total}
-          </p>
-          <p>
-            <strong>Estado:</strong> {info.estado}
-          </p>
-        </>
-      )}
+      {/* BOTONES DE ACCIÓN */}
+      <div className="mt-3 d-flex gap-2">
+        {modo === 'entradas' && esEntradaOk && (
+          <button
+            type="button"
+            className="btn btn-sm btn-success"
+            onClick={onMarcarUsada}
+          >
+            Marcar entrada como usada
+          </button>
+        )}
 
-      {/* Debug opcional */}
-      <pre
-        className="mt-3 p-2 bg-dark text-success rounded"
-        style={{ fontSize: '0.8rem', whiteSpace: 'pre-wrap' }}
-      >
-        {JSON.stringify(info, null, 2)}
-      </pre>
+        {modo === 'caja' && esCompraOk && (
+          <button
+            type="button"
+            className="btn btn-sm btn-primary"
+            onClick={onMarcarUsada}
+          >
+            Marcar compra como retirada
+          </button>
+        )}
+      </div>
     </div>
   )
 }
