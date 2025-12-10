@@ -1,5 +1,5 @@
 // --------------------------------------------------------------
-// AdminProductos.jsx — Gestión de Productos (estilo CrearEvento)
+// AdminProductos.jsx — Versión PRO + Responsive + Layout Aislado
 // --------------------------------------------------------------
 import { useEffect, useState } from 'react'
 import Swal from 'sweetalert2'
@@ -12,9 +12,6 @@ import {
 } from '../../services/productosAdmin.js'
 
 export default function AdminProductos() {
-  // ------------------------------------------------------------
-  // STATE FORMULARIO
-  // ------------------------------------------------------------
   const [form, setForm] = useState({
     nombre: '',
     precio: '',
@@ -27,26 +24,18 @@ export default function AdminProductos() {
   const [imagenFile, setImagenFile] = useState(null)
   const [previewImg, setPreviewImg] = useState(null)
 
-  // edición
   const [editId, setEditId] = useState(null)
   const [editImagenPath, setEditImagenPath] = useState(null)
 
-  // listado
   const [productos, setProductos] = useState([])
 
   const MAX_DESC = 120
 
-  // ------------------------------------------------------------
-  // ESCUCHAR PRODUCTOS (real-time)
-  // ------------------------------------------------------------
   useEffect(() => {
     const unsubscribe = escucharProductos(lista => setProductos(lista))
     return () => unsubscribe && unsubscribe()
   }, [])
 
-  // ------------------------------------------------------------
-  // PREVIEW IMAGEN
-  // ------------------------------------------------------------
   useEffect(() => {
     if (!imagenFile) {
       setPreviewImg(null)
@@ -57,9 +46,6 @@ export default function AdminProductos() {
     return () => URL.revokeObjectURL(url)
   }, [imagenFile])
 
-  // ------------------------------------------------------------
-  // HANDLERS
-  // ------------------------------------------------------------
   function handleInput(e) {
     const { name, type, value, checked } = e.target
     setForm(prev => ({
@@ -88,9 +74,6 @@ export default function AdminProductos() {
     setEditImagenPath(null)
   }
 
-  // ------------------------------------------------------------
-  // VALIDACIONES
-  // ------------------------------------------------------------
   function validarFormulario() {
     const nombre = (form.nombre || '').trim()
     const descripcion = form.descripcion || ''
@@ -98,47 +81,25 @@ export default function AdminProductos() {
     const stock = Number(form.stock)
     const categoria = (form.categoria || '').trim()
 
-    if (!nombre) {
-      return { ok: false, msg: 'El nombre es obligatorio.' }
-    }
+    if (!nombre) return { ok: false, msg: 'El nombre es obligatorio.' }
+    if (!categoria) return { ok: false, msg: 'Seleccioná una categoría.' }
+    if (!Number.isFinite(precio) || precio < 0)
+      return { ok: false, msg: 'Precio inválido.' }
+    if (!Number.isFinite(stock) || stock < 0)
+      return { ok: false, msg: 'Stock inválido.' }
+    if (descripcion.length > MAX_DESC)
+      return { ok: false, msg: `Máximo ${MAX_DESC} caracteres.` }
 
-    if (!categoria) {
-      return { ok: false, msg: 'Seleccioná una categoría.' }
-    }
-
-    if (!Number.isFinite(precio) || precio < 0) {
-      return { ok: false, msg: 'El precio debe ser un número válido.' }
-    }
-
-    if (!Number.isFinite(stock) || stock < 0) {
-      return { ok: false, msg: 'El stock debe ser un número válido.' }
-    }
-
-    if (descripcion.length > MAX_DESC) {
-      return {
-        ok: false,
-        msg: `La descripción no puede superar los ${MAX_DESC} caracteres.`,
-      }
-    }
-
-    if (!editId && !imagenFile) {
-      return { ok: false, msg: 'Subí una imagen para el producto.' }
-    }
+    if (!editId && !imagenFile) return { ok: false, msg: 'Subí una imagen.' }
 
     return { ok: true }
   }
 
-  // ------------------------------------------------------------
-  // SUBMIT (CREAR / ACTUALIZAR)
-  // ------------------------------------------------------------
   async function handleSubmit(e) {
     e.preventDefault()
 
     const v = validarFormulario()
-    if (!v.ok) {
-      Swal.fire('Error', v.msg, 'error')
-      return
-    }
+    if (!v.ok) return Swal.fire('Error', v.msg, 'error')
 
     const datos = {
       nombre: form.nombre,
@@ -152,34 +113,23 @@ export default function AdminProductos() {
     let ok = false
 
     if (editId) {
-      // MODO EDICIÓN
       ok = await actualizarProducto(editId, datos, imagenFile, editImagenPath)
     } else {
-      // MODO CREACIÓN
       ok = await crearProducto(datos, imagenFile)
     }
 
     if (ok) {
       Swal.fire(
         'Listo',
-        editId ? 'Producto actualizado correctamente.' : 'Producto creado.',
+        editId ? 'Producto actualizado.' : 'Producto creado!',
         'success'
       )
       resetFormulario()
     } else {
-      Swal.fire(
-        'Error',
-        editId
-          ? 'No se pudo actualizar el producto.'
-          : 'No se pudo crear el producto.',
-        'error'
-      )
+      Swal.fire('Error', 'No se pudo guardar el producto.', 'error')
     }
   }
 
-  // ------------------------------------------------------------
-  // EDITAR / ELIMINAR
-  // ------------------------------------------------------------
   function onEditarProducto(prod) {
     setForm({
       nombre: prod.nombre || '',
@@ -193,8 +143,6 @@ export default function AdminProductos() {
     setEditImagenPath(prod.imagenPath || null)
     setPreviewImg(prod.imagen || null)
     setImagenFile(null)
-
-    // subo un poco para ver el formulario
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -205,228 +153,175 @@ export default function AdminProductos() {
       icon: 'warning',
       showCancelButton: true,
       confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar',
     })
 
     if (!res.isConfirmed) return
 
     const ok = await eliminarProducto(prod.id, prod.imagenPath || null)
-    if (ok) {
-      Swal.fire('Eliminado', 'El producto fue eliminado.', 'success')
-    } else {
-      Swal.fire('Error', 'No se pudo eliminar el producto.', 'error')
-    }
+    if (ok) Swal.fire('Eliminado', 'Producto eliminado.', 'success')
+    else Swal.fire('Error', 'No se pudo eliminar.', 'error')
   }
 
-  // ------------------------------------------------------------
-  // HELPERS VISUALES
-  // ------------------------------------------------------------
   const descLen = form.descripcion.length
-  let descClass = 'text-muted'
-  if (descLen > MAX_DESC) {
-    descClass = 'text-danger'
-  } else if (descLen > MAX_DESC * 0.9) {
-    descClass = 'text-warning'
-  }
+  const descClass =
+    descLen > MAX_DESC
+      ? 'text-danger'
+      : descLen > MAX_DESC * 0.9
+      ? 'text-warning'
+      : 'text-muted'
 
   function formatoPrecio(p) {
     const n = Number(p) || 0
-    return n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })
+    return n.toLocaleString('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+    })
   }
 
-  // ------------------------------------------------------------
-  // RENDER
-  // ------------------------------------------------------------
   return (
-    <div className="container py-3">
-      <h2 className="fw-bold mb-3">
-        {editId ? 'Editar producto' : 'Añadir producto'}
-      </h2>
+    <div className="productos-admin-page">
+      <div className="productos-admin-container">
+        <h2 className="fw-bold mb-3 text-center">
+          {editId ? 'Editar producto' : 'Añadir producto'}
+        </h2>
 
-      {/* ------------------- FORMULARIO ------------------- */}
-      <form
-        onSubmit={handleSubmit}
-        className="border rounded p-3 shadow-sm mb-4"
-      >
-        {/* Nombre */}
-        <label className="form-label fw-semibold">
-          Nombre <span className="text-danger">*</span>
-        </label>
-        <input
-          type="text"
-          name="nombre"
-          className="form-control mb-3"
-          placeholder="Ej: Fernet + Coca - 500cc"
-          value={form.nombre}
-          onChange={handleInput}
-          required
-        />
+        {/* FORMULARIO */}
+        <form onSubmit={handleSubmit} className="producto-form shadow-sm">
+          {/* Nombre */}
+          <label className="form-label fw-semibold">
+            Nombre <span className="text-danger">*</span>
+          </label>
+          <input
+            type="text"
+            name="nombre"
+            className="form-control mb-3"
+            value={form.nombre}
+            onChange={handleInput}
+            required
+          />
 
-        {/* Precio */}
-        <label className="form-label fw-semibold">
-          Precio <span className="text-danger">*</span>
-        </label>
-        <input
-          type="number"
-          name="precio"
-          className="form-control mb-3"
-          placeholder="Ej: $10.000"
-          value={form.precio}
-          onChange={handleInput}
-          min="0"
-          step="1"
-          required
-        />
+          {/* Precio */}
+          <label className="form-label fw-semibold">Precio *</label>
+          <input
+            type="number"
+            name="precio"
+            className="form-control mb-3"
+            value={form.precio}
+            onChange={handleInput}
+            required
+          />
 
-        {/* Descripción */}
-        <label className="form-label fw-semibold">
-          Descripción <span className="text-danger">*</span>
-        </label>
-        <textarea
-          name="descripcion"
-          className="form-control mb-1"
-          rows="2"
-          maxLength={200} // por las dudas, pero validamos con MAX_DESC
-          placeholder="Descripción breve del producto (se mostrará en la tarjeta)"
-          value={form.descripcion}
-          onChange={handleInput}
-          required
-        />
-        <div className="text-end mb-3">
-          <small className={descClass}>
-            {descLen}/{MAX_DESC} caracteres
-          </small>
-        </div>
+          {/* Descripción */}
+          <label className="form-label fw-semibold">Descripción *</label>
+          <textarea
+            name="descripcion"
+            className="form-control mb-1"
+            rows="2"
+            value={form.descripcion}
+            onChange={handleInput}
+            required
+          />
+          <div className="text-end mb-3">
+            <small className={descClass}>
+              {descLen}/{MAX_DESC}
+            </small>
+          </div>
 
-        {/* Stock */}
-        <label className="form-label fw-semibold">
-          Stock <span className="text-danger">*</span>
-        </label>
-        <input
-          type="number"
-          name="stock"
-          className="form-control mb-3"
-          min="0"
-          placeholder="Ej: 25"
-          value={form.stock}
-          onChange={handleInput}
-          required
-        />
+          {/* Stock */}
+          <label className="form-label fw-semibold">Stock *</label>
+          <input
+            type="number"
+            name="stock"
+            className="form-control mb-3"
+            value={form.stock}
+            onChange={handleInput}
+            required
+          />
 
-        {/* Categoría */}
-        <label className="form-label fw-semibold">
-          Categoría <span className="text-danger">*</span>
-        </label>
-        <select
-          name="categoria"
-          className="form-select mb-3"
-          value={form.categoria}
-          onChange={handleInput}
-          required
-        >
-          <option value="">Seleccionar categoría</option>
-          <option value="Tragos">Tragos</option>
-          <option value="Botellas">Botellas</option>
-          <option value="Combos">Combos</option>
-          <option value="Promos">Promos</option>
-          <option value="Accesorios">Accesorios</option>
-        </select>
+          {/* Categoría */}
+          <label className="form-label fw-semibold">Categoría *</label>
+          <select
+            name="categoria"
+            className="form-select mb-3"
+            value={form.categoria}
+            onChange={handleInput}
+            required
+          >
+            <option value="">Elegir...</option>
+            <option value="Tragos">Tragos</option>
+            <option value="Botellas">Botellas</option>
+            <option value="Combos">Combos</option>
+            <option value="Promos">Promos</option>
+            <option value="Accesorios">Accesorios</option>
+          </select>
 
-        {/* Imagen */}
-        <label className="form-label fw-semibold">
-          Imagen{' '}
-          {editId ? (
-            '(opcional para cambiar)'
-          ) : (
-            <span className="text-danger">*</span>
-          )}
-        </label>
-        <input
-          type="file"
-          className="form-control mb-2"
-          accept="image/*"
-          onChange={handleFileChange}
-        />
-        <small className="text-muted d-block mb-3">
-          Recomendado 1200×675px. Peso máx aprox. 4–5MB.
-        </small>
+          {/* Imagen */}
+          <label className="form-label fw-semibold">Imagen *</label>
+          <input
+            type="file"
+            className="form-control mb-2"
+            accept="image/*"
+            onChange={handleFileChange}
+          />
 
-        {previewImg && (
-          <div className="mb-3">
+          {previewImg && (
             <img
               src={previewImg}
-              alt="Preview producto"
-              className="img-fluid rounded"
+              className="img-fluid rounded mb-3"
               style={{ maxHeight: 180, objectFit: 'cover' }}
             />
-          </div>
-        )}
-
-        {/* Destacado */}
-        <div className="form-check mb-3">
-          <input
-            type="checkbox"
-            id="destacadoProducto"
-            name="destacado"
-            className="form-check-input"
-            checked={form.destacado}
-            onChange={handleInput}
-          />
-          <label className="form-check-label" htmlFor="destacadoProducto">
-            Marcar como destacado
+          )}
+          <label className="form-label fw-semibold mt-2">
+            ¿Producto destacado?
           </label>
-        </div>
+          <div className="form-check mb-3">
+            <input
+              type="checkbox"
+              id="destacado"
+              name="destacado"
+              className="form-check-input"
+              checked={form.destacado}
+              onChange={handleInput}
+            />
+            <label htmlFor="destacado" className="form-check-label">
+              Marcar como destacado
+            </label>
+          </div>
 
-        {/* BOTONES */}
-        <div className="d-flex gap-2">
-          <button type="submit" className="btn btn-success flex-fill">
+          <button type="submit" className="btn btn-success w-100">
             {editId ? 'Actualizar producto' : 'Guardar producto'}
           </button>
+
           {editId && (
             <button
               type="button"
-              className="btn btn-outline-secondary"
+              className="btn btn-outline-secondary w-100 mt-2"
               onClick={resetFormulario}
             >
               Cancelar edición
             </button>
           )}
-        </div>
-      </form>
+        </form>
 
-      {/* ------------------- LISTA DE PRODUCTOS ------------------- */}
-      <h4 className="fw-bold mb-3">Productos cargados</h4>
+        {/* LISTA DE PRODUCTOS */}
+        <h4 className="fw-bold mt-4">Productos cargados</h4>
 
-      {productos.length === 0 ? (
-        <p className="text-muted">Todavía no hay productos registrados.</p>
-      ) : (
-        <div className="row g-3">
-          {productos.map(prod => (
-            <div key={prod.id} className="col-12 col-md-6 col-lg-4">
-              <div className="card h-100 shadow-sm">
-                <div
-                  style={{
-                    height: 160,
-                    overflow: 'hidden',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: '#f7f7f7',
-                  }}
-                >
+        {productos.length === 0 ? (
+          <p className="text-muted">No hay productos todavía.</p>
+        ) : (
+          <div className="productos-grid">
+            {productos.map(prod => (
+              <div key={prod.id} className="producto-card card shadow-sm">
+                <div className="producto-img">
                   <img
                     src={
                       prod.imagen ||
                       'https://via.placeholder.com/300x160?text=Sin+imagen'
                     }
                     alt={prod.nombre}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                    }}
                   />
                 </div>
+
                 <div className="card-body d-flex flex-column">
                   {prod.destacado && (
                     <span className="badge bg-warning text-dark mb-2">
@@ -434,52 +329,47 @@ export default function AdminProductos() {
                     </span>
                   )}
 
-                  <h5 className="card-title">{prod.nombre}</h5>
+                  <h5>{prod.nombre}</h5>
 
                   <p className="small text-muted mb-1">
-                    Categoría:{' '}
+                    Cat:{' '}
                     <span className="badge bg-info text-dark">
-                      {prod.categoria || 'Sin categoría'}
+                      {prod.categoria}
                     </span>{' '}
                     — Stock:{' '}
-                    <span className="badge bg-success text-white">
-                      {prod.stock ?? 0}
-                    </span>
+                    <span className="badge bg-success">{prod.stock}</span>
                   </p>
 
-                  <p className="small text-muted mb-2">
+                  <p className="small text-muted">
                     {prod.descripcion || 'Sin descripción'}
                   </p>
 
-                  <div className="mb-3 text-muted">
-                    Precio al público:{' '}
-                    <span className="badge bg-primary">
+                  <div className="mt-auto">
+                    <div className="badge bg-primary mb-2">
                       {formatoPrecio(prod.precio)}
-                    </span>
-                  </div>
+                    </div>
 
-                  <div className="mt-auto d-flex gap-2">
-                    <button
-                      type="button"
-                      className="btn btn-outline-primary btn-sm flex-fill"
-                      onClick={() => onEditarProducto(prod)}
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline-danger btn-sm flex-fill"
-                      onClick={() => onEliminarProducto(prod)}
-                    >
-                      Eliminar
-                    </button>
+                    <div className="d-flex gap-2">
+                      <button
+                        className="btn btn-outline-primary btn-sm flex-fill"
+                        onClick={() => onEditarProducto(prod)}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        className="btn btn-outline-danger btn-sm flex-fill"
+                        onClick={() => onEliminarProducto(prod)}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -17,46 +17,36 @@ export default function LoginEmpleado() {
   const [usuario, setUsuario] = useState('')
   const [pass, setPass] = useState('')
 
-  // -------------------------------------------------------
-  // LOGIN MANUAL
-  // -------------------------------------------------------
   async function loginLocal(e) {
     e.preventDefault()
-
     if (!usuario || !pass) {
       Swal.fire('Error', 'Completá los campos', 'error')
       return
     }
-
     const ok = await loginAdminManual(usuario, pass)
-
     if (ok) navigate('/admin')
   }
 
-  // -------------------------------------------------------
-  // REDIRECCIÓN SI YA ESTÁ LOGUEADO
-  // -------------------------------------------------------
   useEffect(() => {
-    // rolUsuario: 0 = invitado, 1..4 = niveles válidos
     if (user && rolUsuario > 0) {
       navigate('/admin', { replace: true })
     }
   }, [user, rolUsuario, navigate])
 
   return (
-    <div className="container py-5 text-center" style={{ maxWidth: 450 }}>
-      <h2 className="fw-bold mb-4">Ingreso Empleados / Admin</h2>
+    <div className="login-wrapper">
+      <h2 className="login-title">Ingreso Empleados / Admin</h2>
 
-      {/* GOOGLE LOGIN */}
-      <button className="btn-google mb-3 w-100" onClick={loginGoogle}>
+      {/* LOGIN GOOGLE */}
+      <button className="btn-google" onClick={loginGoogle}>
         <img src={googleIcon} className="icon-google" alt="google" />
         Iniciar con Google
       </button>
 
-      <div className="text-muted my-3">o acceder con usuario/contraseña</div>
+      <div className="login-divider">o acceder con usuario/contraseña</div>
 
-      {/* FORMULARIO */}
-      <form onSubmit={loginLocal}>
+      {/* FORM */}
+      <form className="login-form" onSubmit={loginLocal}>
         <input
           className="form-control mb-2"
           placeholder="Mail"
@@ -77,11 +67,7 @@ export default function LoginEmpleado() {
         </button>
       </form>
 
-      <p
-        className="mt-3 text-primary fw-semibold"
-        style={{ cursor: 'pointer' }}
-        onClick={() => navigate('/')}
-      >
+      <p className="login-back" onClick={() => navigate('/')}>
         ← Volver
       </p>
     </div>

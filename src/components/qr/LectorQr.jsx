@@ -1,5 +1,5 @@
 // --------------------------------------------------------------
-// src/components/qr/LectorQr.jsx — VERSION FINAL 2025 QR PRO
+// src/components/qr/LectorQr.jsx — VERSION RESPONSIVE 2025 QR PRO
 // --------------------------------------------------------------
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -31,6 +31,7 @@ import {
 // FECHA dd/mm/aaaa
 // --------------------------------------------------------------
 function fechaLarga(fecha) {
+  if (!fecha || !fecha.includes('-')) return 'No definida'
   const [a, m, d] = fecha.split('-')
   return `${d}/${m}/${a}`
 }
@@ -89,10 +90,9 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   }
 
   const beepOk = () => beep(900, 130)
-  const beepError = () => beep(280, 150)
 
   // --------------------------------------------------------------
-  // CARGAR EVENTOS CON SWEETALERT
+  // CARGAR EVENTOS CON SWEETALERT (RESPONSIVE)
   // --------------------------------------------------------------
   useEffect(() => {
     async function cargarEventos() {
@@ -102,16 +102,24 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
 
       if (!arr.length) return
 
-      // Crear lista para swal
+      // HTML para Swal
       let html = `
-      <div style="text-align:left;margin-bottom:8px;font-size:15px;color:#555">
-        Seleccioná el evento a validar:
-      </div>
-      <select id="evento-select" class="swal2-select" style="
-        width:100%;padding:10px;font-size:16px;border-radius:8px;border:1px solid #ccc;
-      ">
-        <option disabled selected value="">Elegí un evento</option>
-      `
+  <div class="swal-content-wrapper">
+    <div class="swal-label">Seleccioná el evento a validar:</div>
+
+    <select id="evento-select" class="swal2-select swal-select-fixed">
+      <option disabled selected value="">Elegí un evento</option>
+`
+
+      arr.forEach(ev => {
+        if (!eventoEstaVigente(ev)) return
+        html += `
+    <option value="${ev.id}">
+      ${ev.nombre} — ${fechaLarga(ev.fecha)}
+    </option>`
+      })
+
+      html += `</select></div>`
 
       arr.forEach(ev => {
         if (!eventoEstaVigente(ev)) return
@@ -129,21 +137,28 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
         confirmButtonText: 'Continuar',
         confirmButtonColor: '#111',
 
-        // RESPONSIVE
+        // ---------------- RESPONSIVE PRO ----------------
         width: '100%',
-        maxWidth: '380px',
-        padding: '1rem',
-        background: '#f8f8f8',
+        maxWidth: '420px',
+        padding: '1.2rem',
+        background: '#fafafa',
 
         allowOutsideClick: false,
+        scrollbarPadding: false,
+
         customClass: {
-          popup: 'swal-popup-pro',
+          popup: 'swal-popup-pro-resp',
+          title: 'swal-title-resp',
         },
 
         didOpen: () => {
-          // Aumentar tamaño del select en mobile
+          // Mejora en mobile
           const sel = document.getElementById('evento-select')
-          if (sel) sel.style.fontSize = '18px'
+          if (sel) {
+            sel.style.fontSize = '18px'
+            sel.style.padding = '12px'
+            sel.style.borderRadius = '10px'
+          }
         },
 
         preConfirm: () => {
@@ -174,20 +189,17 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
 
     const ev = snapEv.data()
 
-    // VALIDACIONES CRÍTICAS PARA EVITAR TU ERROR
     const fechaEv =
       typeof ev.fecha === 'string' && ev.fecha.includes('-') ? ev.fecha : null
 
     const horarioEv = ev.horario || 'No especificado'
 
-    // Entradas totales
     const qTot = query(
       collection(db, 'entradas'),
       where('eventoId', '==', eventoId)
     )
     const tot = await getDocs(qTot)
 
-    // Entradas usadas
     const qUsed = query(
       collection(db, 'entradas'),
       where('eventoId', '==', eventoId),
@@ -197,7 +209,7 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
 
     setEventoInfo({
       ...ev,
-      fecha: fechaEv, // puede ser null si está mal cargado -> EVITA EL ERROR
+      fecha: fechaEv,
       horario: horarioEv,
       totales: tot.size,
       usadas: usados.size,
@@ -283,7 +295,6 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
       mostrarResultado(res)
 
       if (res?.ok && modo === 'entradas') {
-        // Asegurarse que se marca antes
         await marcarEntradaUsada(res.data.id)
 
         const evId = res.data.eventoId || eventoSeleccionado
@@ -304,7 +315,6 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
     navigator.vibrate?.([120, 80, 120])
 
     res?.ok && beepOk()
-
     if (res?.ok && res.tipo === 'compra') marcarCompraRetirada(res.data.id)
   }
 
@@ -339,7 +349,7 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
           </span>
         </div>
 
-        {/* PANEL DESPLEGABLE */}
+        {/* PANEL DESPLEGABLE DE ESTADÍSTICAS */}
         {eventoInfo && (
           <div className="evento-info-card mb-3">
             <div
@@ -353,12 +363,10 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
             {infoAbierto && (
               <div className="evento-info-body">
                 <p>
-                  <p>
-                    <strong>Fecha:</strong>{' '}
-                    {eventoInfo.fecha
-                      ? fechaLarga(eventoInfo.fecha)
-                      : 'No definida'}
-                  </p>
+                  <strong>Fecha:</strong>{' '}
+                  {eventoInfo.fecha
+                    ? fechaLarga(eventoInfo.fecha)
+                    : 'No definida'}
                 </p>
                 <p>
                   <strong>Horario:</strong> {eventoInfo.horario}

@@ -1,5 +1,5 @@
 // --------------------------------------------------------------
-// ListaEventos.jsx — con Tags de Estado, Editar y Cancelar
+// ListaEventos.jsx — versión corregida + responsive
 // --------------------------------------------------------------
 import { useEffect, useState } from 'react'
 import Swal from 'sweetalert2'
@@ -21,6 +21,7 @@ export default function ListaEventos({ setSeccion, setEditarId }) {
     const unsub = escucharEventos(setEventos)
     return () => unsub()
   }, [])
+
   function obtenerHoras(horario) {
     if (!horario) return { desde: '-', hasta: '-' }
 
@@ -33,18 +34,12 @@ export default function ListaEventos({ setSeccion, setEditarId }) {
     }
   }
 
-  // --------------------------------------------------------------
-  // 1) CHEQUEAR SI EL EVENTO TIENE ENTRADAS VENDIDAS
-  // --------------------------------------------------------------
   async function tieneVentas(id) {
     const q = query(collection(db, 'entradas'), where('eventoId', '==', id))
     const snap = await getDocs(q)
     return !snap.empty
   }
 
-  // --------------------------------------------------------------
-  // 2) CANCELAR EVENTO
-  // --------------------------------------------------------------
   async function cancelar(id, nombre) {
     const confirm = await Swal.fire({
       icon: 'warning',
@@ -75,9 +70,6 @@ export default function ListaEventos({ setSeccion, setEditarId }) {
     Swal.fire('Evento cancelado', 'Se actualizó correctamente.', 'success')
   }
 
-  // --------------------------------------------------------------
-  // 3) BORRAR EVENTO (solo sin ventas)
-  // --------------------------------------------------------------
   async function borrar(id, nombre) {
     if (await tieneVentas(id)) {
       Swal.fire({
@@ -105,15 +97,12 @@ export default function ListaEventos({ setSeccion, setEditarId }) {
     Swal.fire('Eliminado', 'Evento eliminado correctamente.', 'success')
   }
 
-  // --------------------------------------------------------------
-  // 4) DETERMINAR ESTADO DEL EVENTO + TAG
-  // --------------------------------------------------------------
   function estadoEvento(e) {
     if (e.estado === 'cancelado')
       return { label: 'Cancelado', className: 'badge bg-danger' }
 
     const hoy = new Date()
-    const hoyISO = hoy.toISOString().slice(0, 10) // yyyy-mm-dd
+    const hoyISO = hoy.toISOString().slice(0, 10)
 
     if (!e.fecha) return { label: 'Sin fecha', className: 'badge bg-secondary' }
 
@@ -121,108 +110,102 @@ export default function ListaEventos({ setSeccion, setEditarId }) {
     const desde = e.horario?.match(/(\d{2}:\d{2})/)?.[1] || '00:00'
     const hasta = e.horario?.match(/(\d{2}:\d{2})$/)?.[0] || '23:59'
 
-    const [hHasta, mHasta] = hasta.split(':').map(Number)
+    const [hHasta] = hasta.split(':').map(Number)
 
     const fechaEvento = new Date(`${eventDate}T00:00:00`)
     const fechaHoy = new Date(`${hoyISO}T00:00:00`)
 
-    // FINALIZADO
     if (
       fechaEvento < fechaHoy &&
       !(eventDate < hoyISO && hHasta > hoy.getHours())
     )
       return { label: 'Finalizado', className: 'badge bg-secondary' }
 
-    // EVENTO NOCTURNO EN CURSO (pasa de día)
     if (eventDate < hoyISO && hHasta > hoy.getHours()) {
       return { label: 'En curso', className: 'badge bg-warning text-dark' }
     }
 
-    // HOY
     if (eventDate === hoyISO)
       return { label: 'Hoy', className: 'badge bg-success' }
 
-    // PRÓXIMO
     if (eventDate > hoyISO)
       return { label: 'Próximo', className: 'badge bg-primary' }
 
     return { label: 'Evento', className: 'badge bg-secondary' }
   }
 
-  // --------------------------------------------------------------
-  // 5) UI
-  // --------------------------------------------------------------
   return (
-    <div className="container py-3">
-      <h2 className="fw-bold">Eventos cargados</h2>
+    <div className="eventos-page">
+      <div className="eventos-container">
+        <h2 className="fw-bold mb-3">Eventos cargados</h2>
 
-      {eventos.length === 0 && <p>No hay eventos aún.</p>}
+        {eventos.length === 0 && <p>No hay eventos aún.</p>}
 
-      {eventos.map(e => {
-        const estado = estadoEvento(e)
-        const horas = obtenerHoras(e.horario)
+        {eventos.map(e => {
+          const estado = estadoEvento(e)
+          const horas = obtenerHoras(e.horario)
 
-        return (
-          <div key={e.id} className="card mb-3 shadow-sm">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-start">
-                <div>
-                  <h5>
-                    {e.nombre}{' '}
-                    <span className={estado.className}>{estado.label}</span>
-                  </h5>
+          return (
+            <div key={e.id} className="card mb-3 shadow-sm evento-card">
+              <div className="card-body">
+                <div className="d-flex justify-content-between align-items-start">
+                  <div>
+                    <h5>
+                      {e.nombre}{' '}
+                      <span className={estado.className}>{estado.label}</span>
+                    </h5>
 
-                  <p className="m-0">
-                    <strong>Fecha:</strong> {formatearSoloFecha(e.fecha)}
-                  </p>
-                  <p className="m-0">
-                    <strong>Inicio:</strong> {horas.desde} <strong>Fin:</strong>{' '}
-                    {horas.hasta}
-                  </p>
-                  <p className="m-0">
-                    <strong>Lugar:</strong> {e.lugar}
-                  </p>
+                    <p className="m-0">
+                      <strong>Fecha:</strong> {formatearSoloFecha(e.fecha)}
+                    </p>
+                    <p className="m-0">
+                      <strong>Inicio:</strong> {horas.desde}{' '}
+                      <strong>Fin:</strong> {horas.hasta}
+                    </p>
+                    <p className="m-0">
+                      <strong>Lugar:</strong> {e.lugar}
+                    </p>
+                  </div>
+
+                  <div className="d-flex flex-column gap-2 text-end">
+                    <button
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={() => {
+                        setEditarId(e.id)
+                        setSeccion('editar-evento')
+                      }}
+                    >
+                      Editar
+                    </button>
+
+                    <button
+                      className="btn btn-outline-warning btn-sm"
+                      onClick={() => cancelar(e.id, e.nombre)}
+                    >
+                      Cancelar
+                    </button>
+
+                    <button
+                      className="btn btn-outline-danger btn-sm"
+                      onClick={() => borrar(e.id, e.nombre)}
+                    >
+                      Eliminar
+                    </button>
+                  </div>
                 </div>
 
-                {/* ACCIONES */}
-                <div className="d-flex flex-column gap-2">
-                  <button
-                    className="btn btn-outline-primary"
-                    onClick={() => {
-                      setEditarId(e.id)
-                      setSeccion('editar-evento')
-                    }}
-                  >
-                    Editar
-                  </button>
-
-                  <button
-                    className="btn btn-outline-warning btn-sm"
-                    onClick={() => cancelar(e.id, e.nombre)}
-                  >
-                    Cancelar
-                  </button>
-
-                  <button
-                    className="btn btn-outline-danger btn-sm"
-                    onClick={() => borrar(e.id, e.nombre)}
-                  >
-                    Eliminar
-                  </button>
-                </div>
+                {e.imagenEventoUrl && (
+                  <img
+                    src={e.imagenEventoUrl}
+                    className="img-fluid rounded mt-3"
+                    style={{ maxHeight: '180px', objectFit: 'cover' }}
+                  />
+                )}
               </div>
-
-              {e.imagenEventoUrl && (
-                <img
-                  src={e.imagenEventoUrl}
-                  className="img-fluid rounded mt-3"
-                  style={{ maxHeight: '180px', objectFit: 'cover' }}
-                />
-              )}
             </div>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
     </div>
   )
 }
