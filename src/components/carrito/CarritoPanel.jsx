@@ -81,25 +81,27 @@ export default function CarritoPanel() {
                   <td>${Number(p.precio) * p.enCarrito}</td>
 
                   <td>
-                    <div className="btn-group">
+                    <div className="carrito-cantidad-wrapper">
                       <button
-                        className="btn-resta"
+                        className="btn-resta carrito-btn"
                         onClick={() => restarProducto(i)}
                       >
                         –
                       </button>
 
-                      <span className="mx-2">{p.enCarrito}</span>
+                      <span className="carrito-cantidad-numero">
+                        {p.enCarrito}
+                      </span>
 
                       <button
-                        className="btn-suma"
+                        className="btn-suma carrito-btn"
                         onClick={() => sumarProducto(i)}
                       >
                         +
                       </button>
 
                       <button
-                        className="btn btn-danger btn-sm ms-2"
+                        className="btn btn-danger btn-sm carrito-eliminar"
                         onClick={() => eliminarProducto(i)}
                       >
                         X

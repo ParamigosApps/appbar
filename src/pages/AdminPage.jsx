@@ -16,8 +16,7 @@ import AdminConfiguracion from '../components/admin/AdminConfiguracion.jsx'
 import ComprasAdmin from '../components/admin/ComprasAdmin.jsx'
 import EntradasAdmin from '../components/admin/EntradasAdmin.jsx'
 import DashboardVentas from '../components/admin/DashboardVentas.jsx'
-
-import '../components/admin/admin.css'
+import '../styles/admin/admin.css'
 
 export default function AdminPage() {
   const navigate = useNavigate()

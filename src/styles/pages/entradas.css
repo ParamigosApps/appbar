@@ -1,0 +1,189 @@
+/* ============================================================
+   ENTRADAS & EVENTOS — VISTA COMPLETA 2025
+   ============================================================ */
+
+@charset "UTF-8";
+
+/* ------------------------------------------------------------
+   CONTENEDOR GENERAL
+------------------------------------------------------------ */
+.entradas-container {
+  width: 100%;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ------------------------------------------------------------
+   TABS / BOTONES SUPERIORES
+------------------------------------------------------------ */
+.botones-entradas {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+
+  position: relative;
+  z-index: 50 !important;
+  pointer-events: auto !important;
+}
+
+.botones-entradas button {
+  padding: 10px 14px;
+  font-size: 0.9rem;
+
+  border-radius: 12px !important;
+  border: 2px solid #e3e3e3 !important;
+  background: #ffffff !important;
+
+  font-weight: 600 !important;
+
+  transition: all 0.22s ease-in-out !important;
+
+  box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.08) !important;
+}
+
+.botones-entradas button:hover {
+  background: #f3f3f3 !important;
+  border-color: #bfbfbf !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ------------------------------------------------------------
+   EVENTOS
+------------------------------------------------------------ */
+.eventos-page {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 20px 15px;
+}
+
+.eventos-container {
+  width: 100%;
+  max-width: 900px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.event-card {
+  width: 100%;
+  background: #ffffff;
+  border-radius: 18px;
+  overflow: hidden;
+
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+  transition: 0.2s ease;
+}
+
+.event-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+
+.ev-img-wrap {
+  width: 100%;
+  height: 180px;
+  overflow: hidden;
+}
+
+.ev-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ------------------------------------------------------------
+   MIS ENTRADAS
+------------------------------------------------------------ */
+.mis-entradas {
+  padding: 15px;
+}
+
+.pedido-item {
+  padding: 12px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  cursor: pointer;
+
+  background: #f6f6f6;
+  transition: 0.2s ease;
+
+  min-height: 150px;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.pedido-item:hover {
+  background: #f0f0f0;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
+}
+
+.pedido-top {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 5px;
+}
+
+.pedido-bottom {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+/* Estados */
+.estado {
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 12px;
+  color: #333;
+}
+
+.estado.pagado {
+  background: #42b14d;
+}
+.estado.pendiente {
+  background: #fac834;
+}
+.estado.retirado {
+  background: #bbb;
+}
+
+/* ------------------------------------------------------------
+   HISTORIAL
+------------------------------------------------------------ */
+.historial-box {
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+/* ------------------------------------------------------------
+   RESPONSIVE
+------------------------------------------------------------ */
+@media (max-width: 600px) {
+  .entradas-container {
+    gap: 12px;
+  }
+
+  .event-card {
+    padding: 8px;
+  }
+
+  .eventos-container h2,
+  .entradas-admin-page h2 {
+    font-size: 1.4rem;
+  }
+
+  .botones-entradas button {
+    width: 100%;
+  }
+}

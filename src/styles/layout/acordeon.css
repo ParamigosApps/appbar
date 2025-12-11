@@ -1,0 +1,158 @@
+/* ============================================================
+   ACORDEÓN PRINCIPAL — HOME MENU 2025 (VERSIÓN FINAL)
+   ============================================================ */
+
+@charset "UTF-8";
+
+/* ------------------------------------------------------------
+   CONTENEDOR GENERAL DEL MENÚ DESPLEGABLE
+------------------------------------------------------------ */
+.menu-desplegable {
+  padding: 0.5rem;
+  box-sizing: border-box;
+}
+
+/* Desktop */
+@media (min-width: 992px) {
+  .menu-desplegable {
+    padding: 3rem 8rem;
+  }
+}
+
+/* ------------------------------------------------------------
+   ACORDEÓN (CONTENEDOR)
+------------------------------------------------------------ */
+.menu-desplegable .accordion {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+.menu-desplegable .accordion-item {
+  border: none;
+  border-bottom: 1px solid #e9ecef;
+}
+
+/* ------------------------------------------------------------
+   BOTÓN DEL ACORDEÓN
+------------------------------------------------------------ */
+.menu-desplegable .accordion-button {
+  background-color: #f9fafb;
+  padding: 1rem;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #212529;
+  transition: background 0.3s ease;
+}
+
+.menu-desplegable .accordion-button:not(.collapsed) {
+  background-color: #212529;
+  color: #ffffff;
+}
+
+.menu-desplegable .accordion-button:focus {
+  box-shadow: none;
+}
+
+.accordion-button::after {
+  pointer-events: none !important;
+}
+
+/* ------------------------------------------------------------
+   CUERPO INTERNO
+------------------------------------------------------------ */
+.menu-desplegable .accordion-body {
+  background: #ffffff;
+  padding: 0.8rem;
+  min-height: 80px;
+}
+
+/* ------------------------------------------------------------
+   BOTONES — ESTILO GENERAL
+------------------------------------------------------------ */
+.menu-desplegable .btn {
+  border-radius: 0.6rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.menu-desplegable .btn-outline-dark {
+  border-color: #343a40;
+  color: #343a40;
+}
+
+.menu-desplegable .btn-outline-dark:hover {
+  background-color: #343a40;
+  color: #ffffff;
+}
+
+/* ============================================================
+   CATEGORÍAS DEL CATÁLOGO — ESTILO PREMIUM APPBAR 2025
+============================================================ */
+
+.categorias-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+/* Botón base */
+.categoria-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 6px 12px;
+  min-width: 100px;
+
+  background: #ffffff;
+  border: 2px solid #d9d9d9;
+  border-radius: 10px;
+
+  font-size: 0.95rem;
+  font-weight: 600;
+
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+/* Ícono y texto dentro del botón */
+.categoria-icon {
+  font-size: 0.8rem;
+}
+
+.categoria-label {
+  color: #333;
+}
+
+/* Hover */
+.categoria-btn:hover {
+  border-color: #212529;
+  background: #f7f7f7;
+  transform: translateY(-2px);
+}
+
+/* Activo */
+.categoria-btn.active {
+  background: #212529;
+  border-color: #212529;
+  color: #fff;
+}
+
+.categoria-btn.active .categoria-label {
+  color: #fff;
+}
+
+/* ------------------------------------------------------------
+   RESPONSIVE ESPECÍFICO
+------------------------------------------------------------ */
+@media (max-width: 480px) {
+  .menu-desplegable {
+    padding: 0.6rem;
+  }
+}

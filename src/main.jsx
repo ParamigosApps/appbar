@@ -1,14 +1,18 @@
 // --------------------------------------------------------------
-// src/main.jsx — ORDEN CORRECTO DE PROVIDERS (FINAL)
+// src/main.jsx — ORDEN CORRECTO DE PROVIDERS (VERSIÓN FINAL 2025)
 // --------------------------------------------------------------
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import './styles/index.css'
 
-import './index.css'
+// Estilos globales (ORDEN OFICIAL)
 import 'bootstrap/dist/css/bootstrap.min.css'
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
-import 'sweetalert2/dist/sweetalert2.min.css'
 
+// SweetAlert — SOLO tu tema personalizado
+import './styles/swal/SwalTheme.css'
+
+// App principal
 import App from './App.jsx'
 
 // Providers
@@ -30,7 +34,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <CatalogoProvider>
               <PedidosProvider>
                 <QrProvider>
-                  {/* 🔵 SOLO UN EntradasProvider AQUÍ */}
                   <EntradasProvider>
                     <App />
                   </EntradasProvider>

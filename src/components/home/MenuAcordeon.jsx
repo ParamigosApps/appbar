@@ -1,8 +1,8 @@
 // --------------------------------------------------------------
-// src/components/home/MenuAcordeon.jsx (React FIXED VERSION FINAL)
+// src/components/home/MenuAcordeon.jsx — VERSIÓN FINAL 2025
 // --------------------------------------------------------------
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useCatalogo } from '../../context/CatalogoContext.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useEntradas } from '../../context/EntradasContext.jsx'
@@ -16,6 +16,9 @@ import RedesSociales from '../home/RedesSociales.jsx'
 import googleIcon from '../../assets/img/google.png'
 import facebookIcon from '../../assets/img/facebook.png'
 
+// --------------------------------------------------------------
+// ÍCONOS DE CATEGORÍAS
+// --------------------------------------------------------------
 const iconosCategorias = {
   tragos: '🍹',
   botellas: '🍾',
@@ -28,10 +31,10 @@ const obtenerIcono = cat => iconosCategorias[cat] || ''
 
 const normalizar = str => String(str).toLowerCase()
 
+// --------------------------------------------------------------
+// COMPONENTE PRINCIPAL
+// --------------------------------------------------------------
 export default function MenuAcordeon() {
-  // ============================================================
-  // ESTADOS PRINCIPALES
-  // ============================================================
   const [abierto, setAbierto] = useState(null)
   const [entradasInterno, setEntradasInterno] = useState(null)
   const [mostrarMapa, setMostrarMapa] = useState(false)
@@ -39,9 +42,9 @@ export default function MenuAcordeon() {
 
   const toggle = key => setAbierto(prev => (prev === key ? null : key))
 
-  // ============================================================
+  // ------------------------------------------------------------
   // CONTEXTOS
-  // ============================================================
+  // ------------------------------------------------------------
   const {
     categorias,
     categoriaActiva,
@@ -53,6 +56,7 @@ export default function MenuAcordeon() {
   } = useCatalogo()
 
   const { entradasPendientes, eventos, historial, misEntradas } = useEntradas()
+
   const {
     user,
     loginSettings,
@@ -63,20 +67,34 @@ export default function MenuAcordeon() {
     logout,
   } = useAuth()
 
-  // Contador de entradas pendientes
   const contadorPendientes = entradasPendientes?.length ?? 0
   const contadorMisEntradas = misEntradas?.length ?? 0
 
-  // ABRIR LOGIN GLOBAL
-  React.useEffect(() => {
+  // ------------------------------------------------------------
+  // Evento global para abrir login
+  // ------------------------------------------------------------
+  useEffect(() => {
     const handler = () => toggle('usuario')
     document.addEventListener('abrir-login', handler)
     return () => document.removeEventListener('abrir-login', handler)
   }, [])
 
-  // ============================================================
+  // ------------------------------------------------------------
+  // NUEVO: Evento global "abrir-mis-entradas"
+  // ------------------------------------------------------------
+  useEffect(() => {
+    const handler = () => {
+      setAbierto('entradas') // abre acordeón principal
+      setEntradasInterno('mis') // selecciona pestaña "Mis Entradas"
+    }
+
+    document.addEventListener('abrir-mis-entradas', handler)
+    return () => document.removeEventListener('abrir-mis-entradas', handler)
+  }, [])
+
+  // ------------------------------------------------------------
   // RENDER
-  // ============================================================
+  // ------------------------------------------------------------
   return (
     <main className="menu-desplegable flex-grow-1">
       <div className="catalogo my-2">
@@ -103,8 +121,8 @@ export default function MenuAcordeon() {
                   <button
                     className="btn btn-outline-dark w-100"
                     onClick={() => {
-                      seleccionarCategoria('Todos') // 🔥 Resetea las categorías
-                      toggleCatalogo() // 🔥 Abre el catálogo completo
+                      seleccionarCategoria('Todos')
+                      toggleCatalogo()
                     }}
                   >
                     Ver catálogo completo
@@ -152,30 +170,89 @@ export default function MenuAcordeon() {
                   </div>
 
                   {catalogoVisible && (
-                    <div className="container my-2">
-                      {(productosFiltrados ?? []).map(p => (
-                        <div
-                          key={p.id}
-                          className={`product-card ${
-                            p.stock === 0 ? 'producto-sin-stock sin-click' : ''
-                          }`}
-                          onClick={() => abrirProductoDetalle(p)}
-                        >
-                          <img
-                            src={p.imgSrc}
-                            alt={p.nombre}
-                            className="img-producto-carrito"
-                          />
-                          <div className="product-info">
-                            <h3>{p.nombre}</h3>
-                            <p>{p.descripcion}</p>
-                            <h5>${p.precio}</h5>
-                          </div>
-                          {p.stock === 0 && (
-                            <span className="sin-stock">SIN STOCK</span>
-                          )}
+                    <div className="catalogoContainer my-2">
+                      {/* Si está todo el catálogo → agrupar por categoría */}
+                      {categoriaActiva === 'Todos' ? (
+                        categorias
+                          ?.filter(cat => cat !== 'Todos')
+                          .map(cat => {
+                            const productosCat = productosFiltrados.filter(
+                              p =>
+                                p.categoria?.toLowerCase() === cat.toLowerCase()
+                            )
+
+                            if (productosCat.length === 0) return null
+
+                            return (
+                              <div key={cat} className="mb-4">
+                                {/* Título de la categoría */}
+                                <h5 className="catalogo-subtitulo">
+                                  {obtenerIcono(normalizar(cat))} {cat}
+                                </h5>
+
+                                {/* Grilla independiente por categoría */}
+                                <div className="catalogo-grid">
+                                  {productosCat.map(p => (
+                                    <div
+                                      key={p.id}
+                                      className={`product-card ${
+                                        p.stock === 0
+                                          ? 'producto-sin-stock sin-click'
+                                          : ''
+                                      }`}
+                                      onClick={() => abrirProductoDetalle(p)}
+                                    >
+                                      <img
+                                        src={p.imgSrc}
+                                        alt={p.nombre}
+                                        className="img-producto-carrito"
+                                      />
+                                      <div className="product-info">
+                                        <h3>{p.nombre}</h3>
+                                        <p>{p.descripcion}</p>
+                                        <h5>${p.precio}</h5>
+                                      </div>
+                                      {p.stock === 0 && (
+                                        <span className="sin-stock">
+                                          SIN STOCK
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          })
+                      ) : (
+                        /* Si hay categoría seleccionada, mostrar como antes */
+                        <div className="catalogo-grid">
+                          {productosFiltrados.map(p => (
+                            <div
+                              key={p.id}
+                              className={`product-card ${
+                                p.stock === 0
+                                  ? 'producto-sin-stock sin-click'
+                                  : ''
+                              }`}
+                              onClick={() => abrirProductoDetalle(p)}
+                            >
+                              <img
+                                src={p.imgSrc}
+                                alt={p.nombre}
+                                className="img-producto-carrito"
+                              />
+                              <div className="product-info">
+                                <h3>{p.nombre}</h3>
+                                <p>{p.descripcion}</p>
+                                <h5>${p.precio}</h5>
+                              </div>
+                              {p.stock === 0 && (
+                                <span className="sin-stock">SIN STOCK</span>
+                              )}
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
                     </div>
                   )}
                 </div>
@@ -352,20 +429,16 @@ export default function MenuAcordeon() {
               <div className="accordion-collapse show">
                 <div className="accordion-body d-grid gap-2">
                   <button
-                    className="btn btn-outline-dark"
+                    className="btn ubicacion-btn btn-outline-dark mb-3"
                     onClick={() => setMostrarMapa(prev => !prev)}
                   >
                     Ver mapa
                   </button>
 
                   {mostrarMapa && (
-                    <div className="mt-2">
+                    <div className="ubicacion-mapa">
                       <iframe
-                        className="rounded"
-                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3282.022302640099!2d-58.3816022!3d-34.6037037!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x4aa9f0a6da5edb%3A0x11bead4e234e558b!2sObelisco+de+Buenos+Aires!5e0!3m2!1ses!2sar!4v1699999999999"
-                        width="380"
-                        height="300"
-                        style={{ border: 0 }}
+                        src="https://www.google.com/maps/embed?...."
                         loading="lazy"
                         allowFullScreen
                       ></iframe>
@@ -411,15 +484,11 @@ export default function MenuAcordeon() {
 
                       {loginSettings.facebook && (
                         <button
-                          className="facebook-btn-small mb-3"
+                          className="facebook-btn-small d-block mx-auto mb-3"
                           onClick={loginFacebook}
                         >
                           <span className="facebook-icon-box">
-                            <img
-                              src={facebookIcon}
-                              alt="Facebook"
-                              style={{ width: 32, height: 32 }}
-                            />
+                            <img src={facebookIcon} alt="Facebook" />
                           </span>
                           Iniciar sesión con Facebook
                         </button>

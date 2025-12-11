@@ -1,5 +1,5 @@
 // --------------------------------------------------------------
-// src/components/Header.jsx — CARRITO CORRECTO
+// src/components/Header.jsx — CARRITO CORRECTO (FINAL)
 // --------------------------------------------------------------
 import { Link } from 'react-router-dom'
 import { useCarrito } from '../context/CarritoContext.jsx'
@@ -12,12 +12,14 @@ export default function Header() {
 
   return (
     <header className="app-header">
+      {/* LOGO */}
       <Link className="navbar-brand" to="/">
         <img src={logo} alt="Logo" className="header-logo-img" />
       </Link>
 
-      <div id="carritoIcono" className="carrito-icono" onClick={abrirCarrito}>
-        <img src={carritoImg} alt="carrito" />
+      {/* ICONO DEL CARRITO */}
+      <div id="carritoIcono" onClick={abrirCarrito}>
+        <img src={carritoImg} alt="carrito" id="img-carrito" />
         {cantidadCarrito > 0 && (
           <span className="contadorCarrito">{cantidadCarrito}</span>
         )}

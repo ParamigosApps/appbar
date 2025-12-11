@@ -1,0 +1,194 @@
+/* ============================================================
+   SWEETALERT2 — TEMA CLARO PROFESIONAL 2025
+   ============================================================ */
+
+@charset "UTF-8";
+
+/* ------------------------------------------------------------
+   POPUP BASE
+------------------------------------------------------------ */
+.swal-popup-custom {
+  border-radius: 16px !important;
+  padding: 20px 25px !important;
+
+  background: #ffffff !important;
+
+  border: 1px solid #e9e9e9 !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+.swal2-container {
+  z-index: 999999 !important;
+}
+
+/* ------------------------------------------------------------
+   TÍTULO + TEXTO
+------------------------------------------------------------ */
+.swal2-title {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  margin-bottom: 10px !important;
+}
+
+.swal2-html-container {
+  font-size: 16px !important;
+  font-weight: 500 !important;
+  margin-top: 10px !important;
+}
+
+/* ------------------------------------------------------------
+   ÍCONO
+------------------------------------------------------------ */
+.swal2-icon {
+  margin-bottom: 5px !important;
+}
+
+/* ------------------------------------------------------------
+   BOTONES — CONTENEDOR
+------------------------------------------------------------ */
+.swal2-actions {
+  display: flex !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  margin-top: 15px !important;
+}
+
+/* ------------------------------------------------------------
+   BOTÓN CONFIRMAR
+------------------------------------------------------------ */
+.swal-btn-confirm,
+.swal2-confirm {
+  background: #14a8e2 !important;
+  color: #ffffff !important;
+
+  padding: 10px 22px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+
+  border-radius: 8px !important;
+  border: none !important;
+
+  cursor: pointer !important;
+  transition: 0.2s ease !important;
+
+  box-shadow: 0 2px 8px rgba(20, 168, 226, 0.4) !important;
+}
+
+.swal-btn-confirm:hover,
+.swal2-confirm:hover {
+  background: #0f8cc0 !important;
+  transform: scale(1.05) !important;
+}
+
+/* ------------------------------------------------------------
+   BOTÓN CANCELAR
+------------------------------------------------------------ */
+.swal-btn-cancel,
+.swal2-cancel {
+  background: #444444 !important;
+  color: white !important;
+
+  padding: 10px 22px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+
+  border-radius: 8px !important;
+  border: none !important;
+
+  cursor: pointer !important;
+  transition: 0.2s ease !important;
+
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.swal-btn-cancel:hover,
+.swal2-cancel:hover {
+  background: #222222 !important;
+  transform: scale(1.05) !important;
+}
+
+/* ------------------------------------------------------------
+   BOTONES DE CANTIDAD (Entradas / Productos)
+------------------------------------------------------------ */
+.swal2-popup .btn-swal-cantidad {
+  background: #14a8e2 !important;
+  color: white !important;
+
+  padding: 8px 14px !important;
+  border-radius: 8px !important;
+
+  font-size: 18px !important;
+  font-weight: 600 !important;
+
+  border: none !important;
+  cursor: pointer !important;
+
+  transition: 0.15s !important;
+
+  box-shadow: 0 2px 8px rgba(20, 168, 226, 0.4) !important;
+}
+
+.swal2-popup .btn-swal-cantidad:hover {
+  transform: scale(1.1) !important;
+}
+
+/* ------------------------------------------------------------
+   INPUTS (selects, etc)
+------------------------------------------------------------ */
+.swal-select-fixed {
+  width: 100% !important;
+  padding: 12px !important;
+
+  font-size: 17px !important;
+
+  border-radius: 10px !important;
+  border: 1px solid #ccc !important;
+
+  box-sizing: border-box !important;
+}
+
+/* ------------------------------------------------------------
+   LAYOUT RESPONSIVE DEL POPUP
+------------------------------------------------------------ */
+.swal2-popup.swal-popup-pro-resp {
+  width: 100% !important;
+  max-width: 420px !important;
+  padding: 20px !important;
+
+  border-radius: 18px !important;
+  overflow-x: hidden !important;
+}
+
+.swal-title-resp {
+  font-size: 1.5rem !important;
+  font-weight: 700 !important;
+  margin-bottom: 15px !important;
+}
+
+.swal-content-wrapper {
+  width: 100%;
+  padding: 0 5px;
+  overflow-x: hidden !important;
+}
+
+/* MOBILE FIX */
+@media (max-width: 480px) {
+  .swal2-popup.swal-popup-pro-resp {
+    width: 92% !important;
+    padding: 16px !important;
+    max-width: none !important;
+  }
+
+  .swal-select-fixed {
+    padding: 14px !important;
+    font-size: 18px !important;
+  }
+}
+
+/* ------------------------------------------------------------
+   FIXES GENERALES
+------------------------------------------------------------ */
+.sin-click {
+  pointer-events: none !important;
+  opacity: 0.5 !important;
+}

@@ -1,10 +1,12 @@
 // --------------------------------------------------------------
-// src/components/CarritoOverlay.jsx — VERSIÓN FINAL AJUSTADA
+// src/components/CarritoOverlay.jsx — VERSIÓN FINAL 2025
 // --------------------------------------------------------------
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
+
 import { useCarrito } from '../context/CarritoContext.jsx'
 import { usePedidos } from '../context/PedidosContext.jsx'
+
 import './CarritoOverlay.css'
 import PedidosSection from './pedidos/PedidosSection.jsx'
 
@@ -21,7 +23,6 @@ export default function CarritoOverlay() {
   } = useCarrito()
 
   const { pedidosPendientes, pedidosPagados } = usePedidos()
-
   const [verPedidos, setVerPedidos] = useState(false)
 
   if (!panelAbierto) return null
@@ -61,18 +62,10 @@ export default function CarritoOverlay() {
                 }}
                 onClick={() => {
                   cerrarCarrito()
-
                   const btnCat = document.querySelector(
                     '[data-accordion-target="catalogo"]'
                   )
                   btnCat?.click()
-
-                  const seccion = document.getElementById('accordion-catalogo')
-                  if (seccion) {
-                    setTimeout(() => {
-                      seccion.scrollIntoView({ behavior: 'smooth' })
-                    }, 300)
-                  }
                 }}
               >
                 Ir al catálogo
@@ -87,10 +80,27 @@ export default function CarritoOverlay() {
                   <p>{p.nombre}</p>
                   <p>${format(p.precio)}</p>
 
-                  <div className="carrito-controles">
-                    <button onClick={() => restarProducto(index)}>-</button>
-                    <span>{p.enCarrito}</span>
-                    <button onClick={() => sumarProducto(index)}>+</button>
+                  {/* =======================================================
+                       CONTROLES DE CANTIDAD (— 1 +) — VERSIÓN FINAL
+                     ======================================================= */}
+                  <div className="carrito-cantidad-wrapper">
+                    <button
+                      className="btn-resta carrito-btn"
+                      onClick={() => restarProducto(index)}
+                    >
+                      –
+                    </button>
+
+                    <span className="carrito-cantidad-numero">
+                      {p.enCarrito}
+                    </span>
+
+                    <button
+                      className="btn-suma carrito-btn"
+                      onClick={() => sumarProducto(index)}
+                    >
+                      +
+                    </button>
                   </div>
                 </div>
               </div>
@@ -120,21 +130,15 @@ export default function CarritoOverlay() {
               (verPedidos ? '' : 'collapsed')
             }
             type="button"
-            onClick={() => {
-              setVerPedidos(v => !v)
-            }}
+            onClick={() => setVerPedidos(v => !v)}
           >
             <strong>TUS PEDIDOS</strong>
             <span
               className="
-                badge bg-dark ms-2 rounded-circle d-inline-flex 
+                badge bg-dark ms-2 rounded-circle d-inline-flex
                 justify-content-center align-items-center
               "
-              style={{
-                width: '22px',
-                height: '22px',
-                fontSize: '0.75rem',
-              }}
+              style={{ width: '22px', height: '22px', fontSize: '0.75rem' }}
             >
               {totalPedidos}
             </span>

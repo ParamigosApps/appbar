@@ -1,22 +1,22 @@
 // --------------------------------------------------------------
-// src/services/entradasSwal.js — ULTRA PRO BOLICHE v3 (CORREGIDO)
+// src/services/entradasSwal.js — PASSLINE PRO 2025 (FINAL CLEAN)
 // --------------------------------------------------------------
 
 import Swal from 'sweetalert2'
+import { formatearSoloFecha } from '../utils/utils.js'
 
-/**
- * FACTORY — CREA UN SWAL CON THEME DINÁMICO
- * Mantiene compatibilidad total con React y Context (sin hooks).
- */
+// ======================================================================
+// CREAR THEME
+// ======================================================================
 function crearSwalConTheme(theme = 'light') {
   document.body.classList.remove('light', 'dark')
   document.body.classList.add(theme)
 
   return Swal.mixin({
     customClass: {
-      popup: 'swal-popup-custom boliche-popup',
-      confirmButton: 'swal-btn-confirm boliche-btn',
-      cancelButton: 'swal-btn-cancel boliche-btn-cancel',
+      popup: 'swal-popup-custom swal-lotes',
+      confirmButton: 'swal-btn-confirm',
+      cancelButton: 'swal-btn-cancel',
     },
     buttonsStyling: false,
     heightAuto: false,
@@ -24,209 +24,314 @@ function crearSwalConTheme(theme = 'light') {
 }
 
 // ======================================================================
-// █▀█ █▀█ █░░ █ ▀█▀ █▀▀   SELECCIÓN DE LOTE — (REESTRUCTURADO)
+// SELECCIÓN DE LOTE
 // ======================================================================
 export async function abrirSeleccionLote(evento, lotes, theme = 'light') {
   const MySwal = crearSwalConTheme(theme)
 
   return await MySwal.fire({
-    title: `<span class="boliche-titulo">${evento.nombre}</span>`,
+    title: `<span class="swal-title-main">${evento.nombre}</span>`,
 
     html: `
-      <div class="boliche-lotes-scroll">
-        ${lotes
-          .map(l => {
-            const porc =
-              l.cantidad > 0 ? Math.round((l.restantes / l.cantidad) * 100) : 0
+      <div class="lotes-scroll">
+        <div class="lotes-wrapper">
+${lotes
+  .map(l => {
+    const agotado = l.restantes <= 0
+    const porc =
+      l.cantidad > 0 ? Math.round((l.restantes / l.cantidad) * 100) : 0
 
-            return `
-              <div class="boliche-card" data-id="${l.id ?? l.index}">
+    const generoClase =
+      l.genero?.toLowerCase() === 'mujeres'
+        ? 'badge-rose'
+        : l.genero?.toLowerCase() === 'hombres'
+        ? 'badge-blue'
+        : 'badge-unisex'
 
-                ${
-                  l.imagen
-                    ? `<img src="${l.imagen}" class="boliche-img" />`
-                    : `<div class="boliche-img placeholder"></div>`
-                }
+    const generoBadge = `<span class="lote-badge ${generoClase}">${(
+      l.genero || 'UNISEX'
+    ).toUpperCase()}</span>`
 
-                <div class="boliche-info">
+    const consumicionBadge = l.incluyeConsumicion
+      ? `<span class="lote-badge badge-consu-ok">🍸 CON CONSUMICIÓN</span>`
+      : `<span class="lote-badge badge-consu-no">SIN CONSUMICIÓN</span>`
 
-                  <div class="boliche-header">
-                    <span class="boliche-nombre">${l.nombre}</span>
-                    <span class="boliche-precio">$${l.precio}</span>
-                  </div>
+    const precioHtml =
+      Number(l.precio) === 0
+        ? `<span class="precio-valor badge-gratis">GRATIS</span>`
+        : `<span class="precio-valor badge-pago">$${l.precio}</span>`
 
-                  ${
-                    l.genero
-                      ? `<span class="boliche-tag">${l.genero.toUpperCase()}</span>`
-                      : ''
-                  }
+    let badgeStock = ''
+    if (!agotado && porc <= 30) {
+      badgeStock =
+        porc <= 10
+          ? `<span class="lote-badge badge-red">ÚLTIMOS CUPOS</span>`
+          : `<span class="lote-badge badge-orange">POCOS CUPOS</span>`
+    }
 
-                  ${
-                    l.descripcion
-                      ? `<p class="boliche-desc">${l.descripcion}</p>`
-                      : ''
-                  }
+    const fechaHtml =
+      evento.fecha && formatearSoloFecha ? formatearSoloFecha(evento.fecha) : ''
 
-                  ${
-                    l.desdeHora
-                      ? `<p class="boliche-extra"><b>Desde:</b> ${l.desdeHora}</p>`
-                      : ''
-                  }
+    return `
+<div class="lote-card ${agotado ? 'lote-sin-cupos' : ''}" data-id="${l.index}">
 
-                  ${
-                    l.hastaHora
-                      ? `<p class="boliche-extra"><b>Hasta:</b> ${l.hastaHora}</p>`
-                      : ''
-                  }
+  ${fechaHtml ? `<div class="lote-fecha-top-abs">${fechaHtml}</div>` : ''}
 
-                  ${
-                    evento.fecha
-                      ? `<p class="boliche-extra"><b>Fecha:</b> ${evento.fecha}</p>`
-                      : ''
-                  }
+  <div class="lote-nombre-principal">
+    <span class="lote-label">Lote:</span> ${String(l.nombre).toUpperCase()}
+  </div>
 
-                  <div class="boliche-bar">
-                    <div class="boliche-bar-fill" style="width:${porc}%"></div>
-                  </div>
+  ${
+    l.descripcionLote?.trim()
+      ? `<div class="lote-desc"><span class="lote-label">Descripción: </span>${l.descripcionLote}</div>`
+      : ''
+  }
 
-                  <p class="boliche-restantes">
-                    Quedan <b>${l.restantes}</b> de <b>${l.cantidad}</b>
-                  </p>
+  <div class="lote-horario-box">
+    <span class="lote-label">Ingreso permitido:</span>
+    <span class="lote-horario-value">${l.desdeHora || '-'} → ${
+      l.hastaHora || '-'
+    }</span>
+  </div>
 
-                </div>
-              </div>
-            `
-          })
-          .join('')}
+  <div class="lote-badges">
+    ${generoBadge}
+    ${consumicionBadge}
+    ${badgeStock}
+  </div>
+
+  <div class="lote-costo-box">
+    <span class="lote-label">Costo:</span>
+    ${precioHtml}
+  </div>
+
+  <div class="lote-footer-flex">
+    ${
+      agotado
+        ? `<div class="lote-agotado-btn">AGOTADO</div>`
+        : `<div class="lote-select-mini">COMPRAR</div>`
+    }
+  </div>
+</div>
+`
+  })
+  .join('')}
+        </div>
       </div>
     `,
 
     showCancelButton: true,
-    showConfirmButton: false,
     cancelButtonText: 'Cerrar',
+    showConfirmButton: false,
 
     didOpen: () => {
-      document.querySelectorAll('.boliche-card').forEach(card => {
-        card.addEventListener('click', () => {
-          window._swalValue = card.dataset.id
+      const cards = document.querySelectorAll('.lote-card')
+      cards.forEach(card => {
+        if (card.classList.contains('lote-sin-cupos')) return
+
+        const btn = card.querySelector('.lote-select-mini')
+        if (!btn) return
+
+        btn.onclick = () => {
+          window._swalValue = { loteId: card.dataset.id }
           Swal.close()
-        })
+        }
       })
     },
-  }).then(result => {
-    if (result.dismiss === Swal.DismissReason.cancel) {
-      return { cancelado: true }
-    }
+  }).then(res => {
+    if (res.dismiss === Swal.DismissReason.cancel) return { cancelado: true }
     return window._swalValue
   })
 }
 
 // ======================================================================
-// █▀▄▀█ █▀▀ ▀█▀ █▀█ █▀▄   MÉTODO DE PAGO — (REESTRUCTURADO)
+// RESUMEN DE LOTE
 // ======================================================================
-export async function abrirMetodoPago(
-  evento,
-  lote,
-  precio,
-  maxCantidad,
-  theme = 'light'
-) {
+export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
   const MySwal = crearSwalConTheme(theme)
+
+  const {
+    maxCantidad = 1,
+    limiteUsuario,
+    totalObtenidas = 0,
+    totalPendientes = 0,
+    cuposLote = 0,
+    precioUnitario,
+    esGratis: esGratisProp,
+  } = opciones
+
+  const precioBase =
+    typeof precioUnitario === 'number'
+      ? precioUnitario
+      : Number(lote?.precio || 0)
+
+  const esGratis = esGratisProp ?? precioBase === 0
+
+  const disponiblesAhora = Math.max(
+    0,
+    Math.min(limiteUsuario, cuposLote, maxCantidad)
+  )
+
   let cantidad = 1
 
+  // DEBUG PRO
+  console.group('🔎 RESUMEN LOTE')
+  console.log('Evento:', evento?.nombre)
+  console.log('Lote:', lote?.nombre)
+  console.log('totalObtenidas:', totalObtenidas)
+  console.log('totalPendientes:', totalPendientes)
+  console.log('limiteUsuario:', limiteUsuario)
+  console.log('cuposLote:', cuposLote)
+  console.log('maxCantidad:', maxCantidad)
+  console.log('disponiblesAhora:', disponiblesAhora)
+  console.groupEnd()
+
   return await MySwal.fire({
-    title: `<span class="boliche-titulo">${evento.nombre}</span>`,
+    title: `<span class="swal-title-main">${evento.nombre.toUpperCase()}</span>`,
 
     html: `
-  <div class="compra-wrapper">
+      <div class="resumen-lote-box">
 
-    <!-- INFO DEL LOTE -->
-    <div class="compra-header">
-      <div class="compra-titulo">
-        <span class="compra-lote">${lote?.nombre || 'Entrada'}</span>
-        <span class="compra-precio">$${precio}</span>
-      </div>
+        <p><b>Lote:</b> ${lote.nombre.toUpperCase()}</p>
 
-      <div class="compra-detalles">
-        ${evento.fecha ? `<p><b>📅 Fecha:</b> ${evento.fecha}</p>` : ''}
-        ${lote?.desdeHora ? `<p><b>⏱️ Desde:</b> ${lote.desdeHora}</p>` : ''}
-        ${lote?.hastaHora ? `<p><b>🕓 Hasta:</b> ${lote.hastaHora}</p>` : ''}
+        <hr />
+
+        <div class="info-limites-box">
+
+          ${
+            totalObtenidas > 0
+              ? `
+            <div class="limite-row">
+              <span class="label">Tus entradas:</span>
+              <span class="value">${totalObtenidas}</span>
+            </div>`
+              : ''
+          }
+
+          ${
+            totalPendientes > 0
+              ? `
+            <div class="limite-row">
+              <span class="label">Pendientes:</span>
+              <span class="value">${totalPendientes}</span>
+            </div>`
+              : ''
+          }
+
+          <div class="limite-row">
+            <span class="label">Máximo permitido por cuenta:</span>
+            <span class="value">${limiteUsuario}</span>
+          </div>
+
+          <div class="limite-row total">
+            <span class="label">Disponibles ahora:</span>
+            <span class="value highlight">${disponiblesAhora}</span>
+          </div>
+
+        </div>
+
+        <div class="cant-wrapper">
+          <button id="menos" class="cant-btn">–</button>
+          <input id="cant" value="1" min="1" max="${disponiblesAhora}">
+          <button id="mas" class="cant-btn">+</button>
+        </div>
+
+        <p id="total" class="total-box">
+          Total: <b>${esGratis ? 'GRATIS' : '$' + precioBase}</b>
+        </p>
+
         ${
-          lote?.genero
-            ? `<p><b>👥 Público:</b> ${lote.genero.toUpperCase()}</p>`
-            : ''
+          esGratis
+            ? `<p class="free-info">Confirmá la cantidad.</p>`
+            : `
+        <div class="metodos-wrapper">
+          <button id="mp" class="method-btn">💳 Mercado Pago</button>
+          <button id="transfer" class="method-btn">🔄 Transferencia</button>
+        </div>`
         }
       </div>
-    </div>
+    `,
 
-    <!-- CANTIDAD -->
-    <div class="compra-cantidad-box">
-      <button id="menos" class="compra-cant-btn">–</button>
-      <input id="cant" value="1" min="1" max="${maxCantidad}" />
-      <button id="mas" class="compra-cant-btn">+</button>
-    </div>
-
-    <!-- TOTAL -->
-    <p id="total" class="compra-total">
-      Total: <b>$${precio}</b>
-    </p>
-
-    <!-- BOTONES DE MÉTODO -->
-    <div class="compra-metodos">
-      <button id="mp" class="compra-btn compra-btn-mp">
-        💳 Mercado Pago
-      </button>
-
-      <button id="transfer" class="compra-btn compra-btn-trans">
-        🔄 Transferencia
-      </button>
-    </div>
-  </div>
-`,
     showCancelButton: true,
-    showConfirmButton: false,
     cancelButtonText: 'Cancelar',
+    showConfirmButton: esGratis,
+    confirmButtonText: 'Confirmar',
 
     didOpen: () => {
-      const cant = document.getElementById('cant')
+      const input = document.getElementById('cant')
       const total = document.getElementById('total')
 
-      const actualizar = () => {
-        let v = Number(cant.value)
+      function actualizar() {
+        let v = Number(input.value)
         if (v < 1) v = 1
-        if (v > maxCantidad) v = maxCantidad
-
+        if (v > disponiblesAhora) v = disponiblesAhora
         cantidad = v
-        cant.value = v
-        total.innerHTML = `Total: <b>$${v * precio}</b>`
+        input.value = v
+        total.innerHTML = esGratis
+          ? `Total: <b>GRATIS</b>`
+          : `Total: <b>$${v * precioBase}</b>`
       }
 
+      input.oninput = actualizar
       document.getElementById('menos').onclick = () => {
-        cant.value--
+        input.value = Number(input.value) - 1
         actualizar()
       }
-
       document.getElementById('mas').onclick = () => {
-        cant.value++
+        input.value = Number(input.value) + 1
         actualizar()
       }
+      actualizar()
 
-      cant.oninput = actualizar
-
-      document.getElementById('mp').onclick = () => {
-        window._swalValue = { cantidad, metodo: 'mp' }
-        Swal.close()
-      }
-
-      document.getElementById('transfer').onclick = () => {
-        window._swalValue = { cantidad, metodo: 'transfer' }
-        Swal.close()
+      if (!esGratis) {
+        document.getElementById('mp').onclick = () => {
+          window._swalValue = { cantidad, metodo: 'mp' }
+          Swal.close()
+        }
+        document.getElementById('transfer').onclick = () => {
+          window._swalValue = { cantidad, metodo: 'transfer' }
+          Swal.close()
+        }
       }
     },
-  }).then(result => {
-    if (result.dismiss === Swal.DismissReason.cancel) {
-      return { cancelado: true }
+  }).then(res => {
+    if (esGratis) {
+      if (!res.isConfirmed) return { cancelado: true }
+      return { cantidad, metodo: 'free' }
     }
+    if (res.dismiss === Swal.DismissReason.cancel) return { cancelado: true }
     return window._swalValue
   })
+}
+
+// ======================================================================
+// SWAL FINAL
+// ======================================================================
+export async function swalEntradasGeneradas({ eventoNombre, cantidad }) {
+  const res = await Swal.fire({
+    title: '¡Entradas generadas!',
+    html: `
+      <p style="font-size:18px;font-weight:600;">
+        ${cantidad} entrada(s) para <b>${eventoNombre}</b> fueron generadas 🎟️
+      </p>
+    `,
+    icon: 'success',
+
+    showCancelButton: true,
+    confirmButtonText: 'Ir a Mis Entradas',
+    cancelButtonText: 'Seguir en eventos',
+
+    customClass: {
+      confirmButton: 'swal-btn-confirm',
+      cancelButton: 'swal-btn-cancel',
+    },
+
+    buttonsStyling: false,
+    timer: 3500,
+    timerProgressBar: true,
+  })
+
+  if (res.isConfirmed) document.dispatchEvent(new Event('abrir-mis-entradas'))
+
+  return 'seguir'
 }

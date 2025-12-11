@@ -1,14 +1,14 @@
 // --------------------------------------------------------------
-// App.jsx — Rutas Admin con QR Entradas / QR Caja
+// App.jsx — Rutas Admin con QR Entradas / QR Caja (VERSIÓN FINAL)
 // --------------------------------------------------------------
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import './styles/SwalTheme.css'
+
+// Estilos globales
 
 import Layout from './components/layout/Layout.jsx'
 
-// PÚBLICAS
+// PÁGINAS PÚBLICAS
 import Home from './pages/Home.jsx'
-import CatalogoSection from './components/catalogo/CatalogoSection.jsx'
 import MisEntradas from './components/entradas/MisEntradas.jsx'
 import HistorialEntradas from './components/entradas/HistorialEntradas.jsx'
 
@@ -34,20 +34,18 @@ export default function App() {
         <Route path="/acceso" element={<Acceso />} />
         <Route path="/login-empleado" element={<LoginEmpleado />} />
 
-        {/* RUTAS PÚBLICAS */}
+        {/* RUTAS PÚBLICAS (Con Layout) */}
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
-          <Route path="/catalogo" element={<CatalogoSection />} />
-          <Route path="/mis-entradas" element={<MisEntradas />} />
           <Route path="/historial" element={<HistorialEntradas />} />
         </Route>
 
-        {/* ADMIN PRINCIPAL */}
+        {/* ADMIN DASHBOARD */}
         <Route element={<AdminRoute modulo="dashboard" />}>
           <Route path="/admin" element={<AdminPage />} />
         </Route>
 
-        {/* EVENTOS */}
+        {/* ADMIN EVENTOS */}
         <Route element={<AdminRoute modulo="eventos" />}>
           <Route path="/admin/crear-evento" element={<CrearEvento />} />
           <Route
@@ -56,12 +54,12 @@ export default function App() {
           />
         </Route>
 
-        {/* PRODUCTOS */}
+        {/* ADMIN PRODUCTOS */}
         <Route element={<AdminRoute modulo="productos" />}>
           <Route path="/admin/productos" element={<AdminProductos />} />
         </Route>
 
-        {/* LECTOR ENTRADAS */}
+        {/* ADMIN LECTOR QR ENTRADAS */}
         <Route element={<AdminRoute modulo="qr" />}>
           <Route
             path="/admin/qr-entradas"
@@ -69,7 +67,7 @@ export default function App() {
           />
         </Route>
 
-        {/* LECTOR CAJA */}
+        {/* ADMIN LECTOR QR CAJA */}
         <Route element={<AdminRoute modulo="caja" />}>
           <Route
             path="/admin/qr-caja"
@@ -77,12 +75,12 @@ export default function App() {
           />
         </Route>
 
-        {/* EMPLEADOS */}
+        {/* ADMIN EMPLEADOS */}
         <Route element={<AdminRoute modulo="empleados" />}>
           <Route path="/admin/empleados" element={<AdminEmpleados />} />
         </Route>
 
-        {/* CONFIGURACIÓN */}
+        {/* ADMIN CONFIGURACIÓN */}
         <Route element={<AdminRoute modulo="config" />}>
           <Route path="/admin/config" element={<AdminConfiguracion />} />
         </Route>

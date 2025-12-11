@@ -1,0 +1,64 @@
+/* ============================================================
+   CATEGORÍAS — BOTONES DE FILTRO DEL CATÁLOGO 2025
+   ============================================================ */
+
+@charset "UTF-8";
+
+/* ------------------------------------------------------------
+   CONTENEDOR FLEX DE CATEGORÍAS
+------------------------------------------------------------ */
+.categorias-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  width: 100%;
+}
+
+/* ------------------------------------------------------------
+   BOTÓN GENÉRICO DE CATEGORÍA
+------------------------------------------------------------ */
+.categoria-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 8px 12px;
+
+  border-radius: 14px;
+
+  background: #ffffff;
+  border: 2px solid #e2e2e2;
+
+  font-size: 0.95rem;
+  font-weight: 600;
+
+  transition: all 0.2s ease-in-out;
+
+  box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.07);
+
+  cursor: pointer;
+}
+
+/* Icono interno */
+.categoria-icon {
+  font-size: 1.1rem;
+  display: inline-block;
+}
+
+/* Hover */
+.categoria-btn:hover {
+  background: #f7f7f7;
+  border-color: #b6b6b6;
+  transform: translateY(-1px);
+}
+
+/* Estado activo */
+.categoria-btn.active {
+  background: #50575e;
+  border-color: #50575e;
+  color: #ffffff;
+}
+
+.categoria-btn.active .categoria-icon {
+  filter: brightness(2);
+}

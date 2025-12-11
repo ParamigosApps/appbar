@@ -101,3 +101,15 @@ export async function generarCompraQr({
     throw err
   }
 }
+
+// ======================================================
+// 🔥 Devuelve el STRING que irá al QR
+// ======================================================
+export function generarQrEntradaPayload(payload) {
+  // Validación mínima
+  if (!payload || typeof payload !== 'object') {
+    throw new Error('Payload inválido para QR')
+  }
+
+  return JSON.stringify(payload)
+}

@@ -393,9 +393,9 @@ export default function EditarEvento({ editarId, setSeccion }) {
         </button>
 
         {lotes.map(lote => (
-          <div key={lote.id} className="border rounded p-2 mb-3 bg-light">
-            <div className="d-flex justify-content-between">
-              <strong>{lote.nombre || 'Lote'}</strong>
+          <div key={lote.id} className="border rounded p-2 mb-5 bg-light">
+            <div className="d-flex justify-content-between mb-2">
+              <strong>{lote.nombre || 'Lote sin nombre'}</strong>
               <button
                 type="button"
                 className="btn btn-sm btn-danger"
@@ -405,26 +405,89 @@ export default function EditarEvento({ editarId, setSeccion }) {
               </button>
             </div>
 
-            <div className="row g-2 mt-2 mb-2">
+            <div className="row g-2 mb-2">
+              {/* Nombre */}
               <div className="col-md-4">
-                <label className="form-label small">Nombre</label>
+                <label className="form-label small m-0">
+                  Nombre del lote <span style={{ color: 'red' }}>*</span>
+                </label>
                 <input
+                  type="text"
                   className="form-control form-control-sm"
+                  placeholder="Ej: Preventa 1, Ladies Night, Early Bird..."
                   value={lote.nombre}
                   onChange={e =>
                     actualizarLote(lote.id, 'nombre', e.target.value)
                   }
+                  required
                 />
               </div>
 
-              <div className="col-md-3">
-                <label className="form-label small">Género</label>
+              {/* Descripción */}
+              <div className="col-md-4">
+                <label className="form-label small m-0">
+                  Descripción (opcional)
+                </label>
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  placeholder="Ej: Ingreso hasta 01:30, acceso preferencial..."
+                  value={lote.descripcion}
+                  onChange={e =>
+                    actualizarLote(lote.id, 'descripcion', e.target.value)
+                  }
+                />
+              </div>
+
+              {/* Precio */}
+              <div className="col-md-2">
+                <label className="form-label small m-0">
+                  Precio <span style={{ color: 'red' }}>*</span>
+                </label>
+                <input
+                  type="number"
+                  className="form-control form-control-sm"
+                  placeholder="Ej: 3000"
+                  value={lote.precio}
+                  onChange={e =>
+                    actualizarLote(lote.id, 'precio', e.target.value)
+                  }
+                  required
+                />
+              </div>
+
+              {/* Cantidad */}
+              <div className="col-md-2">
+                <label className="form-label small m-0">
+                  Límite de entradas <span style={{ color: 'red' }}>*</span>
+                </label>
+                <input
+                  type="number"
+                  className="form-control form-control-sm"
+                  placeholder="Ej: 50"
+                  value={lote.cantidad}
+                  onChange={e =>
+                    actualizarLote(lote.id, 'cantidad', e.target.value)
+                  }
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Segunda fila */}
+            <div className="row g-2 mb-2">
+              {/* Género */}
+              <div className="col-md-4">
+                <label className="form-label small m-0">
+                  Género <span style={{ color: 'red' }}>*</span>
+                </label>
                 <select
                   className="form-select form-select-sm"
                   value={lote.genero}
                   onChange={e =>
                     actualizarLote(lote.id, 'genero', e.target.value)
                   }
+                  required
                 >
                   <option value="todos">Todos</option>
                   <option value="hombres">Hombres</option>
@@ -432,57 +495,43 @@ export default function EditarEvento({ editarId, setSeccion }) {
                 </select>
               </div>
 
-              <div className="col-md-3">
-                <label className="form-label small">Precio</label>
-                <input
-                  type="number"
-                  className="form-control form-control-sm"
-                  value={lote.precio}
-                  onChange={e =>
-                    actualizarLote(lote.id, 'precio', e.target.value)
-                  }
-                />
+              {/* Ingreso permitido desde–hasta */}
+              <div className="col-md-4">
+                <label className="form-label small m-0">
+                  Ingreso permitido <span style={{ color: 'red' }}>*</span>
+                </label>
+
+                <div className="d-flex align-items-center gap-1">
+                  <span className="small">Desde:</span>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    style={{ minWidth: '65px' }}
+                    placeholder="23:30"
+                    value={lote.desdeHora}
+                    onChange={e =>
+                      actualizarLote(lote.id, 'desdeHora', e.target.value)
+                    }
+                    required
+                  />
+
+                  <span className="small">Hasta:</span>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    style={{ minWidth: '65px' }}
+                    placeholder="01:30"
+                    value={lote.hastaHora}
+                    onChange={e =>
+                      actualizarLote(lote.id, 'hastaHora', e.target.value)
+                    }
+                    required
+                  />
+                </div>
               </div>
 
-              <div className="col-md-2">
-                <label className="form-label small">Cantidad</label>
-                <input
-                  type="number"
-                  className="form-control form-control-sm"
-                  value={lote.cantidad}
-                  onChange={e =>
-                    actualizarLote(lote.id, 'cantidad', e.target.value)
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="row g-2 mb-2">
-              <div className="col-md-3">
-                <label className="form-label small">Desde</label>
-                <input
-                  className="form-control form-control-sm"
-                  value={lote.desdeHora}
-                  onChange={e =>
-                    actualizarLote(lote.id, 'desdeHora', e.target.value)
-                  }
-                  placeholder="23:30"
-                />
-              </div>
-
-              <div className="col-md-3">
-                <label className="form-label small">Hasta</label>
-                <input
-                  className="form-control form-control-sm"
-                  value={lote.hastaHora}
-                  onChange={e =>
-                    actualizarLote(lote.id, 'hastaHora', e.target.value)
-                  }
-                  placeholder="01:30"
-                />
-              </div>
-
-              <div className="col-md-6 d-flex align-items-end">
+              {/* Consumición */}
+              <div className="col-md-4 d-flex align-items-end">
                 <div className="form-check ms-2">
                   <input
                     type="checkbox"

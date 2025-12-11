@@ -1,5 +1,5 @@
 // --------------------------------------------------------------
-// src/logic/entradas/entradasEventos.js — DEBUG ULTRA PRO
+// src/logic/entradas/entradasEventos.js — VERSIÓN CORREGIDA TOTAL 2025
 // --------------------------------------------------------------
 
 import {
@@ -13,48 +13,29 @@ import {
 import { db } from '../../Firebase.js'
 
 // --------------------------------------------------------------
-// CALCULAR CUPOS Y LÍMITES — VERSIÓN DEBUG 2025
+// CALCULAR CUPOS Y LÍMITES CORRECTOS
 // --------------------------------------------------------------
 export async function calcularCuposEvento(eventoId, usuarioId) {
-  console.log('══════════════════════════════════════════')
-  console.log('🔵 calcularCuposEvento() INICIO')
-  console.log('eventoId:', eventoId, 'usuarioId:', usuarioId)
-  console.log('══════════════════════════════════════════')
+  console.log('🟦 calcularCuposEvento()', { eventoId, usuarioId })
 
-  // 1) Traer evento
-  const eventoSnap = await getDoc(doc(db, 'eventos', eventoId))
-  if (!eventoSnap.exists()) throw new Error('Evento no encontrado')
+  // 1) Cargar evento
+  const snap = await getDoc(doc(db, 'eventos', eventoId))
+  if (!snap.exists()) throw new Error('Evento no encontrado')
 
-  const eventoData = eventoSnap.data()
+  const evento = snap.data()
+  const lotes = Array.isArray(evento.lotes) ? evento.lotes : []
 
-  console.log('📌 EVENTO DATA COMPLETO:', JSON.stringify(eventoData, null, 2))
-
-  // LOTES
-  const lotes = Array.isArray(eventoData.lotes) ? eventoData.lotes : []
-  console.log('📦 LOTES BRUTOS:', lotes)
+  console.log('📌 Evento cargado:')
+  console.log(JSON.stringify(evento, null, 2))
 
   // --------------------------------------------------------------
-  // LÍMITES CONFIGURADOS
+  // 2) Límite REAL del usuario
   // --------------------------------------------------------------
-  const limitePorUsuario =
-    Number(eventoData.entradasPorUsuario) ||
-    Number(eventoData.maxEntradasUsuario) ||
-    1
-
-  const limiteEvento =
-    Number(eventoData.entradasMaximasEvento) ||
-    Number(eventoData.maxEntradasEvento) ||
-    Infinity
-
-  console.log('⚙️ LIMITES DETECTADOS:', {
-    entradasPorUsuario: eventoData.entradasPorUsuario,
-    maxEntradasUsuario: eventoData.maxEntradasUsuario,
-    LIMITE_POR_USUARIO_FINAL: limitePorUsuario,
-    LIMITE_EVENTO_FINAL: limiteEvento,
-  })
+  const limitePorUsuario = Number(evento.entradasPorUsuario) || 1
+  console.log('➡ Límite por usuario (entradasPorUsuario):', limitePorUsuario)
 
   // --------------------------------------------------------------
-  // CONSULTAR ENTRADAS VENDIDAS / PENDIENTES
+  // 3) Consultar entradas vendidas + pendientes del EVENTO
   // --------------------------------------------------------------
   const vendidasSnap = await getDocs(
     query(collection(db, 'entradas'), where('eventoId', '==', eventoId))
@@ -67,67 +48,57 @@ export async function calcularCuposEvento(eventoId, usuarioId) {
     )
   )
 
-  console.log('📊 TOTAL DOCS VENDIDAS:', vendidasSnap.size)
-  console.log('📊 TOTAL DOCS PENDIENTES:', pendientesSnap.size)
-
-  // Totales del evento
-  const totalVendidasEvento = vendidasSnap.docs.reduce(
+  // Totales
+  const totalVendidas = vendidasSnap.docs.reduce(
     (a, d) => a + Number(d.data().cantidad || 1),
     0
   )
-
-  const totalPendEvento = pendientesSnap.docs.reduce(
+  const totalPendientes = pendientesSnap.docs.reduce(
     (a, d) => a + Number(d.data().cantidad || 1),
     0
   )
 
   const cupoRestanteEvento =
-    limiteEvento - (totalVendidasEvento + totalPendEvento)
+    Number(evento.entradasMaximasEvento || Infinity) -
+    (totalVendidas + totalPendientes)
 
-  console.log('📉 CUPOS EVENTO:', {
-    totalVendidasEvento,
-    totalPendEvento,
-    cupoRestanteEvento,
-  })
+  console.log('📊 totalVendidasEvento:', totalVendidas)
+  console.log('📊 totalPendEvento:', totalPendientes)
+  console.log('📊 cupoRestanteEvento:', cupoRestanteEvento)
 
   // --------------------------------------------------------------
-  // CUPOS POR USUARIO
+  // 4) Entradas del usuario
   // --------------------------------------------------------------
-  const totalUsuarioVendidas = vendidasSnap.docs.reduce(
+  const userVendidas = vendidasSnap.docs.reduce(
     (a, d) =>
       d.data().usuarioId === usuarioId ? a + Number(d.data().cantidad || 1) : a,
     0
   )
 
-  const totalUsuarioPendientes = pendientesSnap.docs.reduce(
+  const userPendientes = pendientesSnap.docs.reduce(
     (a, d) =>
       d.data().usuarioId === usuarioId ? a + Number(d.data().cantidad || 1) : a,
     0
   )
 
-  const totalUsuario = totalUsuarioVendidas + totalUsuarioPendientes
+  const totalUsuario = userVendidas + userPendientes
 
-  console.log('🧍 RESUMEN USUARIO:', {
-    totalUsuarioVendidas,
-    totalUsuarioPendientes,
-    totalUsuario_TOTAL: totalUsuario,
-  })
+  console.log('👤 Usuario → vendidas:', userVendidas)
+  console.log('👤 Usuario → pendientes:', userPendientes)
+  console.log('👤 Usuario → totalUsuario:', totalUsuario)
 
-  // CALCULO FINAL DEL MAXIMO
+  // --------------------------------------------------------------
+  // 5) Máximo REAL que puede pedir el usuario
+  // --------------------------------------------------------------
   const maxUser = Math.max(
     0,
     Math.min(limitePorUsuario - totalUsuario, cupoRestanteEvento)
   )
 
-  console.log('🚦 MAX USER CALCULADO:', {
-    limitePorUsuario,
-    totalUsuario,
-    cupoRestanteEvento,
-    RESULTADO: maxUser,
-  })
+  console.log('🟢 maxUser (final REAL):', maxUser)
 
   // --------------------------------------------------------------
-  // CUPOS POR LOTE
+  // 6) Cupos por lote
   // --------------------------------------------------------------
   const lotesInfo = lotes.map((lote, index) => {
     const vend = vendidasSnap.docs.reduce(
@@ -135,7 +106,6 @@ export async function calcularCuposEvento(eventoId, usuarioId) {
         d.data().loteIndice === index ? a + Number(d.data().cantidad || 1) : a,
       0
     )
-
     const pend = pendientesSnap.docs.reduce(
       (a, d) =>
         d.data().loteIndice === index ? a + Number(d.data().cantidad || 1) : a,
@@ -144,8 +114,7 @@ export async function calcularCuposEvento(eventoId, usuarioId) {
 
     const restantes = Number(lote.cantidad || 0) - (vend + pend)
 
-    console.log(`📦 LOTE DEBUG #${index}`, {
-      nombre: lote.nombre,
+    console.log(`🎟 Lote ${index} (${lote.nombre}) →`, {
       cantidad: lote.cantidad,
       vend,
       pend,
@@ -155,16 +124,10 @@ export async function calcularCuposEvento(eventoId, usuarioId) {
     return { ...lote, index, restantes }
   })
 
-  console.log('📦 LOTES INFO FINAL:', lotesInfo)
-
-  console.log('🔵 calcularCuposEvento() FIN')
-  console.log('══════════════════════════════════════════')
-
   return {
-    eventoData,
+    eventoData: evento,
     limitePorUsuario,
     totalUsuario,
-    cupoRestanteEvento,
     maxUser,
     lotesInfo,
   }

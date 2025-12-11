@@ -24,9 +24,11 @@ export default function CrearEvento() {
   const [imagen, setImagen] = useState(null)
   const [previewImg, setPreviewImg] = useState(null)
 
+  // Descripción corta del evento
   const [descripcionHtml, setDescripcionHtml] = useState('')
   const [descripcionPlano, setDescripcionPlano] = useState('')
 
+  // Lotes
   const [lotes, setLotes] = useState([])
 
   const MAX_DESC = 180
@@ -45,7 +47,6 @@ export default function CrearEvento() {
       } else {
         const truncated = fullText.slice(0, MAX_DESC)
         setDescripcionPlano(truncated)
-        // Guardamos texto plano truncado como HTML simple
         setDescripcionHtml(truncated)
       }
     },
@@ -105,7 +106,8 @@ export default function CrearEvento() {
       {
         id: Date.now().toString(),
         nombre: '',
-        genero: 'todos', // todos | hombres | mujeres
+        descripcionLote: '',
+        genero: 'todos',
         precio: '',
         cantidad: '',
         desdeHora: '',
@@ -135,7 +137,6 @@ export default function CrearEvento() {
   function validarLotes(entradasMaximasNum) {
     if (!lotes.length) return true
 
-    // Validar campos mínimos en cada lote
     for (const lote of lotes) {
       const nombre = (lote.nombre || '').trim()
       const cantidadNum = Number(lote.cantidad) || 0
@@ -161,7 +162,7 @@ export default function CrearEvento() {
       if (lote.desdeHora && !validarHorario(lote.desdeHora)) {
         Swal.fire(
           'Error en lotes',
-          `El horario "desde" del lote "${nombre}" es inválido. Formato HH:MM.`,
+          `El horario "desde" del lote "${nombre}" es inválido.`,
           'error'
         )
         return false
@@ -170,14 +171,13 @@ export default function CrearEvento() {
       if (lote.hastaHora && !validarHorario(lote.hastaHora)) {
         Swal.fire(
           'Error en lotes',
-          `El horario "hasta" del lote "${nombre}" es inválido. Formato HH:MM.`,
+          `El horario "hasta" del lote "${nombre}" es inválido.`,
           'error'
         )
         return false
       }
     }
 
-    // Validar capacidad total
     const totalLotes = lotes.reduce(
       (acc, l) => acc + (Number(l.cantidad) || 0),
       0
@@ -186,7 +186,7 @@ export default function CrearEvento() {
     if (totalLotes > entradasMaximasNum) {
       Swal.fire(
         'Capacidad excedida',
-        `La suma de cantidades de todos los lotes (${totalLotes}) supera la capacidad total del evento (${entradasMaximasNum}).`,
+        `La suma de todos los lotes (${totalLotes}) supera la capacidad total (${entradasMaximasNum}).`,
         'error'
       )
       return false
@@ -201,7 +201,6 @@ export default function CrearEvento() {
   async function handleSubmit(e) {
     e.preventDefault()
 
-    // Campos obligatorios base
     if (!form.nombre || !form.fecha || !form.lugar) {
       Swal.fire('Error', 'Completá nombre, fecha y lugar del evento.', 'error')
       return
@@ -211,7 +210,7 @@ export default function CrearEvento() {
       !validarHorario(form.horarioDesde) ||
       !validarHorario(form.horarioHasta)
     ) {
-      Swal.fire('Error', 'Horario inválido. Usá formato 24hs: HH:MM.', 'error')
+      Swal.fire('Error', 'Horario inválido. Formato 24hs HH:MM.', 'error')
       return
     }
 
@@ -221,15 +220,17 @@ export default function CrearEvento() {
     if (!entradasMax || entradasMax < 10 || entradasMax > 50000) {
       Swal.fire(
         'Error',
-        'La capacidad total debe estar entre 10 y 50.000 personas.',
+        'La capacidad total debe estar entre 10 y 50.000.',
         'error'
       )
       return
     }
 
-    // Validar lotes
     if (!validarLotes(entradasMax)) return
 
+    // --------------------------------------------------------------
+    // DATA FINAL A GUARDAR EN FIREBASE
+    // --------------------------------------------------------------
     const data = {
       nombre: form.nombre,
       fecha: form.fecha,
@@ -238,11 +239,13 @@ export default function CrearEvento() {
         form.horarioHasta || '-'
       }hs.`,
       precio: Number(form.precio) || 0,
-      descripcion: descripcionHtml,
+      descripcionLote: descripcionHtml, // ✔ descripción general del evento
       entradasMaximasEvento: entradasMax,
       entradasPorUsuario: Number(form.entradasPorUsuario) || 1,
+
       lotes: lotes.map(l => ({
         nombre: (l.nombre || '').trim(),
+        descripcion: (l.descripcionLote || '').trim(), // ✔ AHORA SE GUARDA BIEN
         genero: l.genero || 'todos',
         precio: Number(l.precio) || 0,
         cantidad: Number(l.cantidad) || 0,
@@ -287,26 +290,19 @@ export default function CrearEvento() {
       <h2 className="fw-bold mb-3">Crear Evento</h2>
       <div className="container py-3">
         <form onSubmit={handleSubmit} className="border rounded p-3 shadow-sm">
-          {/* ------------------- Nombre ------------------- */}
+          {/* ------------- CAMPOS BÁSICOS ---------------- */}
           <label className="fw-semibold">Nombre del evento*</label>
-          <small className="text-muted d-block mb-1">
-            Ejemplo: "Neon Party", "Fiesta Halloween", "Cerveza & Friends".
-          </small>
           <input
             type="text"
             name="nombre"
             className="form-control mb-3"
-            placeholder="Ej: Fiesta de Apertura"
+            placeholder="Ej: Neon Party"
             value={form.nombre}
             onChange={handleInput}
             required
           />
 
-          {/* ------------------- Fecha ------------------- */}
-          <label className="fw-semibold">Fecha del evento*</label>
-          <small className="text-muted d-block mb-1">
-            Seleccioná la fecha en el calendario.
-          </small>
+          <label className="fw-semibold">Fecha*</label>
           <input
             type="date"
             name="fecha"
@@ -318,29 +314,23 @@ export default function CrearEvento() {
 
           {/* ------------------- Horarios ------------------- */}
           <label className="fw-semibold">Horarios</label>
-          <small className="text-muted d-block mb-2">
-            Formato 24hs — Ejemplo: 22:00 / 06:00. Se verá en la ficha del
-            evento.
-          </small>
-
           <div className="row g-2 mb-3">
             <div className="col">
               <input
                 type="text"
                 name="horarioDesde"
-                className="form-control"
                 placeholder="22:00"
+                className="form-control"
                 value={form.horarioDesde}
                 onChange={handleInput}
               />
             </div>
-
             <div className="col">
               <input
                 type="text"
                 name="horarioHasta"
-                className="form-control"
                 placeholder="06:00"
+                className="form-control"
                 value={form.horarioHasta}
                 onChange={handleInput}
               />
@@ -349,40 +339,29 @@ export default function CrearEvento() {
 
           {/* ------------------- Lugar ------------------- */}
           <label className="fw-semibold">Lugar*</label>
-          <small className="text-muted d-block mb-1">
-            Dirección o nombre del boliche/bar/salón. Ej: "Bar X - Av. Siempre
-            Viva 123".
-          </small>
           <input
             type="text"
             name="lugar"
             className="form-control mb-3"
-            placeholder="Ej: Av. Gral. San Martín 1820"
+            placeholder="Dirección o nombre del local"
             value={form.lugar}
             onChange={handleInput}
             required
           />
 
-          {/* ------------------- Precio base ------------------- */}
-          <label className="fw-semibold">Precio base (opcional)</label>
-          <small className="text-muted d-block mb-1">
-            Solo se usará si no manejás lotes diferenciados. Podés dejarlo en 0.
-          </small>
+          {/* ------------------- Precio ------------------- */}
+          <label className="fw-semibold">Precio base</label>
           <input
             type="number"
             name="precio"
             className="form-control mb-3"
-            placeholder="Ej: 6000"
+            placeholder="0 = Free"
             value={form.precio}
             onChange={handleInput}
           />
 
-          {/* ------------------- Entradas máximas ------------------- */}
-          <label className="fw-semibold">Capacidad total del evento*</label>
-          <small className="text-muted d-block mb-1">
-            Cantidad total de personas que pueden asistir (sumando todos los
-            lotes).
-          </small>
+          {/* ------------------- Capacidad ------------------- */}
+          <label className="fw-semibold">Capacidad total*</label>
           <input
             type="number"
             name="entradasMaximas"
@@ -394,25 +373,17 @@ export default function CrearEvento() {
           />
 
           {/* ------------------- Máx por usuario ------------------- */}
-          <label className="fw-semibold">Entradas máximas por usuario</label>
-          <small className="text-muted d-block mb-1">
-            Límite de tickets que puede comprar una misma persona (Ej: 4).
-          </small>
+          <label className="fw-semibold">Máx. por usuario</label>
           <input
             type="number"
             name="entradasPorUsuario"
             className="form-control mb-3"
-            placeholder="Máx. por usuario (Ej: 4)"
             value={form.entradasPorUsuario}
             onChange={handleInput}
           />
 
-          {/* ------------------- IMAGEN + PREVIEW ------------------- */}
-          <label className="fw-semibold">Imagen principal del evento</label>
-          <small className="text-muted d-block mb-2">
-            Recomendado 1200×675px. Formatos: JPG, PNG, WEBP. Se mostrará en la
-            tarjeta del evento.
-          </small>
+          {/* ------------------- Imagen ------------------- */}
+          <label className="fw-semibold">Imagen principal</label>
           <input
             type="file"
             accept="image/*"
@@ -425,17 +396,11 @@ export default function CrearEvento() {
               src={previewImg}
               className="img-fluid rounded mb-3"
               style={{ maxHeight: 180, objectFit: 'cover' }}
-              alt="Preview evento"
             />
           )}
 
-          {/* ------------------- DESCRIPCIÓN ------------------- */}
-          <label className="fw-semibold">Descripción corta del evento</label>
-          <small className="text-muted d-block mb-2">
-            Máximo {MAX_DESC} caracteres. Se muestra en la tarjeta del evento.
-            Podés usar negrita/listas, pero el texto se truncará si es muy
-            largo.
-          </small>
+          {/* ------------------- Descripción ------------------- */}
+          <label className="fw-semibold">Descripción corta</label>
 
           <div className="border rounded p-2 mb-1" style={{ minHeight: 150 }}>
             <EditorContent editor={editor} />
@@ -445,19 +410,9 @@ export default function CrearEvento() {
             {descripcionPlano.length}/{MAX_DESC}
           </small>
 
-          {/* ======================================================
-           LOTES DE ENTRADAS
-           ====================================================== */}
-
-          {/* ======================================================
-     LOTES DE ENTRADAS
-====================================================== */}
-
+          {/* ------------------- LOTES ------------------- */}
           <hr className="my-3" />
-          <h5 className="fw-bold">Lotes de entradas (opcional)</h5>
-          <small className="text-muted d-block mb-2">
-            Ideal para manejar free, consumición, distintos precios u horarios.
-          </small>
+          <h5 className="fw-bold">Lotes (opcional)</h5>
 
           <button
             type="button"
@@ -471,8 +426,7 @@ export default function CrearEvento() {
             <div className="mb-3">
               {lotes.map(lote => (
                 <div key={lote.id} className="border rounded p-2 mb-3 bg-light">
-                  {/* TITULO + ELIMINAR */}
-                  <div className="d-flex justify-content-between align-items-center mb-2">
+                  <div className="d-flex justify-content-between mb-2">
                     <strong>{lote.nombre || 'Lote sin nombre'}</strong>
                     <button
                       type="button"
@@ -483,61 +437,71 @@ export default function CrearEvento() {
                     </button>
                   </div>
 
-                  {/* ============================
-             FILA 1 — PRINCIPAL
-        ============================ */}
-                  <div className="row g-2 mb-2 align-items-end">
-                    {/* Nombre */}
+                  <div className="row g-2 mb-2">
+                    {/* Nombre del lote */}
                     <div className="col-md-4">
-                      <label className="form-label small m-0">Nombre</label>
+                      <label className="form-label small m-0">
+                        Nombre del lote <span style={{ color: 'red' }}>*</span>
+                      </label>
                       <input
                         type="text"
                         className="form-control form-control-sm"
-                        placeholder="Ej: Free Mujeres"
+                        placeholder="Ej: Preventa 1, Ladies Night, Early Bird..."
                         value={lote.nombre}
                         onChange={e =>
                           actualizarLote(lote.id, 'nombre', e.target.value)
                         }
+                        required
                       />
                     </div>
 
-                    {/* Género */}
-                    <div className="col-md-3">
-                      <label className="form-label small m-0">Género</label>
-                      <select
-                        className="form-select form-select-sm"
-                        value={lote.genero}
+                    {/* Descripción extra */}
+                    <div className="col-md-4">
+                      <label className="form-label small m-0">
+                        Descripción (opcional)
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        placeholder="Ej: Ingreso hasta 01:30, acceso preferencial, cintas vip..."
+                        value={lote.descripcionLote}
                         onChange={e =>
-                          actualizarLote(lote.id, 'genero', e.target.value)
+                          actualizarLote(
+                            lote.id,
+                            'descripcionLote',
+                            e.target.value
+                          )
                         }
-                      >
-                        <option value="todos">Todos</option>
-                        <option value="hombres">Hombres</option>
-                        <option value="mujeres">Mujeres</option>
-                      </select>
+                      />
                     </div>
 
                     {/* Precio */}
-                    <div className="col-md-3">
-                      <label className="form-label small m-0">Precio</label>
+                    <div className="col-md-2">
+                      <label className="form-label small m-0">
+                        Precio <span style={{ color: 'red' }}>*</span>
+                      </label>
                       <input
                         type="number"
                         className="form-control form-control-sm"
-                        placeholder="0 = Free"
+                        placeholder="Ej: $3000"
                         value={lote.precio}
                         onChange={e =>
                           actualizarLote(lote.id, 'precio', e.target.value)
                         }
+                        required
                       />
                     </div>
 
                     {/* Cantidad */}
                     <div className="col-md-2">
-                      <label className="form-label small m-0">Cantidad</label>
+                      <label className="form-label small m-0">
+                        Limite de entradas{' '}
+                        <span style={{ color: 'red' }}>*</span>
+                      </label>
                       <input
                         type="number"
                         className="form-control form-control-sm"
-                        placeholder="Ej: 100"
+                        placeholder="Ej: 50 - (Entradas disponibles para este evento)"
                         value={lote.cantidad}
                         onChange={e =>
                           actualizarLote(lote.id, 'cantidad', e.target.value)
@@ -546,61 +510,84 @@ export default function CrearEvento() {
                     </div>
                   </div>
 
-                  {/* ============================
-             FILA 2 — HORARIOS + CONSUMICIÓN
-        ============================ */}
-                  <div className="row g-2 mb-2 align-items-end">
+                  {/* Género */}
+                  <div className="row g-2 mb-2">
+                    <div className="col-md-4">
+                      <label className="form-label small m-0">
+                        Género <span style={{ color: 'red' }}>*</span>
+                      </label>
+                      <select
+                        className="form-select form-select-sm"
+                        value={lote.genero}
+                        onChange={e =>
+                          actualizarLote(lote.id, 'genero', e.target.value)
+                        }
+                        required
+                      >
+                        <option value="todos">Todos</option>
+                        <option value="hombres">Hombres</option>
+                        <option value="mujeres">Mujeres</option>
+                      </select>
+                    </div>
+
                     {/* Desde */}
-                    <div className="col-6 col-md-3">
-                      <label className="form-label small m-0">Desde</label>
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        placeholder="23:30"
-                        value={lote.desdeHora}
-                        onChange={e =>
-                          actualizarLote(lote.id, 'desdeHora', e.target.value)
-                        }
-                      />
-                    </div>
+                    <div className="col-md-2">
+                      <label className="form-label small m-0">
+                        Ingreso permitido{' '}
+                        <span style={{ color: 'red' }}>*</span>
+                      </label>
 
-                    {/* Hasta */}
-                    <div className="col-6 col-md-3">
-                      <label className="form-label small m-0">Hasta</label>
-                      <input
-                        type="text"
-                        className="form-control form-control-sm"
-                        placeholder="01:30"
-                        value={lote.hastaHora}
-                        onChange={e =>
-                          actualizarLote(lote.id, 'hastaHora', e.target.value)
-                        }
-                      />
-                    </div>
-
-                    {/* Consumición */}
-                    <div className="col-12 col-md-6 d-flex align-items-end">
-                      <div className="form-check ms-2">
+                      <div className="d-flex align-items-center gap-1">
+                        {/* Desde */}
+                        <span className="small"> Desde: </span>
                         <input
-                          type="checkbox"
-                          className="form-check-input"
-                          id={`consumicion-${lote.id}`}
-                          checked={lote.incluyeConsumicion}
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="23:30"
+                          value={lote.desdeHora}
                           onChange={e =>
-                            actualizarLote(
-                              lote.id,
-                              'incluyeConsumicion',
-                              e.target.checked
-                            )
+                            actualizarLote(lote.id, 'desdeHora', e.target.value)
                           }
+                          style={{ minWidth: '65px' }}
+                          required
                         />
-                        <label
-                          className="form-check-label small"
-                          htmlFor={`consumicion-${lote.id}`}
-                        >
-                          Incluye consumición
-                        </label>
+
+                        <span className="small"> Hasta: </span>
+
+                        {/* Hasta */}
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="01:30"
+                          value={lote.hastaHora}
+                          onChange={e =>
+                            actualizarLote(lote.id, 'hastaHora', e.target.value)
+                          }
+                          style={{ minWidth: '65px' }}
+                          required
+                        />
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Consumición */}
+                  <div className="row g-2 mb-2">
+                    <div className="col-md-12 d-flex align-items-center">
+                      <input
+                        type="checkbox"
+                        className="form-check-input me-2"
+                        checked={lote.incluyeConsumicion}
+                        onChange={e =>
+                          actualizarLote(
+                            lote.id,
+                            'incluyeConsumicion',
+                            e.target.checked
+                          )
+                        }
+                      />
+                      <label className="form-check-label small">
+                        Incluye consumición
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -608,8 +595,8 @@ export default function CrearEvento() {
             </div>
           )}
 
-          {/* ------------------- BOTÓN FINAL ------------------- */}
-          <button className="btn btn-primary w-100" type="submit">
+          {/* SUBMIT */}
+          <button className="btn btn-primary w-100 mt-5" type="submit">
             Crear evento
           </button>
         </form>

@@ -1,9 +1,8 @@
 // --------------------------------------------------------------
-// src/context/CatalogoContext.jsx
+// src/context/CatalogoContext.jsx — VERSIÓN FINAL 2025
 // --------------------------------------------------------------
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { db } from '../Firebase.js'
-
 import { collection, getDocs } from 'firebase/firestore'
 import Swal from 'sweetalert2'
 import { useCarrito } from './CarritoContext'
@@ -12,7 +11,7 @@ const CatalogoContext = createContext()
 export const useCatalogo = () => useContext(CatalogoContext)
 
 // ======================================================
-// PRODUCTO (idéntico a tu JS original)
+// PRODUCTO (idéntico al original, pero robusto)
 // ======================================================
 class Producto {
   constructor(id, data) {
@@ -36,7 +35,7 @@ export function CatalogoProvider({ children }) {
   const { agregarProducto, abrirCarrito } = useCarrito()
 
   // ======================================================
-  // CARGAR CATALOGO DESDE FIREBASE
+  // CARGAR CATÁLOGO DESDE FIREBASE
   // ======================================================
   useEffect(() => {
     async function cargar() {
@@ -52,25 +51,27 @@ export function CatalogoProvider({ children }) {
   }, [])
 
   // ======================================================
-  // ABRIR POPUP EXACTO AL ORIGINAL
+  // MODAL DETALLE PRODUCTO — VERSIÓN FINAL CON ESTILOS OK
   // ======================================================
   async function abrirProductoDetalle(producto) {
-    // 🚨 Si no hay stock → NO ABRIR
     if (producto.stock <= 0) return
 
     const result = await Swal.fire({
       title: producto.nombre,
       html: `
-      <img src="${producto.imgSrc}" style="width:150px;margin-bottom:10px;" />
+      <img src="${producto.imgSrc}" style="width:150px;margin-bottom:10px;border-radius:8px;" />
       <p>${producto.descripcion}</p>
       <h5>Precio: $${producto.precio}</h5>
 
-      <div style="display:flex; justify-content:center; align-items:center; gap:10px; margin-top:10px;">
-        <button id="menos" class="btn-swal-cantidad">-</button>
-        <input id="cantidad" type="number" class="swal2-input"
-          value="1" min="1" max="${producto.stock}"
-          style="width:70px;text-align:center;">
-        <button id="mas" class="btn-swal-cantidad">+</button>
+      <div style="
+        display:flex;justify-content:center;align-items:center;
+        gap:18px;margin-top:18px;"
+      >
+        <button id="menos" class="cantidad-btn menos">-</button>
+
+        <div class="cantidad-input" id="cantidadBox">1</div>
+
+        <button id="mas" class="cantidad-btn mas">+</button>
       </div>
     `,
       showCancelButton: true,
@@ -85,48 +86,37 @@ export function CatalogoProvider({ children }) {
 
       didOpen: () => {
         const popup = Swal.getPopup()
-        const input = popup.querySelector('#cantidad')
+        const box = popup.querySelector('#cantidadBox')
         const btnMas = popup.querySelector('#mas')
         const btnMenos = popup.querySelector('#menos')
 
-        btnMas.addEventListener('click', () => {
-          if (Number(input.value) < producto.stock) {
-            input.value = Number(input.value) + 1
-          }
-        })
+        btnMas.onclick = () => {
+          let val = Number(box.innerText)
+          if (val < producto.stock) box.innerText = val + 1
+        }
 
-        btnMenos.addEventListener('click', () => {
-          if (Number(input.value) > 1) {
-            input.value = Number(input.value) - 1
-          }
-        })
+        btnMenos.onclick = () => {
+          let val = Number(box.innerText)
+          if (val > 1) box.innerText = val - 1
+        }
       },
 
       preConfirm: () => {
-        const cant = Number(document.getElementById('cantidad').value)
-
+        const cant = Number(document.getElementById('cantidadBox').innerText)
         if (cant < 1) return Swal.showValidationMessage('Cantidad inválida')
         if (cant > producto.stock)
           return Swal.showValidationMessage('No hay suficiente stock')
-
         return cant
       },
     })
 
-    // ❌ Cancelado
     if (!result.isConfirmed) return
 
-    // ✔ Guardamos cantidad seleccionada
     producto.enCarrito = result.value
 
-    // ✔ Añadir al carrito con protección extra
-    const respuesta = await agregarProducto(producto)
+    const añadido = await agregarProducto(producto)
+    if (!añadido) return
 
-    if (respuesta === false) return
-
-    // =====================================================
-    // 🔥 Swal final: se cierra en 3s con progress bar
-    // =====================================================
     const final = await Swal.fire({
       title: '¡Producto añadido!',
       html: `<p style="font-size:18px;font-weight:600;">${producto.nombre} x${producto.enCarrito} agregado 🛒</p>`,
@@ -139,18 +129,12 @@ export function CatalogoProvider({ children }) {
         confirmButton: 'swal-btn-confirm',
         cancelButton: 'swal-btn-cancel',
       },
-      buttonsStyling: false,
 
+      buttonsStyling: false,
       timer: 3000,
       timerProgressBar: true,
-
-      didOpen: () => {
-        const bar = Swal.getTimerProgressBar()
-        if (bar) bar.style.transition = 'width 3s linear'
-      },
     })
 
-    // Si elige "Ir al carrito"
     if (final.isConfirmed) abrirCarrito()
   }
 
@@ -163,7 +147,7 @@ export function CatalogoProvider({ children }) {
   }, [productos])
 
   // ======================================================
-  // PRODUCTOS FILTRADOS
+  // FILTRADO
   // ======================================================
   const productosFiltrados = useMemo(() => {
     if (!catalogoVisible) return []
@@ -172,7 +156,7 @@ export function CatalogoProvider({ children }) {
   }, [productos, categoriaActiva, catalogoVisible])
 
   // ======================================================
-  // TOGGLE CATALOGO COMPLETO
+  // MOSTRAR / OCULTAR
   // ======================================================
   function toggleCatalogo() {
     if (!catalogoVisible) {
@@ -183,9 +167,6 @@ export function CatalogoProvider({ children }) {
     }
   }
 
-  // ======================================================
-  // SELECCIONAR CATEGORÍA
-  // ======================================================
   function seleccionarCategoria(cat) {
     setCategoriaActiva(cat)
     setCatalogoVisible(true)

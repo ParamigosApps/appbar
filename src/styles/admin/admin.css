@@ -1,0 +1,276 @@
+/* ============================================================
+   ADMIN — PANEL COMPLETO OFICIAL 2025
+   ============================================================ */
+
+@charset "UTF-8";
+
+/* ------------------------------------------------------------
+   LAYOUT GENERAL
+------------------------------------------------------------ */
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #fafafa;
+}
+
+/* Contenido principal */
+.admin-main {
+  margin-left: 240px;
+  flex-grow: 1;
+  padding: 20px;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .admin-main {
+    margin-left: 0;
+    padding-top: 60px;
+  }
+}
+
+/* ------------------------------------------------------------
+   SIDEBAR
+------------------------------------------------------------ */
+.admin-sidebar {
+  width: 240px;
+  background: #111;
+  color: #fff;
+
+  padding: 20px 15px;
+
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+
+  transform: translateX(0);
+  transition: transform 0.3s ease;
+  z-index: 1500;
+}
+
+/* Sidebar oculto en móvil */
+@media (max-width: 768px) {
+  .admin-sidebar {
+    transform: translateX(-100%);
+  }
+  .admin-sidebar.open {
+    transform: translateX(0);
+  }
+}
+
+/* Título */
+.sidebar-title {
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+/* Botones */
+.side-btn {
+  width: 100%;
+  text-align: left;
+  padding: 12px 0;
+
+  background: transparent;
+  border: none;
+  color: #e7e7e7;
+
+  border-bottom: 1px solid #333;
+
+  font-size: 16px;
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+.side-btn:hover {
+  color: #ff4c8a;
+}
+
+.side-btn.exit {
+  color: #ff5f5f;
+}
+
+.side-btn.exit:hover {
+  background: rgba(255, 75, 75, 0.25);
+}
+
+/* ------------------------------------------------------------
+   BOTÓN HAMBURGUESA
+------------------------------------------------------------ */
+.admin-menu-toggle {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .admin-menu-toggle {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+
+    z-index: 2000;
+    display: block;
+
+    background: #111;
+    color: #fff;
+
+    border: none;
+    padding: 4px 10px;
+    border-radius: 6px;
+
+    font-size: 20px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* ------------------------------------------------------------
+   CONTENIDO ADMIN (Tarjetas, contenedores, etc.)
+------------------------------------------------------------ */
+.admin-content {
+  background: #ffffff;
+  padding: 25px;
+
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
+
+  animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ------------------------------------------------------------
+   DASHBOARD — Tarjetas estadísticas
+------------------------------------------------------------ */
+.stat-card {
+  background: #f8f9fa;
+  padding: 20px;
+
+  border-radius: 14px;
+  border: 2px solid #e7e7e7;
+
+  transition: 0.25s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  background: #fff;
+  border-color: #bfbfbf;
+}
+
+.stat-card h4 {
+  font-size: 2rem;
+  margin: 0;
+  font-weight: 700;
+}
+
+.stat-card p {
+  margin: 0;
+  color: #555;
+}
+
+/* ------------------------------------------------------------
+   EVENTOS ADMIN
+------------------------------------------------------------ */
+.evento-admin-card {
+  background: #fff;
+  padding: 16px;
+  border-radius: 12px;
+
+  border: 1px solid #e3e3e3;
+  margin-bottom: 12px;
+
+  transition: 0.2s;
+}
+
+.evento-admin-card:hover {
+  transform: translateY(-3px);
+}
+
+/* ------------------------------------------------------------
+   ENTRADAS ADMIN
+------------------------------------------------------------ */
+.entradas-admin-page {
+  padding: 20px;
+}
+
+.entradas-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.entradas-tab-btn {
+  padding: 10px 18px;
+  border-radius: 10px;
+
+  border: 2px solid #ddd;
+  background: #f8f9fa;
+
+  font-weight: 600;
+  transition: 0.2s ease;
+}
+
+.entradas-tab-btn:hover {
+  background: #fff;
+  transform: translateY(-2px);
+}
+
+.entradas-tab-btn.active {
+  background: #212529;
+  color: #fff;
+  border-color: #212529;
+}
+
+/* ------------------------------------------------------------
+   PRODUCTOS ADMIN
+------------------------------------------------------------ */
+.productos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.producto-card {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+
+  border: 1px solid #e5e5e5;
+}
+
+/* ------------------------------------------------------------
+   EMPLEADOS ADMIN
+------------------------------------------------------------ */
+.empleado-item {
+  padding: 12px;
+  border-radius: 12px;
+
+  background: #fafafa;
+  border: 1px solid #ddd;
+
+  margin-bottom: 10px;
+}
+
+/* ------------------------------------------------------------
+   RESPONSIVE
+------------------------------------------------------------ */
+@media (max-width: 600px) {
+  .stat-card h4 {
+    font-size: 1.4rem;
+  }
+
+  .productos-grid {
+    grid-template-columns: 1fr;
+  }
+}

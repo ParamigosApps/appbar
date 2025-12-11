@@ -1,0 +1,603 @@
+/* ===================================================================
+   SWEETALERT2 — TEMA PASSLINE (CLARO, CARDS MINIMALISTAS)
+   Es el ÚNICO CSS de SweetAlert2 en el proyecto.
+   =================================================================== */
+
+/* ----------------------------------------------
+   POPUP GENERAL
+   ---------------------------------------------- */
+
+/* Usar con: customClass: { popup: 'swal-popup-custom' } */
+.swal-popup-custom {
+  border-radius: 14px !important;
+  padding: 18px 20px 20px !important;
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.2);
+  animation: popup-fade 0.25s ease;
+  box-sizing: border-box !important;
+}
+
+@keyframes popup-fade {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Título principal arriba */
+.swal-title-main {
+  font-size: 1.3rem !important;
+  font-weight: 700 !important;
+  margin-bottom: 8px !important;
+  text-align: left !important;
+  color: #111827;
+}
+
+/* Subtítulo / texto bajo título */
+.swal-subtitle {
+  font-size: 0.95rem;
+  opacity: 0.75;
+  margin-bottom: 14px;
+  text-align: left;
+  color: #4b5563;
+}
+
+/* Contenedor general del contenido para que no haga scroll horizontal */
+.swal-content-wrapper {
+  width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* Ajuste del contenedor de botones de SweetAlert2 */
+.swal2-actions {
+  margin-top: 18px !important;
+  gap: 10px !important;
+  width: 100% !important;
+  justify-content: flex-end !important;
+}
+
+/* ----------------------------------------------
+   BOTONES (CONFIRMAR / CANCELAR / ALT)
+   ---------------------------------------------- */
+
+/* Confirmar = botón principal AMARILLO PASSLINE */
+.swal-btn-confirm,
+.swal2-confirm.swal-btn-confirm {
+  background: #ffc400 !important;
+  color: #111827 !important;
+  border-radius: 10px !important;
+  padding: 10px 18px !important;
+  border: none !important;
+  font-weight: 700 !important;
+  font-size: 0.98rem !important;
+  min-width: 130px;
+  cursor: pointer !important;
+  transition: background 0.18s ease, transform 0.1s ease, box-shadow 0.18s ease !important;
+  box-shadow: 0 2px 8px rgba(250, 204, 21, 0.45) !important;
+}
+
+.swal-btn-confirm:hover,
+.swal2-confirm.swal-btn-confirm:hover {
+  background: #e0ac00 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 3px 10px rgba(161, 98, 7, 0.4) !important;
+}
+
+.swal-btn-confirm:active,
+.swal2-confirm.swal-btn-confirm:active {
+  transform: translateY(0) scale(0.98) !important;
+}
+
+/* Cancelar / botón neutro gris */
+.swal-btn-cancel,
+.swal-btn-alt {
+  background: #f3f4f6 !important;
+  color: #111827 !important;
+  border-radius: 10px !important;
+  padding: 10px 18px !important;
+  font-weight: 600 !important;
+  border: 1px solid #e5e7eb !important;
+  font-size: 0.95rem !important;
+  min-width: 130px;
+  cursor: pointer !important;
+  transition: background 0.18s ease, transform 0.1s ease !important;
+}
+
+.swal-btn-cancel:hover,
+.swal-btn-alt:hover {
+  background: #e5e7eb !important;
+  transform: translateY(-1px) !important;
+}
+
+/* En mobile los botones ocupan ancho completo */
+@media (max-width: 480px) {
+  .swal2-actions {
+    flex-direction: column-reverse !important;
+    align-items: stretch !important;
+  }
+  .swal-btn-confirm,
+  .swal-btn-cancel,
+  .swal-btn-alt {
+    width: 100% !important;
+  }
+}
+
+/* ============================================================
+   CARDS DE LOTES — ESTILO PASSLINE (OPCIÓN B)
+   ============================================================ */
+
+/* Contenedor de todas las cards de lote */
+.lotes-wrapper {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 6px;
+  margin-bottom: 12px;
+}
+
+/* Más columnas en pantallas grandes */
+@media (min-width: 600px) {
+  .lotes-wrapper {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Tarjeta de cada tipo de ticket
+   (equivalente a cada fila de la tabla de Passline) */
+.lote-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: 0.18s ease;
+}
+
+/* Hover elegante */
+.lote-card:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+/* Header: nombre del ticket + precio */
+.lote-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Nombre del ticket (Palco VIP, Preferencial, etc.) */
+.lote-nombre {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #111827;
+}
+
+/* Precio tipo Passline */
+.lote-precio {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: #111827;
+}
+
+/* Línea secundaria: “Tipo de ticket / info corta” */
+.lote-extra,
+.lote-desc {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+/* Tag pequeño (Ej: “Anticipada”, “Ultimos cupos”) */
+.lote-tag {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+/* Barra de capacidad */
+.lote-bar {
+  width: 100%;
+  height: 5px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.lote-bar-fill {
+  height: 100%;
+  background: #22c55e; /* verde cupos disponibles */
+  transition: width 0.25s ease;
+}
+
+/* Texto de restantes */
+.lote-restantes {
+  font-size: 0.78rem;
+  color: #4b5563;
+  margin-top: 4px;
+}
+
+/* Si querés remarcar pocos lugares, podés usar esta clase en JS */
+.lote-pocos-cupos .lote-bar-fill {
+  background: #f97316; /* naranja */
+}
+.lote-sin-cupos .lote-bar-fill {
+  background: #ef4444; /* rojo */
+}
+
+/* ============================================================
+   CANTIDAD + MÉTODO DE PAGO (ABAJO DE LOS LOTES)
+   ============================================================ */
+
+/* Caja resumen del lote seleccionado + precio */
+.pago-lote-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  margin-top: 4px;
+  margin-bottom: 10px;
+  border-radius: 10px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.pago-lote-nombre {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.pago-precio {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+/* Selector de cantidad (similar a Passline) */
+.cant-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 10px 0 12px;
+}
+
+/* Botones + y - (si los usás) */
+.cant-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.15s ease;
+  color: #111827;
+}
+
+.cant-btn:hover {
+  background: #e5e7eb;
+}
+
+/* Input número de cantidad (#cant) */
+#cant {
+  width: 64px;
+  text-align: center;
+  font-size: 0.98rem;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #111827;
+}
+
+/* Resumen total */
+.total-box {
+  font-size: 0.95rem;
+  text-align: center;
+  margin-bottom: 10px;
+  color: #111827;
+}
+
+/* Métodos de pago: columnas de botones */
+.metodos-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.method-btn {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #111827;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  transition: 0.18s ease;
+}
+
+.method-btn:hover {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+/* Si necesitás marcar un método secundario como “volver atrás” */
+.swal-btn-alt {
+  background: #f3f4f6 !important;
+  border-color: #e5e7eb !important;
+  color: #111827 !important;
+}
+
+/* ============================================================
+   SCROLLERS ESPECÍFICOS (SI HAY MUCHOS LOTES)
+   ============================================================ */
+
+.lotes-scroll {
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.lotes-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.lotes-scroll::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 8px;
+}
+
+.lotes-scroll::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* ============================================================
+   SWEETALERT — ESTILO ORIGINAL COMPLETO
+============================================================ */
+
+.swal2-popup {
+  border-radius: 16px !important;
+  padding: 22px 26px !important;
+  background: #ffffff !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+.swal2-actions {
+  display: flex !important;
+  justify-content: center !important;
+  gap: 12px !important;
+  margin-top: 18px !important;
+}
+
+/* ============================================================
+   BOTÓN CONTINUAR — ESTILO .lote-select-mini (CELESTE)
+   ============================================================ */
+
+.swal-btn-confirm {
+  background: #14a8e2 !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+  font-size: 0.9rem !important;
+  border-radius: 10px !important;
+  padding: 10px 20px !important;
+  border: none !important;
+  box-shadow: none !important;
+  transition: 0.2s ease-in-out !important;
+}
+
+.swal-btn-confirm:hover {
+  background: #0f8cc0 !important; /* mismo hover que lote-select-mini */
+}
+
+/* Alineación correcta */
+.swal2-actions {
+  gap: 12px !important;
+}
+
+.swal2-cancel {
+  background: #444 !important;
+  color: #fff !important;
+  padding: 10px 22px !important;
+  border-radius: 8px !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+}
+
+/* Caja general */
+.transfer-box {
+  padding: 6px 2px;
+  text-align: left;
+}
+
+/* Monto */
+.transfer-monto {
+  font-size: 1.05rem;
+  margin-bottom: 12px;
+}
+
+.transfer-precio {
+  color: #0a84ff;
+  font-weight: 700;
+}
+
+/* Datos */
+.transfer-datos {
+  background: #f4f9ff;
+  border: 1px solid #d7e6ff;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 18px;
+}
+
+.transfer-item {
+  margin-bottom: 10px;
+}
+
+.transfer-item label {
+  font-size: 0.8rem;
+  color: #6b6b6b;
+}
+
+.transfer-value {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* Botones */
+.full-btn {
+  width: 100%;
+  padding: 11px 12px;
+  margin-top: 10px;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.full-btn.celeste {
+  background: #e6f2ff;
+  color: #0a84ff;
+  border: 1px solid #bcdcff;
+}
+
+.full-btn.azul {
+  background: #0a84ff;
+  color: white;
+}
+
+.full-btn.gris {
+  background: #ececec;
+  color: #444;
+}
+
+.transfer-datos-dark {
+  background: #0e0e0e;
+  border: 1px solid #2a2a2a;
+  padding: 14px;
+  border-radius: 12px;
+  margin-bottom: 18px;
+  width: 100%;
+}
+
+.dato-line {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #333;
+}
+
+.dato-line:last-child {
+  border-bottom: none;
+}
+
+.dato-line .label {
+  font-size: 0.8rem;
+  color: #9aa0a6;
+  margin-bottom: 2px;
+}
+
+.dato-line .value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e8e8e8;
+  word-break: break-all;
+}
+
+.info-limites-box {
+  background: #f7f8fc;
+  border: 1px solid #dfe3f0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+
+.limite-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px solid #e7e7e7;
+}
+
+.limite-row:last-child {
+  border-bottom: none;
+}
+
+.limite-row .label {
+  color: #555;
+}
+
+.limite-row .value {
+  font-weight: 700;
+  color: #222;
+}
+
+.limite-row.total .label {
+  font-weight: 700;
+}
+
+.limite-row.total .value {
+  font-size: 1.05rem;
+}
+
+.highlight {
+  color: #0a7be3;
+}
+/* Barra cupos */
+.barra-cupos {
+  width: 100%;
+  height: 10px;
+  background: #e8f1ff;
+  border-radius: 20px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.barra-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0a84ff, #4ab0ff);
+  transition: width 0.4s ease;
+}
+
+.barra-fill.alerta {
+  background: linear-gradient(90deg, #ff3b3b, #ff8b8b);
+}
+
+.barra-text {
+  font-size: 0.85rem;
+  text-align: right;
+  color: #0a84ff;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.barra-text.alerta-text {
+  color: #ff3b3b;
+}

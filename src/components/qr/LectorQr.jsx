@@ -4,7 +4,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
-import '../../styles/qr.css'
 import { Html5Qrcode } from 'html5-qrcode'
 
 import {

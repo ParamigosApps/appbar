@@ -1,5 +1,5 @@
 // --------------------------------------------------------------
-// src/context/EntradasContext.jsx — VERSIÓN FINAL ULTRA PRO 2025
+// src/context/EntradasContext.jsx — VERSIÓN FINAL ESTABLE 2025
 // --------------------------------------------------------------
 
 import { createContext, useContext, useEffect, useState } from 'react'
@@ -16,6 +16,7 @@ import { useFirebase } from './FirebaseContext.jsx'
 import { useAuth } from './AuthContext.jsx'
 import { useQr } from './QrContext.jsx'
 
+// LÓGICA
 import { calcularCuposEvento } from '../logic/entradas/entradasEventos.js'
 import {
   pedirEntradaFreeSinLote,
@@ -25,11 +26,13 @@ import {
   manejarTransferencia,
   manejarMercadoPago,
 } from '../logic/entradas/entradasPago.js'
+
 import { crearSolicitudPendiente } from '../logic/entradas/entradasUtils.js'
 
+// SWALS
 import {
   abrirSeleccionLote,
-  abrirMetodoPago,
+  abrirResumenLote,
 } from '../services/entradasSwal.js'
 
 import Swal from 'sweetalert2'
@@ -41,105 +44,7 @@ const EntradasContext = createContext()
 export const useEntradas = () => useContext(EntradasContext)
 
 // --------------------------------------------------------------
-// VERIFICACIÓN FREE — **CORREGIDA**
-// --------------------------------------------------------------
-async function verificarPermisosEntradaFree({
-  eventoId,
-  usuarioId,
-  lote = null,
-}) {
-  console.log('🟦 verificarPermisosEntradaFree()', {
-    eventoId,
-    usuarioId,
-    lote,
-  })
-
-  const snap1 = await getDocs(
-    query(
-      collection(db, 'entradas'),
-      where('usuarioId', '==', usuarioId),
-      where('eventoId', '==', eventoId),
-      where('precio', '==', 0)
-    )
-  )
-  const obtenidas = snap1.docs.map(d => d.data())
-
-  const snap2 = await getDocs(
-    query(
-      collection(db, 'entradasPendientes'),
-      where('usuarioId', '==', usuarioId),
-      where('eventoId', '==', eventoId),
-      where('precio', '==', 0)
-    )
-  )
-  const pendientes = snap2.docs.map(d => d.data())
-
-  const totalObtenidas = obtenidas.reduce((a, e) => a + (e.cantidad || 1), 0)
-  const totalPendientes = pendientes.reduce((a, e) => a + (e.cantidad || 1), 0)
-  const totalUsuario = totalObtenidas + totalPendientes
-
-  console.log('📊 FREE usuario:', {
-    totalObtenidas,
-    totalPendientes,
-    totalUsuario,
-  })
-
-  // ----------------------------------------------------------
-  // 🟣 CASO FREE POR LOTE — NO SE USA maxFreeUser
-  // ----------------------------------------------------------
-  if (lote) {
-    console.log('🟪 FREE por lote detectado → usar lote.restantes')
-
-    if (lote.restantes <= 0) {
-      return {
-        puede: false,
-        motivo: 'Lote lleno',
-        maxPermitidas: 0,
-        totalObtenidas,
-        totalPendientes,
-      }
-    }
-
-    // permitir pedir mientras queden cupos en el lote
-    return {
-      puede: true,
-      maxPermitidas: lote.restantes,
-      totalObtenidas,
-      totalPendientes,
-    }
-  }
-
-  // ----------------------------------------------------------
-  // 🟩 EVENTO SIN LOTES — FREE GLOBAL
-  // ----------------------------------------------------------
-  const snapEv = await getDocs(
-    query(collection(db, 'eventos'), where('__name__', '==', eventoId))
-  )
-  const eventoData = snapEv.docs[0]?.data() || {}
-
-  const maxFree =
-    Number(eventoData.maxFreeUser) || Number(eventoData.maxEntradasFree) || 1
-
-  if (totalUsuario >= maxFree) {
-    return {
-      puede: false,
-      motivo: 'Límite FREE global',
-      maxPermitidas: maxFree,
-      totalObtenidas,
-      totalPendientes,
-    }
-  }
-
-  return {
-    puede: true,
-    maxPermitidas: maxFree,
-    totalObtenidas,
-    totalPendientes,
-  }
-}
-
-// --------------------------------------------------------------
-// PROVIDER ROOT
+// PROVIDER
 // --------------------------------------------------------------
 export function EntradasProvider({ children }) {
   const { user } = useFirebase()
@@ -152,9 +57,9 @@ export function EntradasProvider({ children }) {
   const [entradasUsadas, setEntradasUsadas] = useState([])
   const [loadingEventos, setLoadingEventos] = useState(true)
 
-  // --------------------------------------------------------------
-  // EVENTOS
-  // --------------------------------------------------------------
+  // ----------------------------------------------------------
+  // CARGAR EVENTOS
+  // ----------------------------------------------------------
   useEffect(() => {
     async function cargar() {
       try {
@@ -170,11 +75,15 @@ export function EntradasProvider({ children }) {
     cargar()
   }, [])
 
-  // --------------------------------------------------------------
-  // MIS ENTRADAS
-  // --------------------------------------------------------------
+  // ----------------------------------------------------------
+  // CARGAR ENTRADAS USUARIO
+  // ----------------------------------------------------------
   useEffect(() => {
-    if (!user) return setMisEntradas([])
+    if (!user) {
+      setMisEntradas([])
+      setEntradasUsadas([])
+      return
+    }
     cargarEntradasUsuario(user.uid)
     cargarEntradasUsadas(user.uid)
   }, [user])
@@ -192,12 +101,14 @@ export function EntradasProvider({ children }) {
         query(collection(db, 'entradasUsadas'), where('usuarioId', '==', uid))
       )
       setEntradasUsadas(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    } catch {}
+    } catch (e) {
+      console.log('⚠ No existe entradasUsadas aún.')
+    }
   }
 
-  // --------------------------------------------------------------
-  // PENDIENTES REALTIME
-  // --------------------------------------------------------------
+  // ----------------------------------------------------------
+  // ESCUCHAR ENTRADAS PENDIENTES
+  // ----------------------------------------------------------
   useEffect(() => {
     if (!user) return
     const q = query(
@@ -224,116 +135,107 @@ export function EntradasProvider({ children }) {
   async function pedirEntrada(evento) {
     try {
       if (!user) {
-        await Swal.fire({
-          title: 'Iniciá sesión',
-          text: 'Necesitás estar logueado para continuar',
-          icon: 'warning',
-        })
-
-        // 🔥 CORRECCIÓN PARA EVITAR LOOP INFINITO
-        setTimeout(() => {
-          abrirLoginGlobal()
-        }, 0)
-
+        await Swal.fire('Iniciá sesión', 'Necesitás estar logueado.', 'warning')
+        setTimeout(() => abrirLoginGlobal(), 0)
         return
       }
 
       const usuarioId = user.uid
       const usuarioNombre = user.displayName || 'Usuario'
 
-      const { eventoData, maxUser, lotesInfo } = await calcularCuposEvento(
-        evento.id,
-        usuarioId
-      )
+      // --------------------------------------------------------------
+      // CALCULAR CUPOS REALES
+      // --------------------------------------------------------------
+      const { eventoData, limitePorUsuario, totalUsuario, maxUser, lotesInfo } =
+        await calcularCuposEvento(evento.id, usuarioId)
+
+      console.log('🔎 CUPOS CALCULADOS:', {
+        limitePorUsuario,
+        totalUsuario,
+        maxUser,
+      })
 
       if (maxUser <= 0) {
-        await Swal.fire({
-          title: 'Límite alcanzado',
-          text: 'Ya alcanzaste el máximo de entradas.',
-          icon: 'info',
-        })
+        await Swal.fire(
+          'Límite alcanzado',
+          'Ya alcanzaste el máximo de entradas permitidas.',
+          'info'
+        )
         return
       }
 
-      const precioEvento = Number(eventoData.precio || 0)
-
-      // ----------------------------------------------------------
+      // --------------------------------------------------------------
       // EVENTO CON LOTES
-      // ----------------------------------------------------------
+      // --------------------------------------------------------------
       if (lotesInfo.length > 0) {
-        const idLote = await abrirSeleccionLote(evento, lotesInfo)
-        if (idLote === undefined || idLote === null) return
+        const resSel = await abrirSeleccionLote(evento, lotesInfo)
+        if (!resSel || resSel.cancelado) return
 
-        let loteSel =
-          lotesInfo.find(l => String(l.id) === String(idLote)) ||
-          lotesInfo.find(l => String(l.index) === String(idLote)) ||
-          lotesInfo[idLote] ||
-          null
+        const loteSel =
+          lotesInfo.find(l => String(l.index) === String(resSel.loteId)) ||
+          lotesInfo.find(l => String(l.id) === String(resSel.loteId))
 
-        if (!loteSel) {
-          await Swal.fire('Error', 'No se pudo identificar el lote.', 'error')
-          return
-        }
+        if (!loteSel) return
 
         const precioLote = Number(loteSel.precio || 0)
+        const restantes = loteSel.restantes
 
-        if (precioLote <= 0) {
-          const verif = await verificarPermisosEntradaFree({
-            eventoId: evento.id,
-            usuarioId,
-            lote: loteSel,
+        // --------------------------------------------------------------
+        // LOTES FREE
+        // --------------------------------------------------------------
+        if (precioLote === 0) {
+          const maxCantidad = Math.min(maxUser, restantes)
+
+          const resResumen = await abrirResumenLote(evento, loteSel, {
+            totalObtenidas: totalUsuario,
+            totalPendientes: 0,
+            limiteUsuario: limitePorUsuario - totalUsuario,
+            maxCantidad,
+            cuposLote: restantes,
+            precioUnitario: 0,
+            esGratis: true,
           })
 
-          if (!verif.puede) {
-            return Swal.fire({
-              title: 'Límite alcanzado',
-              html: `
-              <p>Obtenidas: <b>${verif.totalObtenidas}</b></p>
-              <p>Pendientes: <b>${verif.totalPendientes}</b></p>
-              <p>Máximo FREE: <b>${verif.maxPermitidas}</b></p>
-            `,
-              icon: 'info',
-            })
-          }
+          if (!resResumen || resResumen.cancelado) return
+
+          const cantidadSel = resResumen.cantidad || 1
 
           return pedirEntradaFreeConLote({
             evento,
             loteSel,
             usuarioId,
             usuarioNombre,
+            cantidadSel,
             mostrarQrReact,
             cargarEntradasUsuario,
           })
         }
 
-        const maxCantidadPago = Math.min(maxUser, loteSel.restantes)
-        if (maxCantidadPago <= 0) {
-          await Swal.fire('Sin cupos', 'No quedan cupos en este lote.', 'info')
-          return
-        }
+        // --------------------------------------------------------------
+        // LOTE PAGO
+        // --------------------------------------------------------------
+        const maxCantidadPago = Math.min(maxUser, restantes)
 
-        const resultPago = await abrirMetodoPago(
-          evento,
-          loteSel,
-          precioLote,
-          maxCantidadPago
-        )
+        const resResumen = await abrirResumenLote(evento, loteSel, {
+          totalObtenidas: totalUsuario,
+          totalPendientes: 0,
+          limiteUsuario: limitePorUsuario - totalUsuario,
+          maxCantidad: maxCantidadPago,
+          cuposLote: restantes,
+          precioUnitario: precioLote,
+          esGratis: false,
+        })
 
-        if (resultPago?.cancelado) {
-          return Swal.fire(
-            'Compra cancelada',
-            'Compra cancelada por el usuario.',
-            'info'
-          )
-        }
+        if (!resResumen || resResumen.cancelado) return
 
-        if (!resultPago) return
+        const { cantidad, metodo } = resResumen
+        const cantidadSel = cantidad || 1
 
-        if (resultPago.metodo === 'transfer') {
+        if (metodo === 'transfer') {
           return manejarTransferencia({
             evento,
             precio: precioLote,
-            cantidadSel: resultPago.cantidad,
+            cantidadSel,
             loteSel,
             usuarioId,
             usuarioNombre,
@@ -345,67 +247,73 @@ export function EntradasProvider({ children }) {
         return manejarMercadoPago({
           evento,
           precio: precioLote,
-          cantidadSel: resultPago.cantidad,
+          cantidadSel,
           usuarioId,
           eventoId: evento.id,
         })
       }
 
-      // ----------------------------------------------------------
+      // --------------------------------------------------------------
       // EVENTO SIN LOTES — FREE
-      // ----------------------------------------------------------
-      if (precioEvento <= 0) {
-        const verif = await verificarPermisosEntradaFree({
-          eventoId: evento.id,
-          usuarioId,
+      // --------------------------------------------------------------
+      const precioEvento = Number(eventoData.precio || 0)
+
+      if (precioEvento === 0) {
+        const maxCantidad = maxUser
+
+        const loteVirtual = {
+          nombre: 'Entrada general',
+          precio: 0,
+        }
+
+        const resResumen = await abrirResumenLote(evento, loteVirtual, {
+          totalObtenidas: totalUsuario,
+          limiteUsuario: limitePorUsuario - totalUsuario,
+          maxCantidad,
+          precioUnitario: 0,
+          esGratis: true,
         })
 
-        if (!verif.puede) {
-          return Swal.fire({
-            title: 'No podés pedir más',
-            html: `
-            <p>Obtenidas: <b>${verif.totalObtenidas}</b></p>
-            <p>Pendientes: <b>${verif.totalPendientes}</b></p>
-          `,
-            icon: 'info',
-          })
-        }
+        if (!resResumen || resResumen.cancelado) return
+
+        const cantidadSel = resResumen.cantidad || 1
 
         return pedirEntradaFreeSinLote({
           evento,
           usuarioId,
           usuarioNombre,
-          maxUser,
+          cantidadSel,
           mostrarQrReact,
           cargarEntradasUsuario,
         })
       }
 
-      // ----------------------------------------------------------
+      // --------------------------------------------------------------
       // EVENTO SIN LOTES — PAGO
-      // ----------------------------------------------------------
-      const resultPago = await abrirMetodoPago(
-        evento,
-        null,
-        precioEvento,
-        maxUser
-      )
-
-      if (resultPago?.cancelado) {
-        return Swal.fire(
-          'Compra cancelada',
-          'Compra cancelada por el usuario.',
-          'info'
-        )
+      // --------------------------------------------------------------
+      const loteVirtualPago = {
+        nombre: 'Entrada general',
+        precio: precioEvento,
       }
 
-      if (!resultPago) return
+      const resResumen = await abrirResumenLote(evento, loteVirtualPago, {
+        totalObtenidas: totalUsuario,
+        limiteUsuario: limitePorUsuario - totalUsuario,
+        maxCantidad: maxUser,
+        precioUnitario: precioEvento,
+        esGratis: false,
+      })
 
-      if (resultPago.metodo === 'transfer') {
+      if (!resResumen || resResumen.cancelado) return
+
+      const { cantidad, metodo } = resResumen
+      const cantidadSel = cantidad || 1
+
+      if (metodo === 'transfer') {
         return manejarTransferencia({
           evento,
           precio: precioEvento,
-          cantidadSel: resultPago.cantidad,
+          cantidadSel,
           usuarioId,
           usuarioNombre,
           eventoId: evento.id,
@@ -416,18 +324,18 @@ export function EntradasProvider({ children }) {
       return manejarMercadoPago({
         evento,
         precio: precioEvento,
-        cantidadSel: resultPago.cantidad,
+        cantidadSel,
         usuarioId,
         eventoId: evento.id,
       })
     } catch (err) {
       console.error('❌ ERROR pedirEntrada:', err)
-      Swal.fire('Error', 'Ocurrió un problema inesperado.', 'error')
+      Swal.fire('Error', 'Ocurrió un error inesperado.', 'error')
     }
   }
 
   // --------------------------------------------------------------
-  // PROVIDER FINAL
+  // EXPORTAR
   // --------------------------------------------------------------
   return (
     <EntradasContext.Provider
