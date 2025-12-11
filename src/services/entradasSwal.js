@@ -74,7 +74,6 @@ ${lotes
 
     return `
 <div class="lote-card ${agotado ? 'lote-sin-cupos' : ''}" data-id="${l.index}">
-
   ${fechaHtml ? `<div class="lote-fecha-top-abs">${fechaHtml}</div>` : ''}
 
   <div class="lote-nombre-principal">
@@ -167,24 +166,9 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
 
   const esGratis = esGratisProp ?? precioBase === 0
 
-  const disponiblesAhora = Math.max(
-    0,
-    Math.min(limiteUsuario, cuposLote, maxCantidad)
-  )
+  const disponiblesAhora = Math.max(0, Math.min(limiteUsuario, cuposLote))
 
   let cantidad = 1
-
-  // DEBUG PRO
-  console.group('🔎 RESUMEN LOTE')
-  console.log('Evento:', evento?.nombre)
-  console.log('Lote:', lote?.nombre)
-  console.log('totalObtenidas:', totalObtenidas)
-  console.log('totalPendientes:', totalPendientes)
-  console.log('limiteUsuario:', limiteUsuario)
-  console.log('cuposLote:', cuposLote)
-  console.log('maxCantidad:', maxCantidad)
-  console.log('disponiblesAhora:', disponiblesAhora)
-  console.groupEnd()
 
   return await MySwal.fire({
     title: `<span class="swal-title-main">${evento.nombre.toUpperCase()}</span>`,
@@ -196,8 +180,13 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
 
         <hr />
 
-        <div class="info-limites-box">
 
+        
+        <div class="info-limites-box">
+      <div class="limite-row">
+        <span class="label">Máximo permitido por cuenta:</span>
+        <span class="value">${evento.entradasPorUsuario ?? '—'}</span>
+      </div>
           ${
             totalObtenidas > 0
               ? `
@@ -218,10 +207,7 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
               : ''
           }
 
-          <div class="limite-row">
-            <span class="label">Máximo permitido por cuenta:</span>
-            <span class="value">${limiteUsuario}</span>
-          </div>
+
 
           <div class="limite-row total">
             <span class="label">Disponibles ahora:</span>
@@ -332,6 +318,5 @@ export async function swalEntradasGeneradas({ eventoNombre, cantidad }) {
   })
 
   if (res.isConfirmed) document.dispatchEvent(new Event('abrir-mis-entradas'))
-
   return 'seguir'
 }
