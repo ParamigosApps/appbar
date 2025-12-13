@@ -180,7 +180,7 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
 
   let cantidad = 1
   let metodoSeleccionado = null
-
+  console.log(totalObtenidas)
   const res = await MySwal.fire({
     title: `<span class="swal-title-main">${evento.nombre.toUpperCase()}</span>`,
 

@@ -289,9 +289,9 @@
 /* Métodos de pago: columnas de botones */
 .metodos-wrapper {
   display: flex;
-  flex-direction: column;
+  flex-direction: row !important;
+  justify-content: center;
   gap: 8px;
-  margin-top: 8px;
 }
 
 .method-btn {
@@ -601,7 +601,7 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.15);
   background: #009ee3;
   height: 56px; /* 🔹 más aire visual */
-  width: 60%; /* 🔹 ancho consistente */
+  width: 40%; /* 🔹 ancho consistente */
   border-radius: 14px;
   display: flex;
   align-items: center;
@@ -641,7 +641,7 @@
   color: #565555;
 
   height: 56px;
-  width: 60%;
+  width: 40%;
   max-width: 360px;
   border-radius: 14px;
 

@@ -98,48 +98,6 @@
   margin-top: 6px;
 }
 
-/* Botones universales */
-.carrito-btn {
-  all: unset !important;
-
-  width: 30px !important;
-  height: 30px !important;
-
-  display: flex !important;
-  justify-content: center !important;
-  align-items: center !important;
-
-  border-radius: 6px !important;
-
-  font-size: 1.2rem !important;
-  font-weight: 700 !important;
-
-  color: white !important;
-  cursor: pointer !important;
-
-  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
-}
-
-/* MENOS */
-.btn-resta.carrito-btn {
-  background: #dc3545 !important;
-}
-
-.btn-resta.carrito-btn:hover {
-  transform: scale(1.12);
-  box-shadow: 0 0 10px rgba(220, 53, 69, 0.45);
-}
-
-/* MÁS */
-.btn-suma.carrito-btn {
-  background: #14a8e2 !important;
-}
-
-.btn-suma.carrito-btn:hover {
-  transform: scale(1.12);
-  box-shadow: 0 0 10px rgba(20, 168, 226, 0.45);
-}
-
 /* Número */
 .carrito-cantidad-numero {
   min-width: 30px !important;

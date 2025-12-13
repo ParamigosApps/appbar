@@ -285,6 +285,7 @@ export function EntradasProvider({ children }) {
           evento,
           usuarioId,
           usuarioNombre,
+          maxUser,
           cantidadSel,
           mostrarQrReact,
           cargarEntradasUsuario,

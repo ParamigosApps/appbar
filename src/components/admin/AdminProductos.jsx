@@ -340,9 +340,7 @@ export default function AdminProductos() {
                     <span className="badge bg-success">{prod.stock}</span>
                   </p>
 
-                  <p className="small text-muted">
-                    {prod.descripcion || 'Sin descripción'}
-                  </p>
+                  <p className="small text-muted">{prod.descripcion || ''}</p>
 
                   <div className="mt-auto">
                     <div className="badge bg-primary mb-2">

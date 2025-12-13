@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore'
 
 import { db, auth } from '../context/FirebaseContext.jsx'
-import { generarCompraQr } from './generarQrService'
+import { generarCompraQr } from './generarQrService.js'
 
 // ======================================================
 // 📌 FORMATEAR FECHA EXACTO A TU VERSIÓN ORIGINAL

@@ -18,7 +18,7 @@ class Producto {
     this.id = id
     this.imgSrc = data.imagen || '/img/default-product.png'
     this.nombre = data.nombre || 'Sin título'
-    this.descripcion = data.descripcion || 'Sin descripción'
+    this.descripcion = data.descripcion || ''
     this.precio = data.precio || 0
     this.categoria = data.categoria || 'Sin categoría'
     this.destacado = data.destacado || false
@@ -64,10 +64,10 @@ export function CatalogoProvider({ children }) {
       <img src="${producto.imgSrc}" class="producto-img" />
 
       ${
-        producto.descripcion == '' ? (
+        producto.descripcion != '' ? (
           <p class="producto-desc">${producto.descripcion}</p>
         ) : (
-          ''
+          ' '
         )
       }
 
@@ -133,7 +133,7 @@ export function CatalogoProvider({ children }) {
 
     const final = await Swal.fire({
       title: '¡Producto añadido!',
-      html: `<p style="font-size:18px;font-weight:600;">${producto.nombre} x${producto.enCarrito} agregado 🛒</p>`,
+      html: `<p style="margin-top:4px;font-size:18px;font-weight:600;text-align:center;">${producto.nombre} x${producto.enCarrito} agregado.</p>`,
       icon: 'success',
       showCancelButton: true,
       confirmButtonText: 'Ir al carrito',

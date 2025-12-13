@@ -319,7 +319,7 @@ export default function CrearEvento() {
               <input
                 type="text"
                 name="horarioDesde"
-                placeholder="22:00"
+                value="22:00"
                 className="form-control"
                 value={form.horarioDesde}
                 onChange={handleInput}
@@ -329,7 +329,7 @@ export default function CrearEvento() {
               <input
                 type="text"
                 name="horarioHasta"
-                placeholder="06:00"
+                value="06:00"
                 className="form-control"
                 value={form.horarioHasta}
                 onChange={handleInput}

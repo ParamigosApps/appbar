@@ -85,7 +85,7 @@ export default function CarritoOverlay() {
                      ======================================================= */}
                   <div className="carrito-cantidad-wrapper">
                     <button
-                      className="btn-resta carrito-btn"
+                      className="btn-resta cantidad-btn menos"
                       onClick={() => restarProducto(index)}
                     >
                       –
@@ -96,7 +96,7 @@ export default function CarritoOverlay() {
                     </span>
 
                     <button
-                      className="btn-suma carrito-btn"
+                      className="btn-suma cantidad-btn mas"
                       onClick={() => sumarProducto(index)}
                     >
                       +
