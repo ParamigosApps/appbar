@@ -17,14 +17,14 @@ function BotonCollapse({ label, open, count, color, onClick }) {
   return (
     <button
       className={
-        'btn btn-outline-dark w-100 mb-2 position-relative btn-collapse ' +
+        'btn swal-btn-alt w-100 mb-2 position-relative btn-collapse ' +
         (open ? '' : 'collapsed')
       }
       type="button"
       onClick={onClick}
     >
       {label}
-      <span className="flecha"></span>
+      <span></span>
 
       <span
         className={

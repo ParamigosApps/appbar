@@ -130,7 +130,7 @@ export async function mostrarQrCompraReact(pedido, onClose) {
 
   <button id="btnWsp" class="btn-ticket btn-wsp">
     <img
-      src="./src/assets/img/whatsapp.png"
+      src="../src/assets/img/whatsapp.png"
       alt="WhatsApp"
     />
     Enviar por WhatsApp

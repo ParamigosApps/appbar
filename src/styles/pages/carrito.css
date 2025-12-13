@@ -45,26 +45,26 @@
    ============================================================ */
 
 .carrito-items {
-  padding: 12px 16px;
   overflow-y: auto;
-}
-
-.carrito-item {
+  padding: 12px;
+  flex: 1;
   display: flex;
-  gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 6px;
+  min-height: 30vh;
+  flex-wrap: wrap;
 }
 
 .carrito-item img {
-  width: 70px;
-  height: 70px;
+  width: 85px;
+  height: 85px;
   object-fit: cover;
   border-radius: 8px;
 }
 
 .carrito-info p {
   margin: 0;
-  font-size: 0.9rem;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 /* ============================================================

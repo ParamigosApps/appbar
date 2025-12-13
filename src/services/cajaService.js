@@ -15,20 +15,24 @@ export async function registrarRetiroCompra({
   compraId,
   compraData,
   empleado,
+  origen = 'qr-caja',
 }) {
-  // 1️⃣ Update compra
+  if (!compraId) throw new Error('compraId requerido')
+
+  // 🔥 UPDATE PRINCIPAL (ESTE CAMPO FALTABA)
   await updateDoc(doc(db, 'compras', compraId), {
+    estado: 'retirado', // 🔥 CLAVE ABSOLUTA
     retirada: true,
     retiradaEn: serverTimestamp(),
     retiradaPor: {
-      uid: empleado.uid,
-      nombre: empleado.nombre,
+      uid: empleado.uid || null,
+      nombre: empleado.nombre || 'Caja',
       rol: empleado.rol || 'caja',
     },
-    retiroMetodo: 'qr',
+    retiradaDesde: origen,
   })
 
-  // 2️⃣ Log inmutable
+  // 🧾 LOG INMUTABLE
   await addDoc(collection(db, 'logsCaja'), {
     tipo: 'retiro_compra',
     compraId,
@@ -40,7 +44,7 @@ export async function registrarRetiroCompra({
       nombre: empleado.nombre,
     },
     fecha: serverTimestamp(),
-    origen: 'lector_qr',
+    origen,
   })
 }
 

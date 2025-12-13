@@ -24,15 +24,17 @@
   right: 0;
   width: 80%;
   max-width: 360px;
-  height: 95vh;
+
   background: #fff;
   box-shadow: -4px 0 12px rgba(0, 0, 0, 0.3);
-  display: flex;
-  flex-direction: column;
   overflow-y: auto;
   animation: slideIn 0.25s ease;
   pointer-events: all;
   z-index: 999999;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
 }
 
 @keyframes slideIn {
@@ -68,11 +70,6 @@
   cursor: pointer;
 }
 
-.carrito-items {
-  padding: 10px;
-  flex: 1;
-}
-
 .carrito-item {
   display: flex;
   align-items: center;
@@ -80,13 +77,6 @@
   margin-bottom: 12px;
   border-bottom: 1px solid #eee;
   padding-bottom: 10px;
-}
-
-.carrito-item img {
-  width: 60px;
-  height: 60px;
-  border-radius: 8px;
-  object-fit: cover;
 }
 
 .carrito-info {
@@ -109,6 +99,7 @@
 }
 
 .carrito-footer {
+  min-height: 20vh;
   padding: 15px;
   border-top: 1px solid #ddd;
 }
