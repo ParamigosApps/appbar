@@ -53,13 +53,7 @@ export default function CarritoOverlay() {
               <p className="mb-3">Tu carrito está vacío 🛒</p>
 
               <button
-                className="btn btn-dark"
-                style={{
-                  padding: '10px 20px',
-                  borderRadius: '8px',
-                  fontWeight: '600',
-                  fontSize: '1rem',
-                }}
+                className="btn swal-btn-confirm"
                 onClick={() => {
                   cerrarCarrito()
                   const btnCat = document.querySelector(
