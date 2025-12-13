@@ -12,10 +12,9 @@ import { useFirebase } from './FirebaseContext.jsx'
 import { usePedidos } from './PedidosContext.jsx'
 
 import {
-  crearPedido,
   validarLimitePendientes,
+  crearPedido,
 } from '../services/comprasService.js'
-
 import { crearPreferenciaCompra } from '../services/mercadopago.js'
 import { mostrarQrCompraReact } from '../components/qr/ModalQrCompra.jsx'
 

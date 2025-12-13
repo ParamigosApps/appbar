@@ -3,6 +3,9 @@
 // --------------------------------------------------------------
 
 import Swal from 'sweetalert2'
+import html2canvas from 'html2canvas'
+import jsPDF from 'jspdf'
+
 import { db, auth } from '../Firebase.js'
 import {
   addDoc,
@@ -168,7 +171,6 @@ export async function mostrarQrCompra({
     width: '420px',
     html: `
       <div id="ticketGenerado" style="font-size:15px;text-align:left;">
-
         <p><strong style="font-size:18px">Pedido #${numeroPedido}</strong></p>
         <p><strong>Estado:</strong> ${estado.toUpperCase()}</p>
         <p><strong>Cliente:</strong> ${usuarioNombre}</p>
@@ -209,7 +211,6 @@ export async function mostrarQrCompra({
         tamaño: 200,
       })
 
-      // PDF
       document.getElementById('btnPdf')?.addEventListener('click', async () => {
         const ticket = document.getElementById('ticketGenerado')
         const canvas = await html2canvas(ticket)
@@ -219,7 +220,6 @@ export async function mostrarQrCompra({
         pdf.save(`ticket-${numeroPedido}.pdf`)
       })
 
-      // WhatsApp
       document.getElementById('btnWsp')?.addEventListener('click', () => {
         let msg = `🧾 *Ticket de compra*%0A`
         msg += `Pedido #${numeroPedido}%0A`

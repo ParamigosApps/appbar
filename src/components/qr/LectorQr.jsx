@@ -8,7 +8,6 @@ import { Html5Qrcode } from 'html5-qrcode'
 import {
   mostrarComprobanteCaja,
   registrarRetiroCompra,
-  marcarCompraRetirada,
 } from '../../services/cajaService.js'
 import {
   decodificarQr,
@@ -18,7 +17,7 @@ import {
   marcarEntradaUsada,
 } from '../../services/lectorQr.js'
 
-import { db } from '../../Firebase.js'
+import { db, auth } from '../../Firebase.js'
 import {
   doc,
   getDoc,
@@ -345,18 +344,8 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
         }
       }
       if (res?.ok && res.tipo === 'compra') {
-        await registrarRetiroCompra({
-          compraId: res.data.id,
-          compraData: res.data,
-          empleado: {
-            uid: user.uid,
-            nombre: user.displayName || 'Caja',
-            rol: 'caja',
-          },
-        })
-
+        // Solo mostrar el pedido al cajero
         setPedidoCaja(res.data)
-        await mostrarComprobanteCaja(res.data)
       }
     } catch (err) {
       console.error('❌ Error inesperado en onScanSuccess:', err)
@@ -492,7 +481,7 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
 
             <hr />
 
-            {pedidoCaja.carrito.map((p, i) => (
+            {(pedidoCaja.items || []).map((p, i) => (
               <div key={i} className="d-flex justify-content-between">
                 <span>
                   {p.nombre} ×{p.enCarrito}
@@ -511,7 +500,19 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
             <button
               className="btn btn-success w-100 mt-3"
               onClick={async () => {
-                await marcarCompraRetirada(pedidoCaja.id)
+                const currentUser = auth.currentUser
+
+                await registrarRetiroCompra({
+                  compraId: pedidoCaja.id,
+                  compraData: pedidoCaja,
+                  empleado: {
+                    uid: currentUser?.uid || null,
+                    nombre: currentUser?.displayName || 'Caja',
+                    rol: 'caja',
+                  },
+                  origen: 'qr-caja',
+                })
+
                 await mostrarComprobanteCaja(pedidoCaja)
                 setPedidoCaja(null)
               }}

@@ -319,10 +319,19 @@ export async function marcarEntradaUsada(id) {
   })
 }
 
-export async function marcarCompraRetirada(id) {
-  await updateDoc(doc(db, 'compras', id), {
+export async function marcarCompraRetirada(
+  compraId,
+  { userId = null, origen = 'qr-caja' } = {}
+) {
+  if (!compraId) return
+
+  await updateDoc(doc(db, 'compras', compraId), {
+    estado: 'retirado', // 🔥 CLAVE
     retirada: true,
     retiradaEn: serverTimestamp(),
+    retiradaPor: empleado.uid || null,
+    retiradaPorNombre: empleado.nombre || 'Caja',
+    retiradaDesde: origen || 'qr-caja',
   })
 }
 

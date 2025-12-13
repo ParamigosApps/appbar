@@ -1,7 +1,7 @@
 import Swal from 'sweetalert2'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
-import { generarCompraQr } from './qrService.js'
+
 import {
   doc,
   updateDoc,
