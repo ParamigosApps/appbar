@@ -94,6 +94,13 @@ ${lotes
   </div>
 
   <div class="lote-badges">
+  <span class="lote-label">${
+    l.genero?.toLowerCase() === 'hombres' ||
+    l.genero?.toLowerCase() === 'mujeres'
+      ? 'Exclusivo: '
+      : 'Género: '
+  }</span>
+  
     ${generoBadge}
     ${consumicionBadge}
     ${badgeStock}
@@ -150,8 +157,8 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
   const MySwal = crearSwalConTheme(theme)
 
   const {
-    maxCantidad = 1,
-    limiteUsuario,
+    maxCantidad = 99,
+    limiteUsuario = 0,
     totalObtenidas = 0,
     totalPendientes = 0,
     cuposLote = 0,
@@ -166,60 +173,67 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
 
   const esGratis = esGratisProp ?? precioBase === 0
 
-  const disponiblesAhora = Math.max(0, Math.min(limiteUsuario, cuposLote))
+  const disponiblesAhora = Math.max(
+    0,
+    Math.min(limiteUsuario, cuposLote || limiteUsuario, maxCantidad)
+  )
 
   let cantidad = 1
+  let metodoSeleccionado = null
 
-  return await MySwal.fire({
+  const res = await MySwal.fire({
     title: `<span class="swal-title-main">${evento.nombre.toUpperCase()}</span>`,
 
     html: `
       <div class="resumen-lote-box">
-
         <p><b>Lote:</b> ${lote.nombre.toUpperCase()}</p>
-
         <hr />
 
-
-        
         <div class="info-limites-box">
-      <div class="limite-row">
-        <span class="label">Máximo permitido por cuenta:</span>
-        <span class="value">${evento.entradasPorUsuario ?? '—'}</span>
-      </div>
           ${
             totalObtenidas > 0
               ? `
             <div class="limite-row">
               <span class="label">Tus entradas:</span>
-              <span class="value">${totalObtenidas}</span>
+              <span class="value infoCantEntradas">${totalObtenidas}</span>
             </div>`
               : ''
           }
+
+          <div class="limite-row">
+            <span class="label">Máximo permitido por cuenta:</span>
+            <span class="value infoCantEntradas">
+              ${evento.entradasPorUsuario ?? '—'}
+            </span>
+          </div>
 
           ${
             totalPendientes > 0
               ? `
             <div class="limite-row">
               <span class="label">Pendientes:</span>
-              <span class="value">${totalPendientes}</span>
+              <span class="value infoCantEntradas">${totalPendientes}</span>
             </div>`
               : ''
           }
-
-
 
           <div class="limite-row total">
             <span class="label">Disponibles ahora:</span>
             <span class="value highlight">${disponiblesAhora}</span>
           </div>
-
         </div>
 
         <div class="cant-wrapper">
-          <button id="menos" class="cant-btn">–</button>
-          <input id="cant" value="1" min="1" max="${disponiblesAhora}">
-          <button id="mas" class="cant-btn">+</button>
+          <button id="menos" class="cant-btn" ${
+            disponiblesAhora <= 1 ? 'disabled' : ''
+          }>–</button>
+          <input id="cant" value="1" min="1" max="${Math.max(
+            1,
+            disponiblesAhora
+          )}" ${disponiblesAhora <= 0 ? 'disabled' : ''}>
+          <button id="mas" class="cant-btn" ${
+            disponiblesAhora <= 1 ? 'disabled' : ''
+          }>+</button>
         </div>
 
         <p id="total" class="total-box">
@@ -230,10 +244,23 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
           esGratis
             ? `<p class="free-info">Confirmá la cantidad.</p>`
             : `
-        <div class="metodos-wrapper">
-          <button id="mp" class="method-btn">💳 Mercado Pago</button>
-          <button id="transfer" class="method-btn">🔄 Transferencia</button>
-        </div>`
+          <div class="metodos-wrapper">
+            <button id="mp" type="button" class="method-btn method-mp only-logo" ${
+              disponiblesAhora <= 0 ? 'disabled' : ''
+            }>
+              <img
+                src="https://http2.mlstatic.com/frontend-assets/ui-navigation/5.18.9/mercadopago/logo__large.png"
+                alt="Mercado Pago"
+                class="mp-logo"
+              />
+            </button>
+
+            <button id="transfer" type="button" class="method-btn method-transfer" ${
+              disponiblesAhora <= 0 ? 'disabled' : ''
+            }>
+              TRANSFERENCIA
+            </button>
+          </div>`
         }
       </div>
     `,
@@ -243,51 +270,63 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
     showConfirmButton: esGratis,
     confirmButtonText: 'Confirmar',
 
+    // ✅ ACA VA EL BLOQUE QUE PREGUNTABAS
     didOpen: () => {
       const input = document.getElementById('cant')
       const total = document.getElementById('total')
 
-      function actualizar() {
+      const actualizar = () => {
         let v = Number(input.value)
         if (v < 1) v = 1
         if (v > disponiblesAhora) v = disponiblesAhora
+
         cantidad = v
         input.value = v
+
         total.innerHTML = esGratis
           ? `Total: <b>GRATIS</b>`
           : `Total: <b>$${v * precioBase}</b>`
       }
 
-      input.oninput = actualizar
       document.getElementById('menos').onclick = () => {
-        input.value = Number(input.value) - 1
+        input.value--
         actualizar()
       }
+
       document.getElementById('mas').onclick = () => {
-        input.value = Number(input.value) + 1
+        input.value++
         actualizar()
       }
+
+      input.oninput = actualizar
       actualizar()
 
       if (!esGratis) {
         document.getElementById('mp').onclick = () => {
-          window._swalValue = { cantidad, metodo: 'mp' }
+          metodoSeleccionado = 'mp'
           Swal.close()
         }
+
         document.getElementById('transfer').onclick = () => {
-          window._swalValue = { cantidad, metodo: 'transfer' }
+          metodoSeleccionado = 'transfer'
           Swal.close()
         }
       }
     },
-  }).then(res => {
-    if (esGratis) {
-      if (!res.isConfirmed) return { cancelado: true }
-      return { cantidad, metodo: 'free' }
-    }
-    if (res.dismiss === Swal.DismissReason.cancel) return { cancelado: true }
-    return window._swalValue
   })
+
+  // 🛑 Gratis → depende del confirm
+  if (esGratis) {
+    if (!res || !res.isConfirmed) return { cancelado: true }
+    return { cantidad, metodo: 'free' }
+  }
+
+  // ✅ Pago → si eligió método, NO es cancel
+  if (metodoSeleccionado) {
+    return { cantidad, metodo: metodoSeleccionado }
+  }
+
+  return { cancelado: true }
 }
 
 // ======================================================================

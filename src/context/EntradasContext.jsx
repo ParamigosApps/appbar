@@ -149,18 +149,21 @@ export function EntradasProvider({ children }) {
       const { eventoData, limitePorUsuario, totalUsuario, maxUser, lotesInfo } =
         await calcularCuposEvento(evento.id, usuarioId)
 
-      console.log('🔎 CUPOS CALCULADOS:', {
-        limitePorUsuario,
-        totalUsuario,
-        maxUser,
-      })
-
       if (maxUser <= 0) {
-        await Swal.fire(
-          'Límite alcanzado',
-          'Ya alcanzaste el máximo de entradas permitidas.',
-          'info'
-        )
+        await Swal.fire({
+          title: 'Límite alcanzado',
+          text: 'Ya alcanzaste el máximo de entradas permitidas.',
+          icon: 'info',
+          confirmButtonText: 'Aceptar',
+
+          customClass: {
+            popup: 'swal-popup-custom',
+            htmlContainer: 'swal-text-center',
+            confirmButton: 'swal-btn-confirm',
+          },
+
+          buttonsStyling: false,
+        })
         return
       }
 

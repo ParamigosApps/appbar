@@ -109,25 +109,6 @@
   transition: background 0.18s ease, transform 0.1s ease !important;
 }
 
-.swal-btn-cancel:hover,
-.swal-btn-alt:hover {
-  background: #e5e7eb !important;
-  transform: translateY(-1px) !important;
-}
-
-/* En mobile los botones ocupan ancho completo */
-@media (max-width: 480px) {
-  .swal2-actions {
-    flex-direction: column-reverse !important;
-    align-items: stretch !important;
-  }
-  .swal-btn-confirm,
-  .swal-btn-cancel,
-  .swal-btn-alt {
-    width: 100% !important;
-  }
-}
-
 /* ============================================================
    CARDS DE LOTES — ESTILO PASSLINE (OPCIÓN B)
    ============================================================ */
@@ -160,14 +141,6 @@
   border: 1px solid #e5e7eb;
   cursor: pointer;
   transition: 0.18s ease;
-}
-
-/* Hover elegante */
-.lote-card:hover {
-  background: #f3f4f6;
-  border-color: #d1d5db;
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
-  transform: translateY(-1px);
 }
 
 /* Header: nombre del ticket + precio */
@@ -293,10 +266,6 @@
   color: #111827;
 }
 
-.cant-btn:hover {
-  background: #e5e7eb;
-}
-
 /* Input número de cantidad (#cant) */
 #cant {
   width: 64px;
@@ -326,25 +295,15 @@
 }
 
 .method-btn {
-  width: 100%;
+  width: 80%;
   padding: 10px 14px;
   border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
   cursor: pointer;
   font-size: 0.95rem;
   font-weight: 600;
-  color: #111827;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 8px;
-  transition: 0.18s ease;
-}
-
-.method-btn:hover {
-  background: #eef2ff;
-  border-color: #c7d2fe;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  border: none;
 }
 
 /* Si necesitás marcar un método secundario como “volver atrás” */
@@ -373,17 +332,12 @@
   border-radius: 8px;
 }
 
-.lotes-scroll::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
-}
-
 /* ============================================================
    SWEETALERT — ESTILO ORIGINAL COMPLETO
 ============================================================ */
 
 .swal2-popup {
   border-radius: 16px !important;
-  padding: 22px 26px !important;
   background: #ffffff !important;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
 }
@@ -393,31 +347,6 @@
   justify-content: center !important;
   gap: 12px !important;
   margin-top: 18px !important;
-}
-
-/* ============================================================
-   BOTÓN CONTINUAR — ESTILO .lote-select-mini (CELESTE)
-   ============================================================ */
-
-.swal-btn-confirm {
-  background: #14a8e2 !important;
-  color: #fff !important;
-  font-weight: 800 !important;
-  font-size: 0.9rem !important;
-  border-radius: 10px !important;
-  padding: 10px 20px !important;
-  border: none !important;
-  box-shadow: none !important;
-  transition: 0.2s ease-in-out !important;
-}
-
-.swal-btn-confirm:hover {
-  background: #0f8cc0 !important; /* mismo hover que lote-select-mini */
-}
-
-/* Alineación correcta */
-.swal2-actions {
-  gap: 12px !important;
 }
 
 .swal2-cancel {
@@ -431,7 +360,7 @@
 
 /* Caja general */
 .transfer-box {
-  padding: 6px 2px;
+  padding: 6px 2rem;
   text-align: left;
 }
 
@@ -444,6 +373,7 @@
 .transfer-precio {
   color: #0a84ff;
   font-weight: 700;
+  font-size: 1.25rem;
 }
 
 /* Datos */
@@ -470,14 +400,14 @@
   margin-top: 2px;
 }
 
-/* Botones */
 .full-btn {
-  width: 100%;
+  width: 80%;
+  display: block; /* 🔑 CLAVE */
+  margin: 10px auto 0; /* 🔑 CLAVE */
   padding: 11px 12px;
-  margin-top: 10px;
   border-radius: 10px;
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .full-btn.celeste {
@@ -503,6 +433,14 @@
   border-radius: 12px;
   margin-bottom: 18px;
   width: 100%;
+  height: 260px;
+}
+.copiado-ok {
+  margin: 8px auto 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #16a34a; /* verde */
+  text-align: center;
 }
 
 .dato-line {
@@ -600,4 +538,148 @@
 
 .barra-text.alerta-text {
   color: #ff3b3b;
+}
+
+#disponiblesAhoraEntradas {
+  font-size: 1.15rem !important;
+  font-weight: 800;
+  padding-right: 2px;
+  margin-top: -4px;
+}
+
+.infoCantEntradas {
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
+}
+
+/* =====================================================
+   SWAL PRODUCTO DETALLE
+===================================================== */
+
+.swal-producto .swal-producto-detalle {
+  text-align: center;
+}
+
+.swal-producto .producto-img {
+  display: block;
+  margin: 10px auto 12px auto;
+  width: 150px;
+  border-radius: 8px;
+}
+
+.swal-producto .producto-desc {
+  margin: 8px 0;
+  font-size: 15px;
+}
+
+.swal-producto .producto-precio {
+  font-size: 18px;
+  font-weight: 600;
+  margin-top: 6px;
+}
+
+.swal-producto .cantidad-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  margin-top: 18px;
+}
+.swal2-html-container {
+  padding-top: 0.75rem;
+}
+/* Texto centrado SOLO cuando se pide */
+.swal-text-center {
+  text-align: center !important;
+}
+
+/* ===========================
+   MERCADO PAGO BUTTON (FINAL)
+=========================== */
+.method-mp.only-logo {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14), 0 2px 4px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  background: #009ee3;
+  height: 56px; /* 🔹 más aire visual */
+  width: 60%; /* 🔹 ancho consistente */
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: filter 0.2s ease, transform 0.1s ease;
+}
+
+.method-mp.only-logo:hover {
+  filter: brightness(1.08); /* 🔹 hover limpio y pro */
+}
+
+.method-mp.only-logo:active {
+  transform: scale(0.98);
+}
+.method-btn:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.method-btn:active {
+  transform: scale(0.97);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.16),
+    inset 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+/* LOGO */
+.method-mp .mp-logo {
+  height: 32px; /* 🔹 un poco más chico */
+  width: auto;
+  display: block;
+}
+
+.method-transfer {
+  background: var(--color-primary);
+  color: #565555;
+
+  height: 56px;
+  width: 60%;
+  max-width: 360px;
+  border-radius: 14px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+
+  font-size: 1.1rem;
+  font-weight: 800;
+
+  cursor: pointer;
+
+  padding: 0 18px; /* 🔑 evita “peso abajo” */
+
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14), 0 2px 4px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transition: filter 0.18s ease, transform 0.12s ease, box-shadow 0.18s ease;
+}
+.method-transfer span,
+.method-transfer {
+  transform: translateY(-0.5px);
+}
+
+.method-transfer:hover {
+  filter: brightness(0.95);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.method-transfer:active {
+  transform: scale(0.98);
+}
+
+.metodos-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center; /* ⬅️ CLAVE */
 }

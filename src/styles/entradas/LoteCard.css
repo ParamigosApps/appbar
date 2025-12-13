@@ -26,15 +26,13 @@
 
 /* ---- Card ---- */
 .lote-card {
-  background: #fff;
-  border: 1px solid #e5e7eb;
   border-radius: 14px;
   padding: 6px 8px 32px !important; /* espacio p/ botón */
   position: relative;
   transition: 0.2s;
-}
-.lote-card:hover {
-  transform: translateY(-2px);
+  width: 100% !important;
+  margin: 0 auto !important;
+  display: block !important;
 }
 
 /* ---- Fecha ---- */
@@ -42,11 +40,12 @@
   position: absolute;
   top: 6px;
   right: 8px;
-  background: #f9fafb;
+  background: #fbfbf9;
+  color: #111419;
   border: 1px solid #e5e7eb;
-  padding: 2px 6px;
+  padding: 4px 8px;
   border-radius: 6px;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 700;
 }
 
@@ -130,13 +129,12 @@
   color: #fff;
 }
 .lote-select-mini {
-  background: #14a8e2;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
 }
-.lote-select-mini:hover {
-  background: #0f8cc0;
-}
+
 .lote-agotado-btn {
-  background: #9ca3af;
+  background: var(--color-disabled);
 }
 
 /* Badge sin consumisión */
@@ -211,7 +209,7 @@
    BOTÓN CONFIRMAR (Continuar) — estilo del botón COMPRAR
 ---------------------------------------------------------- */
 .swal-btn-confirm {
-  background: #14a8e2 !important; /* mismo celeste */
+  background: #ffcc00 !important; /* mismo celeste */
   color: #fff !important;
   font-size: 0.88rem !important;
   font-weight: 800 !important;
@@ -220,10 +218,8 @@
   border: none !important;
   cursor: pointer;
   transition: 0.2s ease;
-}
-
-.swal-btn-confirm:hover {
-  background: #0f8cc0 !important; /* hover del COMPRAR */
+  max-width: 70%;
+  align-self: auto;
 }
 
 /* Cancelar coherente */
@@ -250,13 +246,6 @@
   width: 100% !important;
 }
 
-/* Cada tarjeta ocupa toda la línea */
-.lote-card {
-  width: 100% !important;
-  margin: 0 auto !important;
-  display: block !important;
-}
-
 /* Por si tenían grid */
 .lotes-wrapper {
   display: flex !important;
@@ -266,4 +255,13 @@
 /* Ajustar botón y footer */
 .lote-footer-flex {
   justify-content: flex-end !important;
+}
+
+.lote-card {
+  transition: filter 0.18s ease, transform 0.15s ease;
+}
+
+.lote-card:hover {
+  filter: brightness(0.96);
+  transform: translateY(-4px);
 }

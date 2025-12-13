@@ -235,11 +235,20 @@ export function CarritoProvider({ children }) {
         })
 
         if (!pedido)
-          return Swal.fire(
-            'Límite alcanzado',
-            'Debes eliminar pedidos pendientes.',
-            'warning'
-          )
+          await Swal.fire({
+            title: 'Límite alcanzado',
+            text: 'Ya alcanzaste el máximo de entradas permitidas.',
+            icon: 'info',
+            confirmButtonText: 'Aceptar',
+
+            customClass: {
+              popup: 'swal-popup-custom',
+              htmlContainer: 'swal-text-center',
+              confirmButton: 'swal-btn-confirm',
+            },
+
+            buttonsStyling: false,
+          })
 
         await mostrarQrCompraReact({
           carrito,
@@ -267,11 +276,20 @@ export function CarritoProvider({ children }) {
         })
 
         if (!pedido)
-          return Swal.fire(
-            'Límite alcanzado',
-            'Debes eliminar pedidos pendientes.',
-            'warning'
-          )
+          await Swal.fire({
+            title: 'Límite alcanzado',
+            text: 'Ya alcanzaste el máximo de entradas permitidas.',
+            icon: 'info',
+            confirmButtonText: 'Aceptar',
+
+            customClass: {
+              popup: 'swal-popup-custom',
+              htmlContainer: 'swal-text-center',
+              confirmButton: 'swal-btn-confirm',
+            },
+
+            buttonsStyling: false,
+          })
 
         const initPoint = await crearPreferenciaCompra({
           carrito,

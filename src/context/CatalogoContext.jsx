@@ -58,30 +58,39 @@ export function CatalogoProvider({ children }) {
 
     const result = await Swal.fire({
       title: producto.nombre,
+
       html: `
-      <img src="${producto.imgSrc}" style="width:150px;margin-bottom:10px;border-radius:8px;" />
-      <p>${producto.descripcion}</p>
-      <h5>Precio: $${producto.precio}</h5>
+    <div class="swal-producto-detalle">
+      <img src="${producto.imgSrc}" class="producto-img" />
 
-      <div style="
-        display:flex;justify-content:center;align-items:center;
-        gap:18px;margin-top:18px;"
-      >
+      ${
+        producto.descripcion == '' ? (
+          <p class="producto-desc">${producto.descripcion}</p>
+        ) : (
+          ''
+        )
+      }
+
+      <h5 class="producto-precio">Precio: $${producto.precio}</h5>
+
+      <div class="cantidad-row">
         <button id="menos" class="cantidad-btn menos">-</button>
-
         <div class="cantidad-input" id="cantidadBox">1</div>
-
         <button id="mas" class="cantidad-btn mas">+</button>
       </div>
-    `,
+    </div>
+  `,
+
       showCancelButton: true,
       confirmButtonText: 'Agregar al carrito',
       cancelButtonText: 'Cancelar',
 
       customClass: {
+        popup: 'swal-popup-custom swal-producto',
         confirmButton: 'swal-btn-confirm',
         cancelButton: 'swal-btn-cancel',
       },
+
       buttonsStyling: false,
 
       didOpen: () => {
@@ -91,21 +100,26 @@ export function CatalogoProvider({ children }) {
         const btnMenos = popup.querySelector('#menos')
 
         btnMas.onclick = () => {
-          let val = Number(box.innerText)
+          const val = Number(box.innerText)
           if (val < producto.stock) box.innerText = val + 1
         }
 
         btnMenos.onclick = () => {
-          let val = Number(box.innerText)
+          const val = Number(box.innerText)
           if (val > 1) box.innerText = val - 1
         }
       },
 
       preConfirm: () => {
         const cant = Number(document.getElementById('cantidadBox').innerText)
-        if (cant < 1) return Swal.showValidationMessage('Cantidad inválida')
-        if (cant > producto.stock)
-          return Swal.showValidationMessage('No hay suficiente stock')
+        if (cant < 1) {
+          Swal.showValidationMessage('Cantidad inválida')
+          return false
+        }
+        if (cant > producto.stock) {
+          Swal.showValidationMessage('No hay suficiente stock')
+          return false
+        }
         return cant
       },
     })

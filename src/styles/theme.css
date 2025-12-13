@@ -1,0 +1,53 @@
+/* =====================================================
+   THEME GLOBAL – COLORES
+===================================================== */
+
+:root {
+  --color-primary: #ffcc00; /* amarillo principal */
+  --color-primary-text: #000000;
+
+  --color-secondary: #e0e0e0;
+  --color-secondary-text: #000000;
+
+  --color-danger: #e53935;
+  --color-danger-text: #ffffff;
+
+  --color-disabled: #9ca3af;
+  --color-disabled-text: #000000;
+
+  --radius-btn: 10px;
+}
+
+/* ===================================================
+   HOVER GLOBAL POR BRIGHTNESS
+=================================================== */
+
+/* Elementos interactivos principales */
+.btn,
+.swal-btn-confirm,
+.swal-btn-cancel,
+.method-btn,
+.lote-select-mini,
+.full-btn,
+button {
+  transition: filter 0.18s ease, transform 0.1s ease, box-shadow 0.18s ease;
+}
+
+/* Hover universal */
+.btn:hover,
+.swal-btn-confirm:hover,
+.swal-btn-cancel:hover,
+.method-btn:hover,
+.lote-select-mini:hover,
+.full-btn:hover,
+button:hover {
+  filter: brightness(0.92);
+}
+
+/* Click (feedback táctil) */
+.btn:active,
+.swal-btn-confirm:active,
+.method-btn:active,
+.lote-select-mini:active {
+  transform: scale(0.98);
+}
