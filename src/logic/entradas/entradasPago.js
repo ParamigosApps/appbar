@@ -232,7 +232,7 @@ export async function manejarTransferencia({
     const fin = await Swal.fire({
       title: 'Solicitud enviada',
       html: `
-        <p style="font-size:18px;font-weight:600;">
+        <p style="font-size:18px;font-weight:600; text-align:center;">
           Tu pago está pendiente de validación.
         </p>
       `,

@@ -336,7 +336,7 @@ export async function swalEntradasGeneradas({ eventoNombre, cantidad }) {
   const res = await Swal.fire({
     title: '¡Entradas generadas!',
     html: `
-      <p style="font-size:18px;font-weight:600;">
+      <p style="font-size:18px;font-weight:600;text-align:center;">
         ${cantidad} entrada(s) para <b>${eventoNombre}</b> fueron generadas 🎟️
       </p>
     `,

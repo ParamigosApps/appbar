@@ -91,7 +91,7 @@ export async function pedirEntradaFreeConLote({
   const res = await Swal.fire({
     title: '¡Entradas generadas!',
     html: `
-      <p style="font-size:18px;font-weight:600;">
+      <p style="font-size:18px;font-weight:600;text-align:center;">
         ${cantidad} entrada(s) para <b>${evento.nombre}</b> fueron generadas 🎟️
       </p>
     `,
@@ -137,7 +137,15 @@ export async function pedirEntradaFreeSinLote({
 
   const maxPermitido = Number(maxUser || 0)
   if (maxPermitido <= 0) {
-    return Swal.fire('Sin cupos', 'No tenés cupos disponibles.', 'info')
+    return Swal.fire({
+      title: 'Sin cupos',
+      html: `
+    <p style="font-size:18px;font-weight:600;text-align:center;">
+      No tenés cupos disponibles.
+    </p>
+  `,
+      icon: 'info',
+    })
   }
 
   const cantidad = normalizarCantidad(cantidadSel, maxPermitido)
@@ -185,7 +193,7 @@ export async function pedirEntradaFreeSinLote({
   const res = await Swal.fire({
     title: '¡Entradas generadas!',
     html: `
-      <p style="font-size:18px;font-weight:600;">
+      <p style="font-size:18px;font-weight:600;text-align:center;">
         ${cantidad} entrada(s) para <b>${evento.nombre}</b> fueron generadas 🎟️
       </p>
     `,
