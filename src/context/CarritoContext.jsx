@@ -210,72 +210,69 @@ export function CarritoProvider({ children }) {
         return
       }
 
-      // Elegir método
-      const { isConfirmed, isDenied, isDismissed } = await Swal.fire({
+      let metodoSeleccionado = null
+
+      const res = await Swal.fire({
         title: `<span class="swal-title-main">Finalizar compra</span>`,
 
         html: `
-  <div class="resumen-lote-box">
+    <div class="resumen-lote-box">
 
-    <p><b>Resumen de compra</b></p>
-    <hr />
+      <p><b>Resumen de compra</b></p>
+      <hr />
 
-    <div class="info-limites-box">
+      <div class="info-limites-box">
+        ${carrito
+          .map(
+            p => `
+              <div class="limite-row">
+                <span class="label">
+                  ${p.nombre} x ${p.enCarrito}u
+                </span>
+                <span class="value">
+                  $${format(normalizarPrecio(p.precio) * p.enCarrito)}
+                </span>
+              </div>
+            `
+          )
+          .join('')}
 
-    ${carrito
-      .map(
-        p => `
-          <div class="limite-row">
-            <span class="label">
-              ${p.nombre} x ${p.enCarrito}u
-            </span>
-            <span class="value">
-              $${format(normalizarPrecio(p.precio) * p.enCarrito)}
-            </span>
-          </div>
-        `
-      )
-      .join('')}
+        <div class="limite-row total">
+          <span class="label">Total</span>
+          <span class="value highlight">$${format(total)}</span>
+        </div>
+      </div>
 
+      <div class="metodos-wrapper">
+        <!-- MERCADO PAGO -->
+        <button
+          id="mp"
+          type="button"
+          class="method-btn method-mp only-logo"
+        >
+          <img
+            src="https://http2.mlstatic.com/frontend-assets/ui-navigation/5.18.9/mercadopago/logo__large.png"
+            alt="Mercado Pago"
+            class="mp-logo"
+          />
+        </button>
 
-      <div class="limite-row total">
-        <span class="label">Total</span>
-        <span class="value highlight">$${format(total)}</span>
+        <!-- PAGO EN CAJA -->
+        <button
+          id="transfer"
+          type="button"
+          class="method-btn method-transfer"
+        >
+          Pago en caja
+        </button>
       </div>
 
     </div>
-
-    <div class="metodos-wrapper">
-
-      <!-- MERCADO PAGO -->
-      <button
-        class="swal2-confirm method-btn method-mp only-logo"
-        type="button"
-      >
-        <img
-          src="https://http2.mlstatic.com/frontend-assets/ui-navigation/5.18.9/mercadopago/logo__large.png"
-          alt="Mercado Pago"
-          class="mp-logo"
-        />
-      </button>
-
-      <!-- PAGO EN CAJA -->
-      <button
-        class="swal2-deny method-btn method-transfer"
-        type="button"
-      >
-        Pagar en caja
-      </button>
-
-    </div>
-
-  </div>
-`,
+  `,
 
         showConfirmButton: false,
         showDenyButton: false,
         showCancelButton: true,
-
         cancelButtonText: 'Cancelar',
 
         customClass: {
@@ -284,14 +281,36 @@ export function CarritoProvider({ children }) {
         },
 
         buttonsStyling: false,
+
+        // 🔑 ACÁ SE CONECTAN LOS BOTONES
+        didOpen: () => {
+          const mpBtn = document.getElementById('mp')
+          const trBtn = document.getElementById('transfer')
+
+          if (mpBtn) {
+            mpBtn.onclick = () => {
+              metodoSeleccionado = 'mp'
+              Swal.close()
+            }
+          }
+
+          if (trBtn) {
+            trBtn.onclick = () => {
+              metodoSeleccionado = 'transfer'
+              Swal.close()
+            }
+          }
+        },
       })
 
-      if (isDismissed) return
+      // ⛔ Cancelado (esc / botón cancelar / click afuera)
+      // ⛔ Si cerró sin elegir método
+      if (!metodoSeleccionado) return
 
       cerrarCarrito()
 
       // 🟡 PAGO EN CAJA
-      if (isDenied) {
+      if (metodoSeleccionado === 'transfer') {
         const pedido = await crearPedido({
           carrito,
           total,
@@ -299,21 +318,20 @@ export function CarritoProvider({ children }) {
           pagado: false,
         })
 
-        if (!pedido)
+        if (!pedido) {
           await Swal.fire({
             title: 'Límite alcanzado',
-            text: 'Ya alcanzaste el máximo de entradas permitidas.',
+            text: 'Ya alcanzaste el máximo de pedidos permitidos.',
             icon: 'info',
-            confirmButtonText: 'Aceptar',
-
             customClass: {
               popup: 'swal-popup-custom',
               htmlContainer: 'swal-text-center',
               confirmButton: 'swal-btn-confirm',
             },
-
             buttonsStyling: false,
           })
+          return
+        }
 
         await mostrarQrCompraReact({
           carrito,
@@ -323,7 +341,7 @@ export function CarritoProvider({ children }) {
           fechaHumana: pedido.fechaHumana,
           estado: 'pendiente',
           lugar: 'Tienda',
-          qrText: `Compra:${pedido.ticketId}`, //  << 🔥 NECESARIO
+          qrText: `Compra:${pedido.ticketId}`,
         })
 
         setCarrito([])
@@ -332,7 +350,7 @@ export function CarritoProvider({ children }) {
       }
 
       // 🟢 MERCADO PAGO
-      if (isConfirmed) {
+      if (metodoSeleccionado === 'mp') {
         const pedido = await crearPedido({
           carrito,
           total,
@@ -340,21 +358,20 @@ export function CarritoProvider({ children }) {
           pagado: true,
         })
 
-        if (!pedido)
+        if (!pedido) {
           await Swal.fire({
             title: 'Límite alcanzado',
-            text: 'Ya alcanzaste el máximo de entradas permitidas.',
+            text: 'Ya alcanzaste el máximo de pedidos permitidos.',
             icon: 'info',
-            confirmButtonText: 'Aceptar',
-
             customClass: {
               popup: 'swal-popup-custom',
               htmlContainer: 'swal-text-center',
               confirmButton: 'swal-btn-confirm',
             },
-
             buttonsStyling: false,
           })
+          return
+        }
 
         const initPoint = await crearPreferenciaCompra({
           carrito,

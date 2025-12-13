@@ -117,7 +117,11 @@ export default function CarritoOverlay() {
                 <strong>${format(calcularTotal())}</strong>
               </div>
 
-              <button className="btn-finalizar" onClick={finalizarCompra}>
+              <button
+                id="btn-pedidos"
+                className="swal-btn-confirm"
+                onClick={finalizarCompra}
+              >
                 Confirmar pedido
               </button>
             </>
@@ -125,20 +129,26 @@ export default function CarritoOverlay() {
 
           {/* BOTÓN VER MIS PEDIDOS */}
           <button
+            id="btn-pedidos"
             className={
-              'btn btn-outline-dark w-100 mt-3 btn-collapse ' +
-              (verPedidos ? '' : 'collapsed')
+              'btn swal-btn-alt btn-collapse ' + (verPedidos ? '' : 'collapsed')
             }
             type="button"
             onClick={() => setVerPedidos(v => !v)}
           >
-            <strong>TUS PEDIDOS</strong>
+            <strong>Tus pedidos</strong>
             <span
               className="
-                badge bg-dark ms-2 rounded-circle d-inline-flex
+                badge bg-warning ms-2 rounded-circle d-inline-flex
                 justify-content-center align-items-center
               "
-              style={{ width: '22px', height: '22px', fontSize: '0.75rem' }}
+              style={{
+                color: '#000',
+                fontWeight: '800',
+                width: '24px',
+                height: '24px',
+                fontSize: '0.8rem',
+              }}
             >
               {totalPedidos}
             </span>

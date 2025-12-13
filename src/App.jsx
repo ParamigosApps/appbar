@@ -13,7 +13,7 @@ import MisEntradas from './components/entradas/MisEntradas.jsx'
 import HistorialEntradas from './components/entradas/HistorialEntradas.jsx'
 
 // ACCESOS
-import Acceso from './pages/Acceso.jsx'
+// import Acceso from './pages/borrarAcceso.jsx'
 import LoginEmpleado from './pages/LoginEmpleado.jsx'
 
 // ADMIN
@@ -31,8 +31,8 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         {/* ACCESOS SIN LAYOUT */}
-        <Route path="/acceso" element={<Acceso />} />
-        <Route path="/login-empleado" element={<LoginEmpleado />} />
+
+        <Route path="/acceso" element={<LoginEmpleado />} />
 
         {/* RUTAS PÚBLICAS (Con Layout) */}
         <Route element={<Layout />}>

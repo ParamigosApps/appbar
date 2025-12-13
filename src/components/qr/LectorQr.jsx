@@ -5,15 +5,17 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import { Html5Qrcode } from 'html5-qrcode'
-
+import {
+  mostrarComprobanteCaja,
+  registrarRetiroCompra,
+  marcarCompraRetirada,
+} from '../../services/cajaService.js'
 import {
   decodificarQr,
   analizarPayload,
-  detectarTipoPorFirestore,
   validarTicket,
   validarCompra,
   marcarEntradaUsada,
-  marcarCompraRetirada,
 } from '../../services/lectorQr.js'
 
 import { db } from '../../Firebase.js'
@@ -65,6 +67,7 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   const initialized = useRef(false)
   const leyendo = useRef(false) // control de cooldown
 
+  const [pedidoCaja, setPedidoCaja] = useState(null)
   // --------------------------------------------------------------
   // BEEPS
   // --------------------------------------------------------------
@@ -95,7 +98,6 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
     async function cargarEventos() {
       const snap = await getDocs(query(collection(db, 'eventos')))
       const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-
       if (!arr.length) return
 
       // Select limpio (SIN duplicado)
@@ -159,6 +161,7 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   // ESTADÍSTICAS DEL EVENTO
   // --------------------------------------------------------------
   async function cargarEstadisticasEvento(eventoId) {
+    if (!eventoId || typeof eventoId !== 'string') return
     const snapEv = await getDoc(doc(db, 'eventos', eventoId))
     if (!snapEv.exists()) return
 
@@ -240,37 +243,124 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   // --------------------------------------------------------------
   // RESULTADO QR (con cooldown SIN pisar mensajes)
   // --------------------------------------------------------------
+
   async function onScanSuccess(text) {
     if (leyendo.current) return
     leyendo.current = true
 
     try {
-      const dec = decodificarQr(text)
-      let payload = analizarPayload(dec)
+      console.log('🟦 QR ESCANEADO')
+      console.log('RAW TEXT:', text)
 
-      if (!payload.esEntrada && !payload.esCompra) {
-        const idRaw = payload.entradaId || payload.compraId || payload.id
-        payload = { ...payload, ...(await detectarTipoPorFirestore(idRaw)) }
+      const dec = decodificarQr(text)
+      console.log('DECODIFICADO:', dec)
+
+      let payload = analizarPayload(dec)
+      console.log('PAYLOAD ANALIZADO:', payload)
+
+      const idRaw = payload.id || payload.ticketId || payload.entradaId || null
+
+      console.log('ID RAW RESUELTO:', idRaw)
+
+      if (!idRaw) {
+        console.error('❌ QR sin ID usable')
+        return mostrarError('QR inválido o incompleto.')
       }
 
+      console.log('🔍 Buscando en Firestore…')
+
+      // ==================================================
+      // 1️⃣ BUSCAR COMPRA POR ticketId (FORMA CORRECTA)
+      // ==================================================
+      const qCompra = query(
+        collection(db, 'compras'),
+        where('ticketId', '==', idRaw)
+      )
+      const snapCompra = await getDocs(qCompra)
+
+      console.log('Firestore compras por ticketId:', !snapCompra.empty)
+
+      if (!snapCompra.empty) {
+        const compraDoc = snapCompra.docs[0]
+
+        payload = {
+          ...payload,
+          esCompra: true,
+          esEntrada: false,
+          compraId: compraDoc.id, // 🔑 doc.id REAL
+        }
+      } else {
+        // ==================================================
+        // 2️⃣ BUSCAR ENTRADA POR doc.id
+        // ==================================================
+        const snapEntrada = await getDoc(doc(db, 'entradas', idRaw))
+
+        console.log('Firestore entradas por id:', snapEntrada.exists())
+
+        if (snapEntrada.exists()) {
+          payload = {
+            ...payload,
+            esCompra: false,
+            esEntrada: true,
+            entradaId: idRaw,
+          }
+        } else {
+          console.error('❌ No existe ni en compras ni en entradas')
+          return mostrarError('QR inválido o inexistente.')
+        }
+      }
+
+      console.log('PAYLOAD FINAL:', payload)
+
+      // ==================================================
+      // VALIDACIÓN SEGÚN MODO
+      // ==================================================
       let res = null
 
       if (modo === 'entradas') {
-        if (!payload.esEntrada)
-          return mostrarError('Este QR es de COMPRA, no de ENTRADA.')
+        if (!payload.esEntrada) {
+          return mostrarError('Este QR es de COMPRA.')
+        }
+
         res = await validarTicket(payload, eventoSeleccionado)
       } else {
-        if (!payload.esCompra)
-          return mostrarError('Este QR es de ENTRADA, no de COMPRA.')
+        if (!payload.esCompra) {
+          return mostrarError('Este QR es de ENTRADA.')
+        }
+
         res = await validarCompra(payload)
       }
 
       mostrarResultado(res)
 
-      if (res?.ok && modo === 'entradas') {
+      // ==================================================
+      // POST VALIDACIÓN
+      // ==================================================
+      if (res?.ok && res.tipo === 'entrada') {
         await marcarEntradaUsada(res.data.id)
-        await cargarEstadisticasEvento(res.data.eventoId || eventoSeleccionado)
+
+        const eventoIdStats = res.data.eventoId || eventoSeleccionado
+        if (eventoIdStats) {
+          await cargarEstadisticasEvento(eventoIdStats)
+        }
       }
+      if (res?.ok && res.tipo === 'compra') {
+        await registrarRetiroCompra({
+          compraId: res.data.id,
+          compraData: res.data,
+          empleado: {
+            uid: user.uid,
+            nombre: user.displayName || 'Caja',
+            rol: 'caja',
+          },
+        })
+
+        setPedidoCaja(res.data)
+        await mostrarComprobanteCaja(res.data)
+      }
+    } catch (err) {
+      console.error('❌ Error inesperado en onScanSuccess:', err)
+      mostrarError('Error al procesar el QR.')
     } finally {
       setTimeout(() => {
         leyendo.current = false
@@ -287,8 +377,6 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
 
     navigator.vibrate?.([120, 80, 120])
     res?.ok && beepOk()
-
-    if (res?.ok && res.tipo === 'compra') marcarCompraRetirada(res.data.id)
   }
 
   function mostrarError(msg) {
@@ -375,6 +463,61 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
           >
             <h5>{resultado.titulo}</h5>
             <p dangerouslySetInnerHTML={{ __html: resultado.mensaje }} />
+          </div>
+        )}
+
+        {pedidoCaja && (
+          <div className="card mt-3 p-3">
+            <h5 className="fw-bold">Pedido #{pedidoCaja.numeroPedido}</h5>
+
+            <p>
+              <strong>Cliente:</strong> {pedidoCaja.usuarioNombre}
+            </p>
+            <p>
+              <strong>Lugar:</strong> {pedidoCaja.lugar}
+            </p>
+
+            <p>
+              <strong>Estado:</strong>{' '}
+              <span
+                className={
+                  pedidoCaja.estado === 'retirado'
+                    ? 'text-success'
+                    : 'text-warning'
+                }
+              >
+                {pedidoCaja.estado.toUpperCase()}
+              </span>
+            </p>
+
+            <hr />
+
+            {pedidoCaja.carrito.map((p, i) => (
+              <div key={i} className="d-flex justify-content-between">
+                <span>
+                  {p.nombre} ×{p.enCarrito}
+                </span>
+                <span>${p.precio * p.enCarrito}</span>
+              </div>
+            ))}
+
+            <hr />
+
+            <div className="d-flex justify-content-between fs-5">
+              <strong>Total</strong>
+              <strong>${pedidoCaja.total}</strong>
+            </div>
+
+            <button
+              className="btn btn-success w-100 mt-3"
+              onClick={async () => {
+                await marcarCompraRetirada(pedidoCaja.id)
+                await mostrarComprobanteCaja(pedidoCaja)
+                setPedidoCaja(null)
+              }}
+            >
+              Confirmar entrega
+            </button>
           </div>
         )}
       </div>

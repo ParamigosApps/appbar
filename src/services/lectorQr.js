@@ -20,20 +20,37 @@ export function decodificarQr(rawText) {
 
   let payload = null
 
+  // Intentar parsear el QR como JSON
   try {
     payload = JSON.parse(rawText)
-  } catch (_) {}
+  } catch (error) {
+    console.error('Error al parsear el QR:', error)
+  }
 
+  // Si el payload no es JSON, verificar si está en formato con prefijo
   if (!payload && rawText.includes('|')) {
     const [prefix, id] = rawText.split('|')
     payload = {
       id,
       tipo:
-        prefix === 'E' ? 'entrada' : prefix === 'C' ? 'compra' : 'desconocido',
+        prefix === 'E' ? 'entrada' : prefix === 'C' ? 'compra' : 'desconocido', // Si el prefijo no es 'E' ni 'C', lo marcamos como desconocido
     }
   }
 
+  // Si el payload sigue siendo nulo o vacío, asignamos un ID genérico
   if (!payload) payload = { id: rawText }
+
+  // Agregar validaciones adicionales para el tipo de QR
+  if (!payload.tipo) {
+    if (payload.compraId || payload.pedidoId) {
+      payload.tipo = 'compra'
+    } else if (payload.entradaId || payload.ticketId) {
+      payload.tipo = 'entrada'
+    } else {
+      payload.tipo = 'desconocido'
+    }
+  }
+
   return { raw: rawText, payload }
 }
 
@@ -53,11 +70,8 @@ export function analizarPayload(info) {
     else tipo = 'desconocido'
   }
 
-  const entradaId =
-    base.ticketId || base.entradaId || (tipo === 'entrada' ? base.id : null)
-  const compraId =
-    base.compraId || base.pedidoId || (tipo === 'compra' ? base.id : null)
-
+  const entradaId = base.ticketId || base.entradaId || null
+  const compraId = base.compraId || base.pedidoId || null
   return {
     ...base,
     tipo,

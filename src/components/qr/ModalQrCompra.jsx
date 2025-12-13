@@ -119,17 +119,24 @@ export async function mostrarQrCompraReact(pedido, onClose) {
           estado === 'retirado'
             ? ''
             : `
-    <div class="botones-ticket">
-      <button id="btnPdf" class="btn-pdf">
-        <img src="https://cdn-icons-png.flaticon.com/512/337/337946.png" />
-        Descargar en PDF
-      </button>
+<div class="botones-ticket">
+  <button id="btnPdf" class="btn-ticket btn-pdf">
+    <img
+      src="https://cdn-icons-png.flaticon.com/512/337/337946.png"
+      alt="PDF"
+    />
+    Descargar PDF
+  </button>
 
-      <button id="btnWsp" class="btn-wsp">
-        <img src="./src/assets/img/whatsapp.png" />
-        Enviar por WhatsApp
-      </button>
-    </div>
+  <button id="btnWsp" class="btn-ticket btn-wsp">
+    <img
+      src="./src/assets/img/whatsapp.png"
+      alt="WhatsApp"
+    />
+    Enviar por WhatsApp
+  </button>
+</div>
+
 
         `
         }

@@ -24,7 +24,7 @@
   right: 0;
   width: 80%;
   max-width: 360px;
-  height: 100vh;
+  height: 95vh;
   background: #fff;
   box-shadow: -4px 0 12px rgba(0, 0, 0, 0.3);
   display: flex;
@@ -113,13 +113,10 @@
   border-top: 1px solid #ddd;
 }
 
-.btn-finalizar {
-  width: 100%;
+#btn-pedidos {
+  width: 80%;
   padding: 12px;
-  background: #14a8e2;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: bold;
+  display: block;
+  margin: 6px auto 0 auto;
+  max-width: 70%;
 }

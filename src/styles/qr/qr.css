@@ -186,3 +186,111 @@
 .qr-download-btn:active {
   transform: scale(0.95);
 }
+
+/* CONTENEDOR */
+.botones-ticket {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+  align-items: center;
+}
+
+/* BASE COMÚN */
+.btn-ticket {
+  width: 100%;
+  max-width: 320px;
+  height: 54px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+
+  border-radius: 14px;
+  border: none;
+
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+
+  transition: transform 0.12s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+/* ICONOS */
+.btn-ticket img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+/* HOVER / ACTIVE */
+.btn-ticket:hover {
+  filter: brightness(1.05);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.btn-ticket:active {
+  transform: scale(0.97);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18),
+    inset 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+/* ==========================
+   BASE (se apoya en .btn-ticket)
+========================== */
+.btn-pdf,
+.btn-wsp {
+  background: transparent;
+  border: 2px solid;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), inset 0 0 0 rgba(0, 0, 0, 0);
+}
+
+/* ==========================
+   PDF
+========================== */
+.btn-pdf {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.btn-pdf img {
+  filter: none;
+  width: 32px;
+  height: 32px;
+}
+
+/* Hover PDF */
+.btn-pdf:hover {
+  background: rgba(220, 38, 38, 0.12);
+}
+
+/* ==========================
+   WHATSAPP
+========================== */
+.btn-wsp {
+  border-color: #25d366;
+  color: #25d366;
+}
+
+.btn-wsp img {
+  width: 32px;
+  height: 32px;
+}
+
+/* Hover WhatsApp */
+.btn-wsp:hover {
+  background: rgba(37, 211, 102, 0.15);
+}
+
+/* ==========================
+   ACTIVE (AMBOS)
+========================== */
+.btn-pdf:active,
+.btn-wsp:active {
+  transform: scale(0.97);
+}

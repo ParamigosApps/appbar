@@ -8,8 +8,6 @@ import Swal from 'sweetalert2'
 
 import googleIcon from '../assets/img/google.png'
 
-console.log('LOGIN EMPLEADO CARGADO OK')
-
 export default function LoginEmpleado() {
   const { loginGoogle, loginAdminManual, user, rolUsuario } = useAuth()
   const navigate = useNavigate()
@@ -35,28 +33,22 @@ export default function LoginEmpleado() {
 
   return (
     <div className="login-wrapper">
-      <h2 className="login-title">Ingreso Empleados / Admin</h2>
+      <h2 className="login-title">PANEL ADMIN</h2>
 
-      {/* LOGIN GOOGLE */}
-      <button className="btn-google" onClick={loginGoogle}>
-        <img src={googleIcon} className="icon-google" alt="google" />
-        Iniciar con Google
-      </button>
-
-      <div className="login-divider">o acceder con usuario/contraseña</div>
+      <div className="login-divider">Accedé al menu de Empleados</div>
 
       {/* FORM */}
       <form className="login-form" onSubmit={loginLocal}>
         <input
           className="form-control mb-2"
-          placeholder="Mail"
+          placeholder="Ingresa tu mail"
           value={usuario}
           onChange={e => setUsuario(e.target.value)}
         />
 
         <input
           className="form-control mb-3"
-          placeholder="Contraseña"
+          placeholder="Ingresa tu contraseña"
           type="password"
           value={pass}
           onChange={e => setPass(e.target.value)}
