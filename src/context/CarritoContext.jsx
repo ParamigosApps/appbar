@@ -109,7 +109,7 @@ export function CarritoProvider({ children }) {
       position: 'center',
       style: {
         background: '#14a8e2',
-        width: '80%',
+        width: '100%',
         borderRadius: '12px',
         fontWeight: '700',
         textAlign: 'center',
@@ -137,7 +137,7 @@ export function CarritoProvider({ children }) {
       position: 'center',
       style: {
         background: '#ff5959',
-        width: '80%',
+        width: '100%',
         borderRadius: '12px',
         fontWeight: '700',
         textAlign: 'center',
@@ -163,7 +163,7 @@ export function CarritoProvider({ children }) {
       position: 'center',
       style: {
         background: '#ff5959',
-        width: '80%',
+        width: '100%',
         borderRadius: '12px',
         fontWeight: '700',
         textAlign: 'center',

@@ -99,7 +99,7 @@
 }
 
 .carrito-footer {
-  min-height: 15svh;
+  min-height: 20svh !important;
   padding: 15px;
   border-top: 1px solid #ddd;
 }
