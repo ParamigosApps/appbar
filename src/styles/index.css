@@ -39,3 +39,8 @@
    SWEETALERT (tema propio)
 ------------------------- */
 @import './swal/SwalTheme.css';
+
+/* -------------------------
+   TOASTIFY 
+------------------------- */
+@import './toastify.css';
