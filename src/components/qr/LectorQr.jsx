@@ -227,34 +227,10 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
       const dec = decodificarQr(text)
       let payload = analizarPayload(dec)
 
-      // 1️⃣ Buscar COMPRA por ticketId
-      const qCompra = query(
-        collection(db, 'compras'),
-        where('ticketId', '==', payload.id || payload.ticketId)
-      )
-      const snapCompra = await getDocs(qCompra)
-
-      if (!snapCompra.empty) {
-        payload = {
-          ...payload,
-          esCompra: true,
-          esEntrada: false,
-          compraId: snapCompra.docs[0].id,
-        }
-      } else {
-        // 2️⃣ Buscar ENTRADA por doc.id
-        const snapEntrada = await getDoc(doc(db, 'entradas', payload.id))
-
-        if (snapEntrada.exists()) {
-          payload = {
-            ...payload,
-            esEntrada: true,
-            esCompra: false,
-            entradaId: payload.id,
-          }
-        } else {
-          return mostrarError('QR inválido o inexistente.')
-        }
+      // Resolver tipo si no está claro
+      if (!payload.esEntrada && !payload.esCompra) {
+        const idRaw = payload.id || payload.ticketId
+        payload = { ...payload, ...(await detectarTipoPorFirestore(idRaw)) }
       }
 
       let res
@@ -262,25 +238,31 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
       if (modo === 'entradas') {
         if (!payload.esEntrada)
           return mostrarError('QR de compra no válido para entradas')
+
         res = await validarTicket(payload, eventoSeleccionado)
       } else {
         if (!payload.esCompra)
           return mostrarError('QR de entrada no válido para caja')
+
         res = await validarCompra(payload)
       }
 
       mostrarResultado(res)
 
+      // ENTRADAS
       if (res?.ok && res.tipo === 'entrada') {
         await marcarEntradaUsada(res.data.id)
         cargarEstadisticasEvento(res.data.eventoId || eventoSeleccionado)
       }
 
+      // CAJA
       if (res?.ok && res.tipo === 'compra') {
         setPedidoCaja(res.data)
       }
     } finally {
-      setTimeout(() => (leyendo.current = false), 2500)
+      setTimeout(() => {
+        leyendo.current = false
+      }, 2500)
     }
   }
 
