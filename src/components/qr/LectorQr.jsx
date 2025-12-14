@@ -229,12 +229,6 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
         )
         return
       }
-      console.group('🧾 DEBUG CANCELAR COBRO')
-      console.log('estado:', pedidoCaja.estado)
-      console.log('origenPago:', pedidoCaja.origenPago)
-      console.log('pagadoPor.uid:', pedidoCaja.pagadoPor?.uid)
-      console.log('auth.currentUser.uid:', auth.currentUser?.uid)
-      console.groupEnd()
 
       const dec = decodificarQr(text)
       const payload = analizarPayload(dec)
@@ -400,12 +394,12 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
           color:#b91c1c;
           font-weight:bold;
         ">
-          ⚠️ Usar solo si el cobro fue un error.
+          ⚠️ Usar solo en caso de marcar como abonado por error.
         </p>
       `,
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Sí, cancelar pago',
+        confirmButtonText: 'Sí, cancelar cobro',
         cancelButtonText: 'No',
         confirmButtonColor: '#b91c1c',
       })
@@ -493,18 +487,17 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
                 '⚠️ PEDIDO VÁLIDO. PENDIENTE ABONAR'}
               {pedidoCaja.estado === 'pagado' && '✅ PAGO CONFIRMADO'}
               {pedidoCaja.estado === 'retirado' && '🎫 TICKET ENTREGADO'}
-              {pedidoCaja.estado === 'pagado' &&
-                pedidoCaja.origenPago === 'caja' &&
-                pedidoCaja.pagadoPor?.uid === auth.currentUser?.uid && (
-                  <button
-                    className="btn btn-outline-danger w-5' mt-2"
-                    onClick={cancelarPago}
-                  >
-                    Cancelar cobro
-                  </button>
-                )}
             </div>
-
+            {pedidoCaja.estado === 'pagado' &&
+              pedidoCaja.origenPago === 'caja' &&
+              pedidoCaja.pagadoPor?.uid === auth.currentUser?.uid && (
+                <button
+                  className="btn btn-outline-danger w-5' mt-2"
+                  onClick={cancelarPago}
+                >
+                  Cancelar cobro
+                </button>
+              )}
             <hr />
             {(pedidoCaja.items || pedidoCaja.carrito || []).map((p, i) => (
               <div key={i} className="d-flex justify-content-between">

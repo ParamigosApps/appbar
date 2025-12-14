@@ -31,7 +31,7 @@
   animation: slideIn 0.25s ease;
   pointer-events: all;
   z-index: 999999;
-  height: 100vh;
+  height: 90vh;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
