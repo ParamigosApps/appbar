@@ -99,8 +99,8 @@
 }
 
 .carrito-footer {
-  min-height: 20svh !important;
-  padding: 15px;
+  min-height: clamp(6rem, 15dvh, 12rem);
+  padding: 1rem;
   border-top: 1px solid #ddd;
 }
 
