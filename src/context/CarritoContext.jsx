@@ -236,8 +236,8 @@ export function CarritoProvider({ children }) {
           )
           .join('')}
 
-        <div class="limite-row total">
-          <span class="label">Total</span>
+        <div class="limite-row total mt-2">
+          <span class="label ">TOTAL</span>
           <span class="value highlight">$${format(total)}</span>
         </div>
       </div>

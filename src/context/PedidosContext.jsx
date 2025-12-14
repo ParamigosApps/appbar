@@ -91,7 +91,11 @@ export function PedidosProvider({ children }) {
 
       setPedidosPendientes(prev => prev.filter(p => p.id !== id))
 
-      mostrarMensaje('⚠ Caducó 1 pedido pendiente.', '#c40b1d', '#fff')
+      mostrarMensaje(
+        '⚠ Caducó tu pedido #' + pedido.numeroPedido,
+        '#c40b1d',
+        '#fff'
+      )
     } catch (err) {
       console.error('❌ Error al expirar pedido:', err)
     }

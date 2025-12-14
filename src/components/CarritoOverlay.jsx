@@ -72,7 +72,13 @@ export default function CarritoOverlay() {
 
                 <div className="carrito-info">
                   <p>{p.nombre}</p>
-                  <p>${format(p.precio)}</p>
+                  <p>
+                    Precio:{' '}
+                    <span style={{ fontWeight: 700 }}>
+                      ${format(p.precio)}{' '}
+                    </span>
+                    c/u
+                  </p>
 
                   {/* =======================================================
                        CONTROLES DE CANTIDAD (— 1 +) — VERSIÓN FINAL

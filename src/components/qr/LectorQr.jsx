@@ -483,8 +483,12 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
                     : '#0c5728ff', // rojo (NO pagado)
               }}
             >
-              {pedidoCaja.estado === 'pendiente' &&
-                '⚠️ PEDIDO VÁLIDO. PENDIENTE ABONAR'}
+              {pedidoCaja.estado === 'pendiente' && (
+                <>
+                  PEDIDO VÁLIDO. ⚠️ <strong>FALTA ABONAR</strong>
+                </>
+              )}
+
               {pedidoCaja.estado === 'pagado' && '✅ PAGO CONFIRMADO'}
               {pedidoCaja.estado === 'retirado' && '🎫 TICKET ENTREGADO'}
             </div>
