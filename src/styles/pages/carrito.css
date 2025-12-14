@@ -86,11 +86,6 @@
   font-weight: 700 !important;
   font-size: 1rem !important;
 }
-
-/* ============================================================
-   FOOTER
-   ============================================================ */
-
 .carrito-total {
   display: flex;
   justify-content: space-between;
