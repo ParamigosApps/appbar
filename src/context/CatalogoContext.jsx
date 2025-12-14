@@ -56,6 +56,9 @@ export function CatalogoProvider({ children }) {
   async function abrirProductoDetalle(producto) {
     if (producto.stock <= 0) return
 
+    const descripcionHtml = producto.descripcion
+      ? `<p class="producto-desc text-muted">${producto.descripcion}</p>`
+      : ''
     const result = await Swal.fire({
       title: producto.nombre,
 
@@ -63,13 +66,7 @@ export function CatalogoProvider({ children }) {
     <div class="swal-producto-detalle">
       <img src="${producto.imgSrc}" class="producto-img" />
 
-      ${
-        producto.descripcion != '' ? (
-          <p class="producto-desc">${producto.descripcion}</p>
-        ) : (
-          ' '
-        )
-      }
+    ${descripcionHtml}
 
       <h5 class="producto-precio">Precio: $${producto.precio}</h5>
 

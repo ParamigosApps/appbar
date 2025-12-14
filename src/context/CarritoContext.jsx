@@ -10,7 +10,7 @@ import 'toastify-js/src/toastify.css'
 import { useAuth } from './AuthContext.jsx'
 import { useFirebase } from './FirebaseContext.jsx'
 import { usePedidos } from './PedidosContext.jsx'
-
+import { validarStockCarrito } from '../services/stockService.js'
 import {
   validarLimitePendientes,
   crearPedido,
@@ -192,6 +192,47 @@ export function CarritoProvider({ children }) {
 
       if (carrito.length === 0)
         return Swal.fire('Carrito vacío', 'Añadí productos primero.', 'info')
+      // 🟡 VALIDAR STOCK REAL (OBLIGATORIO)
+      const erroresStock = await validarStockCarrito(carrito)
+
+      if (erroresStock.length > 0) {
+        await Swal.fire({
+          title: '⚠️ Productos faltantes',
+          width: '420px',
+          html: `
+    <div style="font-size:15px; text-align:left; color: #333;">
+      <p style="font-size:18px; font-weight: bold; margin-top: 8px; color: #d9534f;">
+        Stock insuficiente en alguno de los productos solicitados.
+      </p>
+      <p>Algunos productos no tienen stock suficiente para completar tu pedido:</p>
+
+      <hr style="border-top: 1px solid #ddd;">
+
+      <ul style="padding-left: 20px; list-style-type: disc; margin-bottom: 10px;">
+        ${erroresStock
+          .map(e => `<li style="font-size: 14px; color: #555;">${e}</li>`)
+          .join('')}
+      </ul>
+
+      <hr style="border-top: 1px solid #ddd;">
+
+      <p style="font-size: 15px; color: #555;">
+        Por favor, ajustá las cantidades en tu carrito y volvé a intentarlo.
+      </p>
+    </div>
+  `,
+          icon: 'warning',
+          confirmButtonText: 'Entendido',
+          customClass: {
+            popup: 'swal-popup-custom',
+            confirmButton: 'swal-btn-confirm',
+          },
+          buttonsStyling: false,
+        })
+
+        abrirCarrito()
+        return
+      }
 
       const total = calcularTotal()
 

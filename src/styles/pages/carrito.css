@@ -5,7 +5,7 @@
 .carrito-overlay {
   position: fixed;
   inset: 0;
-  z-index: 9998;
+  z-index: 9000 !important;
 }
 
 .carrito-backdrop {
@@ -13,6 +13,12 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(2px);
+  z-index: 8999 !important;
+}
+
+.swal2-popup,
+.swal2-container {
+  z-index: 9001 !important;
 }
 
 .carrito-panel.open {

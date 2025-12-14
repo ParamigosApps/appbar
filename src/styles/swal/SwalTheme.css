@@ -588,11 +588,18 @@
 .swal2-html-container {
   padding-top: 0.4rem !important;
 }
-/* Texto centrado SOLO cuando se pide */
-.swal-text-center {
-  text-align: center !important;
+.swal-lotes {
+  text-align: left;
 }
 
+.swal-lotes .swal2-title,
+.swal-lotes .swal2-html-container {
+  text-align: left !important;
+}
+.swal2-popup,
+.swal2-html-container {
+  text-align: center !important;
+}
 /* ===========================
    MERCADO PAGO BUTTON (FINAL)
 =========================== */

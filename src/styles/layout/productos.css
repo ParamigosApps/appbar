@@ -17,8 +17,10 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15) !important;
 }
 
-.swal2-container {
-  z-index: 999999 !important;
+.swal2-container,
+.swal2-html-container {
+  z-index: 9002 !important;
+  text-align: center !important;
 }
 
 /* ------------------------------------------------------------
