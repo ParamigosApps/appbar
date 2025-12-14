@@ -2,7 +2,7 @@
 // src/components/qr/ModalQrCompra.jsx — FINAL
 // --------------------------------------------------------------
 import Swal from 'sweetalert2'
-
+import whatsappIcon from '../../assets/img/whatsapp.png'
 // --------------------------------------------------------------
 // 🔵 mostrarQrCompraReact — Ticket igual al original + sin QR si retirado
 // --------------------------------------------------------------
@@ -107,8 +107,12 @@ export async function mostrarQrCompraReact(pedido, onClose) {
           </span>
 
           <span>
-            <strong>Fecha: </strong>
-            ${estado === 'retirado' ? fechaRetiroBadge : ''}
+            
+            ${
+              estado === 'retirado'
+                ? '<strong>Fecha: </strong>' + fechaRetiroBadge
+                : ' '
+            }
           </span>
         </p>
 
@@ -160,7 +164,7 @@ export async function mostrarQrCompraReact(pedido, onClose) {
 
   <button id="btnWsp" class="btn-ticket btn-wsp">
     <img
-      src="../src/assets/img/whatsapp.png"
+      src={whatsappIcon}
       alt="WhatsApp"
     />
     Enviar por WhatsApp

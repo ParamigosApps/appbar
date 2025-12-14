@@ -27,7 +27,7 @@
 
   background: #fff;
   box-shadow: -4px 0 12px rgba(0, 0, 0, 0.3);
-  overflow-y: auto;
+  /* overflow-y: auto; */
   animation: slideIn 0.25s ease;
   pointer-events: all;
   z-index: 999999;

@@ -9,7 +9,6 @@ import { Html5Qrcode } from 'html5-qrcode'
 import {
   decodificarQr,
   analizarPayload,
-  detectarTipoPorFirestore,
   validarTicket,
   validarCompra,
   marcarEntradaUsada,
@@ -18,9 +17,9 @@ import {
 import {
   registrarPagoCompra,
   registrarRetiroCompra,
-  mostrarComprobanteCaja,
+  cancelarPagoCompra,
 } from '../../services/cajaService.js'
-
+import { mostrarComprobanteCaja } from '../../services/comprobanteService.js'
 import { db, auth } from '../../Firebase.js'
 import {
   doc,
@@ -224,45 +223,85 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
     leyendo.current = true
 
     try {
-      const dec = decodificarQr(text)
-      let payload = analizarPayload(dec)
-
-      // Resolver tipo si no está claro
-      if (!payload.esEntrada && !payload.esCompra) {
-        const idRaw = payload.id || payload.ticketId
-        payload = { ...payload, ...(await detectarTipoPorFirestore(idRaw)) }
+      if (modo === 'caja' && pedidoCaja) {
+        mostrarError(
+          'Finalizá o cerrá el pedido actual antes de escanear otro.'
+        )
+        return
       }
+      console.group('🧾 DEBUG CANCELAR COBRO')
+      console.log('estado:', pedidoCaja.estado)
+      console.log('origenPago:', pedidoCaja.origenPago)
+      console.log('pagadoPor.uid:', pedidoCaja.pagadoPor?.uid)
+      console.log('auth.currentUser.uid:', auth.currentUser?.uid)
+      console.groupEnd()
 
-      let res
+      const dec = decodificarQr(text)
+      const payload = analizarPayload(dec)
 
+      let res = null
+
+      // =========================
+      // MODO ENTRADAS
+      // =========================
       if (modo === 'entradas') {
-        if (!payload.esEntrada)
-          return mostrarError('QR de compra no válido para entradas')
+        if (!payload.esEntrada) {
+          mostrarError('QR de compra no válido para entradas')
+          return
+        }
 
         res = await validarTicket(payload, eventoSeleccionado)
-      } else {
-        if (!payload.esCompra)
-          return mostrarError('QR de entrada no válido para caja')
+        mostrarResultado(res)
 
-        res = await validarCompra(payload)
+        if (res?.ok && res.tipo === 'entrada') {
+          await marcarEntradaUsada(res.data.id)
+          cargarEstadisticasEvento(res.data.eventoId || eventoSeleccionado)
+        }
+
+        return
       }
 
+      // =========================
+      // MODO CAJA
+      // =========================
+      // Si el QR ya trae compraId, validamos directo.
+      // Si NO trae compraId pero trae ticketId (tu caso real), resolvemos por query 1 vez.
+      let compraIdFinal = payload.compraId
+
+      if (!compraIdFinal) {
+        const ticket = payload.ticketId || payload.id
+        if (!ticket) {
+          mostrarError('QR inválido (sin ticketId)')
+          return
+        }
+
+        const qCompra = query(
+          collection(db, 'compras'),
+          where('ticketId', '==', ticket)
+        )
+        const snap = await getDocs(qCompra)
+
+        if (snap.empty) {
+          mostrarError('Compra no encontrada para este ticket')
+          return
+        }
+
+        compraIdFinal = snap.docs[0].id
+      }
+
+      res = await validarCompra({ compraId: compraIdFinal })
       mostrarResultado(res)
 
-      // ENTRADAS
-      if (res?.ok && res.tipo === 'entrada') {
-        await marcarEntradaUsada(res.data.id)
-        cargarEstadisticasEvento(res.data.eventoId || eventoSeleccionado)
-      }
-
-      // CAJA
       if (res?.ok && res.tipo === 'compra') {
         setPedidoCaja(res.data)
       }
+    } catch (err) {
+      console.error('Error al procesar QR:', err)
+      mostrarError('Error procesando el QR')
     } finally {
       setTimeout(() => {
         leyendo.current = false
-      }, 2500)
+      }, 1200)
     }
   }
 
@@ -271,7 +310,6 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   // --------------------------------------------------------------
   function mostrarResultado(res) {
     setResultado(res)
-    setTimeout(() => setResultado(null), 3500)
     res?.ok && beepOk()
   }
 
@@ -309,7 +347,17 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
       },
     })
 
-    setPedidoCaja(p => ({ ...p, estado: 'pagado', pagado: true }))
+    setPedidoCaja(p => ({
+      ...p,
+      estado: 'pagado',
+      pagado: true,
+      origenPago: 'caja',
+      pagadoPor: {
+        uid: u?.uid || null,
+        nombre: u?.displayName || 'Caja',
+        rol: 'caja',
+      },
+    }))
   }
 
   async function confirmarEntrega() {
@@ -337,8 +385,68 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
 
     await mostrarComprobanteCaja({ ...pedidoCaja, estado: 'retirado' })
     setPedidoCaja(null)
+    setResultado(null)
   }
+  async function cancelarPago() {
+    if (!pedidoCaja) return
 
+    try {
+      const r = await Swal.fire({
+        title: 'Cancelar cobro',
+        html: `
+        <p>El pedido volverá a estado <b>PENDIENTE</b>.</p>
+        <p style="
+          margin-top:6px;
+          color:#b91c1c;
+          font-weight:bold;
+        ">
+          ⚠️ Usar solo si el cobro fue un error.
+        </p>
+      `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, cancelar pago',
+        cancelButtonText: 'No',
+        confirmButtonColor: '#b91c1c',
+      })
+
+      if (!r.isConfirmed) return
+
+      const u = auth.currentUser
+
+      await cancelarPagoCompra({
+        compraId: pedidoCaja.id,
+        compraData: pedidoCaja,
+        empleado: {
+          uid: u.uid,
+          nombre: u.displayName || 'Caja',
+          rol: 'caja',
+        },
+      })
+
+      // 🔄 Estado local inmediato
+      setPedidoCaja(p => ({
+        ...p,
+        estado: 'pendiente',
+        pagado: false,
+        pagadoEn: null,
+        pagadoPor: null,
+        origenPago: null,
+      }))
+
+      setResultado({
+        ok: true,
+        titulo: 'Pago cancelado',
+        mensaje: 'El pedido volvió a estado pendiente.',
+      })
+    } catch (err) {
+      Swal.fire({
+        title: 'Acción no permitida',
+        text: err.message,
+        icon: 'error',
+      })
+    }
+  }
   // --------------------------------------------------------------
   // UI
   // --------------------------------------------------------------
@@ -358,31 +466,46 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
         {pedidoCaja && (
           <div className="card mt-3 p-3">
             <h5>Pedido #{pedidoCaja.numeroPedido}</h5>
-
             <p>
               <b>Cliente:</b> {pedidoCaja.usuarioNombre}
             </p>
             <p>
               <b>Lugar:</b> {pedidoCaja.lugar}
             </p>
-
-            <p>
-              <b>Estado:</b>{' '}
-              <span
-                className={
-                  pedidoCaja.estado === 'retirado'
-                    ? 'text-success'
-                    : pedidoCaja.estado === 'pagado'
-                    ? 'text-primary'
-                    : 'text-warning'
-                }
-              >
-                {pedidoCaja.estado.toUpperCase()}
-              </span>
-            </p>
+            <div
+              className="estado-pedido mt-2 mb-3"
+              style={{
+                padding: '10px',
+                borderRadius: '8px',
+                textAlign: 'center',
+                fontWeight: 'bold',
+                color: '#fff',
+                fontSize: '1.15rem',
+                background:
+                  pedidoCaja.estado === 'pagado'
+                    ? '#16a34a' // verde
+                    : pedidoCaja.estado === 'retirado'
+                    ? '#15803d' // verde oscuro
+                    : '#0c5728ff', // rojo (NO pagado)
+              }}
+            >
+              {pedidoCaja.estado === 'pendiente' &&
+                '⚠️ PEDIDO VÁLIDO. PENDIENTE ABONAR'}
+              {pedidoCaja.estado === 'pagado' && '✅ PAGO CONFIRMADO'}
+              {pedidoCaja.estado === 'retirado' && '🎫 TICKET ENTREGADO'}
+              {pedidoCaja.estado === 'pagado' &&
+                pedidoCaja.origenPago === 'caja' &&
+                pedidoCaja.pagadoPor?.uid === auth.currentUser?.uid && (
+                  <button
+                    className="btn btn-outline-danger w-5' mt-2"
+                    onClick={cancelarPago}
+                  >
+                    Cancelar cobro
+                  </button>
+                )}
+            </div>
 
             <hr />
-
             {(pedidoCaja.items || pedidoCaja.carrito || []).map((p, i) => (
               <div key={i} className="d-flex justify-content-between">
                 <span>
@@ -391,31 +514,47 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
                 <span>${p.precio * p.enCarrito}</span>
               </div>
             ))}
-
             <hr />
-
             <div className="d-flex justify-content-between fs-5">
               <strong>Total</strong>
               <strong>${pedidoCaja.total}</strong>
             </div>
-
             {pedidoCaja.estado === 'pendiente' && (
               <button
-                className="btn btn-warning w-100 mt-3"
+                className="btn swal-btn-confirm w-75 mx-auto mt-4"
                 onClick={confirmarPago}
               >
                 Confirmar pago
               </button>
             )}
-
             {pedidoCaja.estado === 'pagado' && (
               <button
-                className="btn btn-success w-100 mt-3"
+                className="btn swal-btn-confirm w-75 mx-auto mt-4"
                 onClick={confirmarEntrega}
               >
                 Confirmar entrega
               </button>
             )}
+
+            <button
+              className="btn swal-btn-alt w-50 mx-auto mt-2"
+              onClick={() => {
+                Swal.fire({
+                  title: 'Cerrar pedido',
+                  text: '¿Querés cerrar este pedido sin continuar?',
+                  icon: 'question',
+                  showCancelButton: true,
+                  confirmButtonText: 'Sí, cerrar',
+                }).then(r => {
+                  if (r.isConfirmed) {
+                    setPedidoCaja(null)
+                    setResultado(null)
+                  }
+                })
+              }}
+            >
+              Cerrar pedido
+            </button>
           </div>
         )}
 

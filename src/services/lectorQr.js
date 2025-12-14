@@ -47,24 +47,33 @@ export function analizarPayload(info) {
   const base = info.payload
   let tipo = base.tipo
 
+  // ------------------------------------------------------------------
+  // FIX CLAVE:
+  // ticketId es de COMPRAS (tu modelo de compras lo usa), NO de entradas
+  // ------------------------------------------------------------------
   if (!tipo) {
-    if (base.ticketId || base.entradaId) tipo = 'entrada'
-    else if (base.compraId || base.pedidoId) tipo = 'compra'
+    if (base.entradaId) tipo = 'entrada'
+    else if (base.compraId || base.pedidoId || base.ticketId) tipo = 'compra'
     else tipo = 'desconocido'
   }
 
-  const entradaId =
-    base.ticketId || base.entradaId || (tipo === 'entrada' ? base.id : null)
+  // IDs finales
+  const entradaId = base.entradaId || (tipo === 'entrada' ? base.id : null)
+
   const compraId =
     base.compraId || base.pedidoId || (tipo === 'compra' ? base.id : null)
+
+  // ticketId (si viene)
+  const ticketId = base.ticketId || null
 
   return {
     ...base,
     tipo,
     entradaId,
     compraId,
+    ticketId,
     esEntrada: Boolean(entradaId),
-    esCompra: Boolean(compraId),
+    esCompra: Boolean(compraId || ticketId), // compra puede venir por ticketId
   }
 }
 
@@ -260,16 +269,58 @@ export async function validarCompra(payload) {
 
   const data = snap.data()
 
-  // ⛔ NO bloqueamos por "retirada"
-  // retirada = ticket entregado al cliente
+  if (data.retirada) {
+    const fecha = data.retiradaEn?.toDate
+      ? data.retiradaEn.toDate().toLocaleString()
+      : 'Fecha desconocida'
+
+    const por = data.retiradaPor?.nombre || 'Caja'
+    const lugar = data.lugar || 'No especificado'
+
+    return rechazoCompra(
+      ' ',
+      `
+      <div style="
+        background:#dc2626;
+        color:#ffffff;
+        padding:14px;
+        border-radius:8px;
+        text-align:center;
+        font-weight:700;
+        font-size:15px;
+        letter-spacing:0.3px;
+        margin-bottom:10px;
+        border:2px solid #d90f0fff;
+      ">
+        🎫 ESTE TICKET YA FUE UTILIZADO
+      </div>
+
+      <div style="
+        font-size:14px;
+        line-height:1.6;
+        color:#111827;
+        background:#f9fafb;
+        border:1px solid #e5e7eb;
+        border-radius:6px;
+        padding:10px;
+        font-weight:700;
+      ">
+        <div>🧾 Pedido: <b>#${data.numeroPedido}</b></div>
+        <div>📅 Fecha: <b>${fecha}</b></div>
+        <div>👤 Empleado: <b>${por}</b></div>
+        <div>📍 Lugar: <b>${lugar}</b></div>
+      </div>
+    `
+    )
+  }
 
   if (!data.pagado) {
     return {
       ok: true,
       tipo: 'compra',
       color: 'orange',
-      titulo: 'Compra pendiente de pago',
-      mensaje: 'El pedido aún no fue abonado.',
+      titulo: 'Pedido pendiente de pago',
+      mensaje: 'Cobrar antes de marcar pedido como abonado.',
       data: { id: compraId, ...data },
     }
   }
@@ -279,7 +330,7 @@ export async function validarCompra(payload) {
     tipo: 'compra',
     color: 'blue',
     titulo: 'Compra válida',
-    mensaje: 'Pedido listo para entregar ticket.',
+    mensaje: 'Pedido abonado. Entregar ticket.',
     data: { id: compraId, ...data },
   }
 }

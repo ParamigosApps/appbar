@@ -12,6 +12,10 @@ import {
 import { db } from '../Firebase.js'
 
 import { generarCompraQr } from './generarQrService.js'
+
+// ======================================================
+// REGISTRAR ENTREGA DE TICKET AL CLIENTE
+// ======================================================
 export async function registrarRetiroCompra({
   compraId,
   compraData,
@@ -21,10 +25,10 @@ export async function registrarRetiroCompra({
   if (!compraId) throw new Error('compraId requerido')
 
   if (compraData.estado !== 'pagado') {
-    throw new Error('El pedido debe estar pagado antes de retirarse')
+    throw new Error('El pedido debe estar pagado antes de retirar el ticket')
   }
 
-  // 1️⃣ Marcar compra como retirada
+  // 1️⃣ Marcar compra como RETIRADA (ticket entregado)
   await updateDoc(doc(db, 'compras', compraId), {
     estado: 'retirado',
     retirada: true,
@@ -38,9 +42,10 @@ export async function registrarRetiroCompra({
     },
   })
 
-  // 2️⃣ Log enriquecido (INMUTABLE)
+  // 2️⃣ LOG INMUTABLE — ENTREGA DE TICKET
   await addDoc(collection(db, 'logsCaja'), {
-    tipo: 'retiro_compra',
+    tipo: 'ticket_entregado_cliente',
+
     compraId,
     numeroPedido: compraData.numeroPedido,
     total: compraData.total,
@@ -68,12 +73,16 @@ export async function registrarRetiroCompra({
   })
 }
 
+// ======================================================
+// REGISTRAR PAGO EN CAJA
+// ======================================================
 export async function registrarPagoCompra({ compraId, compraData, empleado }) {
   if (!compraId) throw new Error('compraId requerido')
 
   await updateDoc(doc(db, 'compras', compraId), {
     estado: 'pagado',
     pagado: true,
+    origenPago: 'caja',
     pagadoEn: serverTimestamp(),
     pagadoPor: {
       uid: empleado.uid || null,
@@ -98,104 +107,47 @@ export async function registrarPagoCompra({ compraId, compraData, empleado }) {
   })
 }
 
-export async function mostrarComprobanteCaja(compra) {
-  const {
-    numeroPedido,
-    estado,
-    usuarioNombre,
-    lugar,
-    carrito,
-    items, // por compatibilidad
-    total,
-    ticketId,
-    creadoEn,
-  } = compra
+export async function cancelarPagoCompra({ compraId, compraData, empleado }) {
+  if (!compraId) throw new Error('compraId requerido')
 
-  const lista = items || carrito || []
+  // 🔒 1. Solo pagos de caja
+  if (compraData.origenPago !== 'caja') {
+    throw new Error('Este pago no puede revertirse (origen externo)')
+  }
 
-  const fechaHumana = creadoEn?.toDate
-    ? creadoEn.toDate().toLocaleString()
-    : new Date().toLocaleString()
+  // 🔒 2. Solo el mismo empleado
+  if (compraData.pagadoPor?.uid !== empleado.uid) {
+    throw new Error('Solo el empleado que registró el pago puede cancelarlo')
+  }
 
-  await Swal.fire({
-    title: '🎫 Ticket de Retiro',
-    width: '420px',
-    html: `
-    <div id="ticketGenerado" style="
-      font-size:14px;
-      font-family: monospace;
-      border:2px dashed #000;
-      padding:12px;
-      background:#ffffff;
-    ">
-      <div style="text-align:center;margin-bottom:8px;">
-        <strong style="font-size:18px">PEDIDO #${numeroPedido}</strong><br>
-        <span style="font-size:12px">${fechaHumana}</span>
-      </div>
+  // 🔒 3. No permitir si ya fue retirado
+  if (compraData.estado === 'retirado') {
+    throw new Error('No se puede cancelar un pedido ya retirado')
+  }
 
-      <hr>
+  // 🔄 Revertir estado
+  await updateDoc(doc(db, 'compras', compraId), {
+    estado: 'pendiente',
+    pagado: false,
+    pagadoEn: null,
+    pagadoPor: null,
+    origenPago: null,
+  })
 
-      <p><strong>Cliente:</strong> ${usuarioNombre}</p>
-      <p><strong>Lugar:</strong> ${lugar}</p>
+  // 🧾 Log inmutable
+  await addDoc(collection(db, 'logsCaja'), {
+    tipo: 'cancelacion_pago',
+    compraId,
+    numeroPedido: compraData.numeroPedido,
+    total: compraData.total,
 
-      <p style="margin-top:8px;color:#166534;font-weight:bold">
-        ✔ TICKET ENTREGADO AL CLIENTE
-      </p>
-
-      <p style="margin-top:6px;color:#92400e;font-weight:bold">
-        🍺 Presentar este ticket en la barra para retirar el pedido
-      </p>
-
-      <hr>
-
-      ${lista
-        .map(
-          p => `
-        <div style="display:flex;justify-content:space-between">
-          <span>${p.nombre} ×${p.enCarrito}</span>
-          <span>$${p.precio * p.enCarrito}</span>
-        </div>
-      `
-        )
-        .join('')}
-
-      <hr>
-
-      <div style="display:flex;justify-content:space-between;font-size:18px">
-        <strong>TOTAL</strong>
-        <strong>$${total}</strong>
-      </div>
-
-      <div id="qrCompraContainer" style="margin-top:12px;display:flex;justify-content:center"></div>
-    </div>
-
-    <div style="margin-top:15px">
-      <button id="btnPdf" class="btn btn-dark w-100">Descargar PDF</button>
-    </div>
-  `,
-    didOpen: async () => {
-      try {
-        await generarCompraQr({
-          ticketId,
-          contenido: ticketId,
-          qrContainer: document.getElementById('qrCompraContainer'),
-          tamaño: 160,
-        })
-      } catch (e) {
-        console.error('No se pudo generar QR en comprobante:', e)
-      }
-
-      document.getElementById('btnPdf').onclick = async () => {
-        const canvas = await html2canvas(
-          document.getElementById('ticketGenerado'),
-          { scale: 2 }
-        )
-        const pdf = new jsPDF()
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 15, 15, 180, 0)
-        pdf.save(`ticket-pedido-${numeroPedido}.pdf`)
-      }
+    realizadoPor: {
+      uid: empleado.uid,
+      nombre: empleado.nombre,
+      rol: empleado.rol,
     },
-    confirmButtonText: 'Cerrar',
-    buttonsStyling: false,
+
+    motivo: 'Cancelación manual de pago en caja',
+    fecha: serverTimestamp(),
   })
 }
