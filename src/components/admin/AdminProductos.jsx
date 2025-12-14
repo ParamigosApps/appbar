@@ -9,6 +9,7 @@ import {
   actualizarProducto,
   eliminarProducto,
   escucharProductos,
+  actualizarStockProducto,
 } from '../../services/productosAdmin.js'
 
 export default function AdminProductos() {
@@ -20,6 +21,8 @@ export default function AdminProductos() {
     stock: '',
     destacado: false,
   })
+  const [editStockId, setEditStockId] = useState(null)
+  const [stockTemp, setStockTemp] = useState('')
 
   const [imagenFile, setImagenFile] = useState(null)
   const [previewImg, setPreviewImg] = useState(null)
@@ -93,6 +96,14 @@ export default function AdminProductos() {
     if (!editId && !imagenFile) return { ok: false, msg: 'Subí una imagen.' }
 
     return { ok: true }
+  }
+  async function guardarStockRapido(prodId) {
+    const ok = await actualizarStockProducto(prodId, stockTemp)
+    if (ok) {
+      setEditStockId(null)
+    } else {
+      Swal.fire('Error', 'No se pudo actualizar el stock', 'error')
+    }
   }
 
   async function handleSubmit(e) {
@@ -304,64 +315,97 @@ export default function AdminProductos() {
         </form>
 
         {/* LISTA DE PRODUCTOS */}
-        <h4 className="fw-bold mt-4">Productos cargados</h4>
+        <h4 className="fw-bold mt-5 mb-2">Productos cargados</h4>
 
         {productos.length === 0 ? (
           <p className="text-muted">No hay productos todavía.</p>
         ) : (
-          <div className="productos-grid">
+          <div className="productos-list">
             {productos.map(prod => (
-              <div key={prod.id} className="producto-card card shadow-sm">
-                <div className="producto-img">
+              <div key={prod.id} className="producto-row">
+                {/* Imagen */}
+                <div className="producto-col img">
                   <img
                     src={
                       prod.imagen ||
-                      'https://via.placeholder.com/300x160?text=Sin+imagen'
+                      'https://via.placeholder.com/80x80?text=Img'
                     }
                     alt={prod.nombre}
                   />
                 </div>
 
-                <div className="card-body d-flex flex-column">
+                {/* Nombre */}
+                <div className="producto-col nombre">
+                  <strong>{prod.nombre}</strong>
                   {prod.destacado && (
-                    <span className="badge bg-warning text-dark mb-2">
-                      DESTACADO
+                    <span className="badge bg-warning text-dark ms-2">
+                      Destacado
                     </span>
                   )}
-
-                  <h5>{prod.nombre}</h5>
-
-                  <p className="small text-muted mb-1">
-                    Cat:{' '}
-                    <span className="badge bg-info text-dark">
-                      {prod.categoria}
-                    </span>{' '}
-                    — Stock:{' '}
-                    <span className="badge bg-success">{prod.stock}</span>
-                  </p>
-
-                  <p className="small text-muted">{prod.descripcion || ''}</p>
-
-                  <div className="mt-auto">
-                    <div className="badge bg-primary mb-2">
-                      {formatoPrecio(prod.precio)}
-                    </div>
-
-                    <div className="d-flex gap-2">
-                      <button
-                        className="btn btn-outline-primary btn-sm flex-fill"
-                        onClick={() => onEditarProducto(prod)}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        className="btn btn-outline-danger btn-sm flex-fill"
-                        onClick={() => onEliminarProducto(prod)}
-                      >
-                        Eliminar
-                      </button>
-                    </div>
+                  <div className="text-muted small">
+                    {prod.descripcion || 'Sin descripción'}
                   </div>
+                </div>
+
+                {/* Categoría */}
+                <div className="producto-col">
+                  <span className="badge bg-info text-dark">
+                    {prod.categoria}
+                  </span>
+                </div>
+
+                {/* Stock */}
+                <div className="producto-col">
+                  {editStockId === prod.id ? (
+                    <input
+                      type="number"
+                      className="form-control form-control-sm"
+                      style={{ maxWidth: 80, textAlign: 'center' }}
+                      value={stockTemp}
+                      autoFocus
+                      onChange={e => setStockTemp(e.target.value)}
+                      onBlur={() => guardarStockRapido(prod.id)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') guardarStockRapido(prod.id)
+                        if (e.key === 'Escape') setEditStockId(null)
+                      }}
+                    />
+                  ) : (
+                    <span
+                      className={`badge badge-editable ${
+                        prod.stock > 0 ? 'bg-success' : 'bg-danger'
+                      }`}
+                      onClick={() => {
+                        setEditStockId(prod.id)
+                        setStockTemp(prod.stock)
+                      }}
+                      title="Editar stock"
+                    >
+                      {prod.stock}
+                      <small className="edit-icon">✎</small>
+                    </span>
+                  )}
+                </div>
+
+                {/* Precio */}
+                <div className="producto-col precio">
+                  {formatoPrecio(prod.precio)}
+                </div>
+
+                {/* Acciones */}
+                <div className="producto-col acciones">
+                  <button
+                    className="btn btn-outline-primary btn-sm"
+                    onClick={() => onEditarProducto(prod)}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    className="btn btn-outline-danger btn-sm"
+                    onClick={() => onEliminarProducto(prod)}
+                  >
+                    Eliminar
+                  </button>
                 </div>
               </div>
             ))}

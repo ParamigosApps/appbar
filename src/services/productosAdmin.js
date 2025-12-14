@@ -169,3 +169,25 @@ export async function obtenerProducto(id) {
   if (!snap.exists()) return null
   return { id: snap.id, ...snap.data() }
 }
+// --------------------------------------------------------------
+// Actualizar SOLO stock (edición rápida inline)
+// --------------------------------------------------------------
+export async function actualizarStockProducto(id, nuevoStock) {
+  try {
+    const stock = Number(nuevoStock)
+
+    if (!Number.isFinite(stock) || stock < 0) {
+      throw new Error('Stock inválido')
+    }
+
+    await updateDoc(doc(db, 'productos', id), {
+      stock,
+      actualizadoEn: serverTimestamp(),
+    })
+
+    return true
+  } catch (err) {
+    console.error('❌ Error al actualizar stock:', err)
+    return false
+  }
+}
