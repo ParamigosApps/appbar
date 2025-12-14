@@ -225,7 +225,7 @@ export async function mostrarQrCompra({
         msg += `Pedido #${numeroPedido}%0A`
         msg += `Total: $${total}%0A`
         msg += `Fecha: ${fechaHumana}%0A`
-        msg += `%0AGracias por tu compra!`
+        msg += `Estado: ${estado.toUpperCase()}%0A`
         window.open(`https://wa.me/?text=${msg}`, '_blank')
       })
     },

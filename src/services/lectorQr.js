@@ -20,37 +20,20 @@ export function decodificarQr(rawText) {
 
   let payload = null
 
-  // Intentar parsear el QR como JSON
   try {
     payload = JSON.parse(rawText)
-  } catch (error) {
-    console.error('Error al parsear el QR:', error)
-  }
+  } catch (_) {}
 
-  // Si el payload no es JSON, verificar si está en formato con prefijo
   if (!payload && rawText.includes('|')) {
     const [prefix, id] = rawText.split('|')
     payload = {
       id,
       tipo:
-        prefix === 'E' ? 'entrada' : prefix === 'C' ? 'compra' : 'desconocido', // Si el prefijo no es 'E' ni 'C', lo marcamos como desconocido
+        prefix === 'E' ? 'entrada' : prefix === 'C' ? 'compra' : 'desconocido',
     }
   }
 
-  // Si el payload sigue siendo nulo o vacío, asignamos un ID genérico
   if (!payload) payload = { id: rawText }
-
-  // Agregar validaciones adicionales para el tipo de QR
-  if (!payload.tipo) {
-    if (payload.compraId || payload.pedidoId) {
-      payload.tipo = 'compra'
-    } else if (payload.entradaId || payload.ticketId) {
-      payload.tipo = 'entrada'
-    } else {
-      payload.tipo = 'desconocido'
-    }
-  }
-
   return { raw: rawText, payload }
 }
 
@@ -70,8 +53,11 @@ export function analizarPayload(info) {
     else tipo = 'desconocido'
   }
 
-  const entradaId = base.ticketId || base.entradaId || null
-  const compraId = base.compraId || base.pedidoId || null
+  const entradaId =
+    base.ticketId || base.entradaId || (tipo === 'entrada' ? base.id : null)
+  const compraId =
+    base.compraId || base.pedidoId || (tipo === 'compra' ? base.id : null)
+
   return {
     ...base,
     tipo,
@@ -274,9 +260,18 @@ export async function validarCompra(payload) {
 
   const data = snap.data()
 
-  if (data.retirada) {
-    const tiempo = tiempoTranscurrido(data.retiradaEn)
-    return rechazoCompra('Ya retirada', `Hace ${tiempo}.`)
+  // ⛔ NO bloqueamos por "retirada"
+  // retirada = ticket entregado al cliente
+
+  if (!data.pagado) {
+    return {
+      ok: true,
+      tipo: 'compra',
+      color: 'orange',
+      titulo: 'Compra pendiente de pago',
+      mensaje: 'El pedido aún no fue abonado.',
+      data: { id: compraId, ...data },
+    }
   }
 
   return {
@@ -284,7 +279,7 @@ export async function validarCompra(payload) {
     tipo: 'compra',
     color: 'blue',
     titulo: 'Compra válida',
-    mensaje: 'Pedido listo para entregar.',
+    mensaje: 'Pedido listo para entregar ticket.',
     data: { id: compraId, ...data },
   }
 }
@@ -319,19 +314,10 @@ export async function marcarEntradaUsada(id) {
   })
 }
 
-export async function marcarCompraRetirada(
-  compraId,
-  { userId = null, origen = 'qr-caja' } = {}
-) {
-  if (!compraId) return
-
-  await updateDoc(doc(db, 'compras', compraId), {
-    estado: 'retirado', // 🔥 CLAVE
+export async function marcarCompraRetirada(id) {
+  await updateDoc(doc(db, 'compras', id), {
     retirada: true,
     retiradaEn: serverTimestamp(),
-    retiradaPor: empleado.uid || null,
-    retiradaPorNombre: empleado.nombre || 'Caja',
-    retiradaDesde: origen || 'qr-caja',
   })
 }
 

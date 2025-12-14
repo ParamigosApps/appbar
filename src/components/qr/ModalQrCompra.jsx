@@ -25,6 +25,7 @@ export async function mostrarQrCompraReact(pedido, onClose) {
       lugar = 'Tienda',
       fechaHumana = formatearFecha(new Date()),
       usuarioNombre = 'Usuario',
+      retiradaEn = formatearFecha(new Date()),
     } = pedido
 
     // -------------------- ESTILOS DE ESTADO (IGUAL QUE EL ORIGINAL) --------------------
@@ -35,7 +36,7 @@ export async function mostrarQrCompraReact(pedido, onClose) {
         padding:3px 8px;
         border-radius:6px;
         font-weight:700;
-        font-size:13px;">
+        font-size:14px;">
         PAGADO
       </span>`,
 
@@ -45,7 +46,7 @@ export async function mostrarQrCompraReact(pedido, onClose) {
         padding:3px 8px;
         border-radius:6px;
         font-weight:700;
-        font-size:13px;">
+        font-size:14px;">
         PENDIENTE
       </span>`,
 
@@ -55,12 +56,24 @@ export async function mostrarQrCompraReact(pedido, onClose) {
         padding:3px 8px;
         border-radius:6px;
         font-weight:700;
-        font-size:13px;">
+        font-size:14px;">
         RETIRADO
       </span>`,
     }
 
-    const estadoHTML = estadosPretty[estado] || estado.toUpperCase()
+    const fechaRetiroBadge = retiradaEn
+      ? `<span style="
+      background:#bbb;
+      color:#000;
+      padding:3px 8px;
+      border-radius:6px;
+      font-weight:700;
+      font-size:15px;
+      white-space:nowrap;
+    ">
+      ${retiradaEn}
+    </span>`
+      : ''
 
     // -------------------- ALERTA SWEETALERT2 --------------------
     await Swal.fire({
@@ -77,11 +90,28 @@ export async function mostrarQrCompraReact(pedido, onClose) {
 
           <p style="margin:0 0 8px 0;">
             <strong style="font-size:18px;">
-              Pedido #${numeroPedido ?? ticketId}
+              Pedido #${numeroPedido ?? ticketId} 
             </strong>
           </p>
 
-          <p style="margin:0 0 8px 0;"><strong>Estado:</strong> ${estadoHTML}</p>
+        <p style="
+          margin:0 0 8px 0;
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+        ">
+          <span>
+            <strong>Estado:</strong> ${
+              estadosPretty[estado] || estado.toUpperCase()
+            }
+          </span>
+
+          <span>
+            <strong>Fecha: </strong>
+            ${estado === 'retirado' ? fechaRetiroBadge : ''}
+          </span>
+        </p>
+
 
           <hr style="margin:10px 0;">
 
@@ -156,12 +186,10 @@ export async function mostrarQrCompraReact(pedido, onClose) {
               qrContainer: cont,
               tamaño: 200,
             })
-            console.log('✅ QR generado')
           }
         } else {
           console.log('🎫 Pedido RETIRADO → no se genera QR')
         }
-
         // -------------------- 📄 Descargar PDF --------------------
         if (estado !== 'retirado') {
           document
@@ -181,7 +209,6 @@ export async function mostrarQrCompraReact(pedido, onClose) {
             msg += `Estado: ${estado.toUpperCase()}\n`
             msg += `Total: $${total}\n`
             msg += `Fecha: ${fechaHumana}\n\n`
-            msg += `¡Gracias por tu compra!`
 
             const url = `https://wa.me/?text=${encodeURIComponent(msg)}`
             window.open(url, '_blank')

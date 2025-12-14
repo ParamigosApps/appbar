@@ -5,17 +5,21 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import { Html5Qrcode } from 'html5-qrcode'
-import {
-  mostrarComprobanteCaja,
-  registrarRetiroCompra,
-} from '../../services/cajaService.js'
+
 import {
   decodificarQr,
   analizarPayload,
+  detectarTipoPorFirestore,
   validarTicket,
   validarCompra,
   marcarEntradaUsada,
 } from '../../services/lectorQr.js'
+
+import {
+  registrarPagoCompra,
+  registrarRetiroCompra,
+  mostrarComprobanteCaja,
+} from '../../services/cajaService.js'
 
 import { db, auth } from '../../Firebase.js'
 import {
@@ -55,20 +59,24 @@ function eventoEstaVigente(ev) {
 export default function LectorQr({ modoInicial = 'entradas' }) {
   const navigate = useNavigate()
 
-  const [modo] = useState(modoInicial)
+  // --------------------------------------------------------------
+  // STATE
+  // --------------------------------------------------------------
+  const [modo] = useState(modoInicial) // 'entradas' | 'caja'
   const [resultado, setResultado] = useState(null)
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null)
   const [eventoInfo, setEventoInfo] = useState(null)
   const [infoAbierto, setInfoAbierto] = useState(false)
+  const [pedidoCaja, setPedidoCaja] = useState(null)
 
+  // Scanner refs
   const html5Qr = useRef(null)
   const running = useRef(false)
   const initialized = useRef(false)
-  const leyendo = useRef(false) // control de cooldown
+  const leyendo = useRef(false)
 
-  const [pedidoCaja, setPedidoCaja] = useState(null)
   // --------------------------------------------------------------
-  // BEEPS
+  // BEEP OK
   // --------------------------------------------------------------
   function beep(freq, duration) {
     try {
@@ -91,54 +99,37 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   const beepOk = () => beep(900, 130)
 
   // --------------------------------------------------------------
-  // CARGAR EVENTOS CON SWEETALERT RESPONSIVE
+  // SELECCIÓN DE EVENTO (ENTRADAS)
   // --------------------------------------------------------------
   useEffect(() => {
+    if (modo !== 'entradas') return
+
     async function cargarEventos() {
       const snap = await getDocs(query(collection(db, 'eventos')))
       const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }))
       if (!arr.length) return
 
-      // Select limpio (SIN duplicado)
       let html = `
-        <div style="font-size:15px;margin-bottom:8px;color:#444">Seleccioná el evento a validar:</div>
-        <select id="evento-select" class="swal2-select" style="
-          width:100%;
-          padding:12px;
-          font-size:17px;
-          border-radius:10px;
-          border:1px solid #ccc;
-        ">
+        <div style="font-size:15px;margin-bottom:8px">Seleccioná el evento:</div>
+        <select id="evento-select" class="swal2-select" style="width:100%;padding:12px">
           <option disabled selected value="">Elegí un evento</option>
       `
 
       arr.forEach(ev => {
         if (eventoEstaVigente(ev)) {
-          html += `
-            <option value="${ev.id}">
-              ${ev.nombre} — ${fechaLarga(ev.fecha)}
-            </option>
-          `
+          html += `<option value="${ev.id}">
+            ${ev.nombre} — ${fechaLarga(ev.fecha)}
+          </option>`
         }
       })
 
       html += `</select>`
 
       const { value } = await Swal.fire({
-        title: 'Seleccionar Evento',
+        title: 'Seleccionar evento',
         html,
         confirmButtonText: 'Continuar',
-        confirmButtonColor: '#111',
-        width: '100%',
-        maxWidth: '420px',
-        padding: '1rem',
-        background: '#fafafa',
         allowOutsideClick: false,
-        scrollbarPadding: false,
-        didOpen: () => {
-          const sel = document.getElementById('evento-select')
-          if (sel) sel.style.fontSize = '18px'
-        },
         preConfirm: () => {
           const el = document.getElementById('evento-select')
           if (!el?.value) {
@@ -154,22 +145,16 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
     }
 
     cargarEventos()
-  }, [])
+  }, [modo])
 
   // --------------------------------------------------------------
-  // ESTADÍSTICAS DEL EVENTO
+  // ESTADÍSTICAS EVENTO
   // --------------------------------------------------------------
   async function cargarEstadisticasEvento(eventoId) {
-    if (!eventoId || typeof eventoId !== 'string') return
     const snapEv = await getDoc(doc(db, 'eventos', eventoId))
     if (!snapEv.exists()) return
 
     const ev = snapEv.data()
-
-    const fechaEv =
-      typeof ev.fecha === 'string' && ev.fecha.includes('-') ? ev.fecha : null
-
-    const horarioEv = ev.horario || 'No especificado'
 
     const qTot = query(
       collection(db, 'entradas'),
@@ -186,8 +171,6 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
 
     setEventoInfo({
       ...ev,
-      fecha: fechaEv,
-      horario: horarioEv,
       totales: tot.size,
       usadas: usados.size,
       noUsadas: tot.size - usados.size,
@@ -196,7 +179,7 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   }
 
   // --------------------------------------------------------------
-  // SCANNER
+  // SCANNER INIT
   // --------------------------------------------------------------
   useEffect(() => {
     if (!initialized.current) {
@@ -208,163 +191,105 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
 
   async function iniciarScanner() {
     const el = document.getElementById('qr-reader')
-    if (!el) return setTimeout(iniciarScanner, 80)
-    if (running.current) return
+    if (!el || running.current) return
 
     if (!html5Qr.current) html5Qr.current = new Html5Qrcode('qr-reader')
 
     const cams = await Html5Qrcode.getCameras()
     if (!cams.length) {
-      Swal.fire('Sin cámara', 'No se detectó cámara disponible.', 'error')
+      Swal.fire('Sin cámara', 'No se detectó cámara.', 'error')
       return
     }
 
-    try {
-      await html5Qr.current.start(
-        cams[cams.length - 1].id,
-        { fps: 10, qrbox: 250 },
-        onScanSuccess
-      )
-      running.current = true
-    } catch (err) {
-      console.error(err)
-    }
+    await html5Qr.current.start(
+      cams[cams.length - 1].id,
+      { fps: 10, qrbox: 250 },
+      onScanSuccess
+    )
+
+    running.current = true
   }
 
   async function detenerScanner() {
     if (!html5Qr.current || !running.current) return
-    try {
-      await html5Qr.current.stop()
-    } catch {}
+    await html5Qr.current.stop()
     running.current = false
   }
 
   // --------------------------------------------------------------
-  // RESULTADO QR (con cooldown SIN pisar mensajes)
+  // SCAN SUCCESS
   // --------------------------------------------------------------
-
   async function onScanSuccess(text) {
     if (leyendo.current) return
     leyendo.current = true
 
     try {
-      console.log('🟦 QR ESCANEADO')
-      console.log('RAW TEXT:', text)
-
       const dec = decodificarQr(text)
-      console.log('DECODIFICADO:', dec)
-
       let payload = analizarPayload(dec)
-      console.log('PAYLOAD ANALIZADO:', payload)
 
-      const idRaw = payload.id || payload.ticketId || payload.entradaId || null
-
-      console.log('ID RAW RESUELTO:', idRaw)
-
-      if (!idRaw) {
-        console.error('❌ QR sin ID usable')
-        return mostrarError('QR inválido o incompleto.')
-      }
-
-      console.log('🔍 Buscando en Firestore…')
-
-      // ==================================================
-      // 1️⃣ BUSCAR COMPRA POR ticketId (FORMA CORRECTA)
-      // ==================================================
+      // 1️⃣ Buscar COMPRA por ticketId
       const qCompra = query(
         collection(db, 'compras'),
-        where('ticketId', '==', idRaw)
+        where('ticketId', '==', payload.id || payload.ticketId)
       )
       const snapCompra = await getDocs(qCompra)
 
-      console.log('Firestore compras por ticketId:', !snapCompra.empty)
-
       if (!snapCompra.empty) {
-        const compraDoc = snapCompra.docs[0]
-
         payload = {
           ...payload,
           esCompra: true,
           esEntrada: false,
-          compraId: compraDoc.id, // 🔑 doc.id REAL
+          compraId: snapCompra.docs[0].id,
         }
       } else {
-        // ==================================================
-        // 2️⃣ BUSCAR ENTRADA POR doc.id
-        // ==================================================
-        const snapEntrada = await getDoc(doc(db, 'entradas', idRaw))
-
-        console.log('Firestore entradas por id:', snapEntrada.exists())
+        // 2️⃣ Buscar ENTRADA por doc.id
+        const snapEntrada = await getDoc(doc(db, 'entradas', payload.id))
 
         if (snapEntrada.exists()) {
           payload = {
             ...payload,
-            esCompra: false,
             esEntrada: true,
-            entradaId: idRaw,
+            esCompra: false,
+            entradaId: payload.id,
           }
         } else {
-          console.error('❌ No existe ni en compras ni en entradas')
           return mostrarError('QR inválido o inexistente.')
         }
       }
 
-      console.log('PAYLOAD FINAL:', payload)
-
-      // ==================================================
-      // VALIDACIÓN SEGÚN MODO
-      // ==================================================
-      let res = null
+      let res
 
       if (modo === 'entradas') {
-        if (!payload.esEntrada) {
-          return mostrarError('Este QR es de COMPRA.')
-        }
-
+        if (!payload.esEntrada)
+          return mostrarError('QR de compra no válido para entradas')
         res = await validarTicket(payload, eventoSeleccionado)
       } else {
-        if (!payload.esCompra) {
-          return mostrarError('Este QR es de ENTRADA.')
-        }
-
+        if (!payload.esCompra)
+          return mostrarError('QR de entrada no válido para caja')
         res = await validarCompra(payload)
       }
 
       mostrarResultado(res)
 
-      // ==================================================
-      // POST VALIDACIÓN
-      // ==================================================
       if (res?.ok && res.tipo === 'entrada') {
         await marcarEntradaUsada(res.data.id)
-
-        const eventoIdStats = res.data.eventoId || eventoSeleccionado
-        if (eventoIdStats) {
-          await cargarEstadisticasEvento(eventoIdStats)
-        }
+        cargarEstadisticasEvento(res.data.eventoId || eventoSeleccionado)
       }
+
       if (res?.ok && res.tipo === 'compra') {
-        // Solo mostrar el pedido al cajero
         setPedidoCaja(res.data)
       }
-    } catch (err) {
-      console.error('❌ Error inesperado en onScanSuccess:', err)
-      mostrarError('Error al procesar el QR.')
     } finally {
-      setTimeout(() => {
-        leyendo.current = false
-      }, 2500)
+      setTimeout(() => (leyendo.current = false), 2500)
     }
   }
 
   // --------------------------------------------------------------
-  // MOSTRAR RESULTADO (dura 3.5s)
+  // RESULTADO
   // --------------------------------------------------------------
   function mostrarResultado(res) {
     setResultado(res)
     setTimeout(() => setResultado(null), 3500)
-
-    navigator.vibrate?.([120, 80, 120])
     res?.ok && beepOk()
   }
 
@@ -377,13 +302,69 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   }
 
   // --------------------------------------------------------------
+  // CAJA — CONFIRMACIONES
+  // --------------------------------------------------------------
+  async function confirmarPago() {
+    const r = await Swal.fire({
+      title: 'Confirmar pago',
+      html: `¿El cliente abonó <b>$${pedidoCaja.total}</b>?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, cobrar',
+    })
+
+    if (!r.isConfirmed) return
+
+    const u = auth.currentUser
+
+    await registrarPagoCompra({
+      compraId: pedidoCaja.id,
+      compraData: pedidoCaja,
+      empleado: {
+        uid: u?.uid || null,
+        nombre: u?.displayName || 'Caja',
+        rol: 'caja',
+      },
+    })
+
+    setPedidoCaja(p => ({ ...p, estado: 'pagado', pagado: true }))
+  }
+
+  async function confirmarEntrega() {
+    const r = await Swal.fire({
+      title: 'Confirmar entrega',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, entregar',
+    })
+
+    if (!r.isConfirmed) return
+
+    const u = auth.currentUser
+
+    await registrarRetiroCompra({
+      compraId: pedidoCaja.id,
+      compraData: { ...pedidoCaja, estado: 'pagado' },
+      empleado: {
+        uid: u?.uid || null,
+        nombre: u?.displayName || 'Caja',
+        rol: 'caja',
+      },
+      origen: 'qr-caja',
+    })
+
+    await mostrarComprobanteCaja({ ...pedidoCaja, estado: 'retirado' })
+    setPedidoCaja(null)
+  }
+
+  // --------------------------------------------------------------
   // UI
   // --------------------------------------------------------------
   return (
     <div className="container py-4">
-      <div className="card qr-card p-4">
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <h4 className="fw-bold mb-0">Validador QR</h4>
+      <div className="card p-4">
+        <div className="d-flex justify-content-between mb-3">
+          <h4>Validador QR</h4>
           <button
             className="btn btn-outline-secondary"
             onClick={() => navigate(-1)}
@@ -391,87 +372,26 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
             Volver
           </button>
         </div>
-
-        <div className="mb-3">
-          <span className="badge bg-dark p-2">
-            Modo: {modo === 'entradas' ? 'Entradas' : 'Caja / Barra'}
-          </span>
-        </div>
-
-        {/* PANEL DESPLEGABLE DE ESTADISTICAS */}
-        {eventoInfo && (
-          <div className="evento-info-card mb-3">
-            <div
-              className="evento-info-header"
-              onClick={() => setInfoAbierto(!infoAbierto)}
-            >
-              <strong>{eventoInfo.nombre}</strong>
-              <span>{infoAbierto ? '▲' : '▼'}</span>
-            </div>
-
-            {infoAbierto && (
-              <div className="evento-info-body">
-                <p>
-                  <strong>Fecha:</strong>{' '}
-                  {eventoInfo.fecha
-                    ? fechaLarga(eventoInfo.fecha)
-                    : 'No definida'}
-                </p>
-                <p>
-                  <strong>Horario:</strong> {eventoInfo.horario}
-                </p>
-
-                <div className="evento-stats">
-                  {eventoInfo.capacidad && (
-                    <div>
-                      <strong>Capacidad:</strong> {eventoInfo.capacidad}
-                    </div>
-                  )}
-                  <div>
-                    <strong>Emitidas:</strong> {eventoInfo.totales}
-                  </div>
-                  <div>
-                    <strong>Escaneadas:</strong> {eventoInfo.usadas}
-                  </div>
-                  <div>
-                    <strong>Restantes:</strong> {eventoInfo.noUsadas}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div id="qr-reader" className="qr-reader-box" />
-
-        {resultado && (
-          <div
-            className={`qr-result mt-3 p-3 rounded ${
-              resultado.ok ? 'qr-result-ok' : 'qr-result-error'
-            }`}
-          >
-            <h5>{resultado.titulo}</h5>
-            <p dangerouslySetInnerHTML={{ __html: resultado.mensaje }} />
-          </div>
-        )}
-
+        <div id="qr-reader" />
         {pedidoCaja && (
           <div className="card mt-3 p-3">
-            <h5 className="fw-bold">Pedido #{pedidoCaja.numeroPedido}</h5>
+            <h5>Pedido #{pedidoCaja.numeroPedido}</h5>
 
             <p>
-              <strong>Cliente:</strong> {pedidoCaja.usuarioNombre}
+              <b>Cliente:</b> {pedidoCaja.usuarioNombre}
             </p>
             <p>
-              <strong>Lugar:</strong> {pedidoCaja.lugar}
+              <b>Lugar:</b> {pedidoCaja.lugar}
             </p>
 
             <p>
-              <strong>Estado:</strong>{' '}
+              <b>Estado:</b>{' '}
               <span
                 className={
                   pedidoCaja.estado === 'retirado'
                     ? 'text-success'
+                    : pedidoCaja.estado === 'pagado'
+                    ? 'text-primary'
                     : 'text-warning'
                 }
               >
@@ -481,7 +401,7 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
 
             <hr />
 
-            {(pedidoCaja.items || []).map((p, i) => (
+            {(pedidoCaja.items || pedidoCaja.carrito || []).map((p, i) => (
               <div key={i} className="d-flex justify-content-between">
                 <span>
                   {p.nombre} ×{p.enCarrito}
@@ -497,28 +417,34 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
               <strong>${pedidoCaja.total}</strong>
             </div>
 
-            <button
-              className="btn btn-success w-100 mt-3"
-              onClick={async () => {
-                const currentUser = auth.currentUser
+            {pedidoCaja.estado === 'pendiente' && (
+              <button
+                className="btn btn-warning w-100 mt-3"
+                onClick={confirmarPago}
+              >
+                Confirmar pago
+              </button>
+            )}
 
-                await registrarRetiroCompra({
-                  compraId: pedidoCaja.id,
-                  compraData: pedidoCaja,
-                  empleado: {
-                    uid: currentUser?.uid || null,
-                    nombre: currentUser?.displayName || 'Caja',
-                    rol: 'caja',
-                  },
-                  origen: 'qr-caja',
-                })
+            {pedidoCaja.estado === 'pagado' && (
+              <button
+                className="btn btn-success w-100 mt-3"
+                onClick={confirmarEntrega}
+              >
+                Confirmar entrega
+              </button>
+            )}
+          </div>
+        )}
 
-                await mostrarComprobanteCaja(pedidoCaja)
-                setPedidoCaja(null)
-              }}
-            >
-              Confirmar entrega
-            </button>
+        {resultado && (
+          <div
+            className={`mt-3 p-3 ${
+              resultado.ok ? 'text-success' : 'text-danger'
+            }`}
+          >
+            <h5>{resultado.titulo}</h5>
+            <p dangerouslySetInnerHTML={{ __html: resultado.mensaje }} />
           </div>
         )}
       </div>

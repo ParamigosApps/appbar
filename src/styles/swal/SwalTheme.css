@@ -586,7 +586,7 @@
   margin-top: 18px;
 }
 .swal2-html-container {
-  padding-top: 0.75rem;
+  padding-top: 0.4rem !important;
 }
 /* Texto centrado SOLO cuando se pide */
 .swal-text-center {
