@@ -1,7 +1,6 @@
 import Swal from 'sweetalert2'
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
-import { db } from '../../Firebase.js'
 import { generarQrEntradaPayload } from '../../services/generarQrService.js'
+import { crearEntradaBase } from '../../services/crearEntradaBase.js'
 
 // --------------------------------------------------------------
 // Normaliza cantidad desde abrirResumenLote()
@@ -14,7 +13,8 @@ function normalizarCantidad(cantidad, max = 9999) {
 }
 
 // ======================================================================
-// FREE — EVENTO CON LOTE (1 entrada = 1 QR = 1 documento)
+// FREE — EVENTO CON LOTE
+// 1 entrada = 1 QR = 1 documento
 // ======================================================================
 export async function pedirEntradaFreeConLote({
   evento,
@@ -23,16 +23,10 @@ export async function pedirEntradaFreeConLote({
   usuarioNombre,
   cantidadSel,
   cargarEntradasUsuario,
-  mostrarQrAlGenerar = false, // NUEVO FLAG
+  mostrarQrAlGenerar = false,
 }) {
-  console.log('🟦 pedirEntradaFreeConLote()', {
-    eventoId: evento.id,
-    lote: loteSel.nombre,
-    usuarioId,
-    cantidadSel,
-  })
-
   const maxPermitido = Number(loteSel.restantes || 0)
+
   if (maxPermitido <= 0) {
     return Swal.fire('Sin cupos', 'Este lote ya no tiene lugares.', 'info')
   }
@@ -45,73 +39,51 @@ export async function pedirEntradaFreeConLote({
       tipo: 'entrada',
       eventoId: evento.id,
       usuarioId,
-      loteIndice: loteSel.index,
+      loteId: loteSel.id ?? loteSel.index ?? null,
       n: i + 1,
     }
 
     const qrData = generarQrEntradaPayload(qrPayload)
 
-    const ref = await addDoc(collection(db, 'entradas'), {
+    const ref = await crearEntradaBase({
       usuarioId,
       usuarioNombre,
-
-      eventoId: evento.id,
-      nombreEvento: evento.nombre,
-      fecha: evento.fecha,
-      lugar: evento.lugar,
-
-      loteId: loteSel.id ?? loteSel.index ?? null,
-      loteNombre: loteSel.nombre,
-      genero: loteSel.genero || 'Unisex',
-      incluyeConsumicion: !!loteSel.incluyeConsumicion,
-
-      precio: 0,
+      evento,
+      lote: loteSel,
       metodo: 'free',
+      precioUnitario: 0,
       cantidad: 1,
-
       estado: 'aprobada',
-      usado: false,
-
-      qr: qrData, // STRING PARA MIENTRAS QR
-      creadoEn: serverTimestamp(),
+      qr: qrData,
     })
 
     generadas.push({ id: ref.id, qr: qrData })
 
-    // Mostrar QR individual si el flag está activado
     if (mostrarQrAlGenerar) {
-      console.log('🔍 Mostrar QR al generar:', qrData)
-      // Aquí podríamos invocar un modal QR React si querés
+      console.log('🔍 QR generado:', qrData)
     }
   }
 
   await cargarEntradasUsuario(usuarioId)
 
-  // Swal final
   const res = await Swal.fire({
     title: '¡Entradas generadas!',
     html: `
       <p style="font-size:18px;font-weight:600;text-align:center;">
-        ${cantidad} entrada(s) para <b>${evento.nombre}</b> fueron generadas 🎟️
+        ${cantidad} entrada(s) para <b>${evento.nombre}</b> 🎟️
       </p>
     `,
     icon: 'success',
-
     showCancelButton: true,
     confirmButtonText: 'Ir a Mis Entradas',
     cancelButtonText: 'Seguir en eventos',
-
-    customClass: {
-      confirmButton: 'swal-btn-confirm',
-      cancelButton: 'swal-btn-cancel',
-    },
-
     buttonsStyling: false,
     timer: 3500,
-    timerProgressBar: true,
   })
 
-  if (res.isConfirmed) document.dispatchEvent(new Event('abrir-mis-entradas'))
+  if (res.isConfirmed) {
+    document.dispatchEvent(new Event('abrir-mis-entradas'))
+  }
 
   return generadas
 }
@@ -126,26 +98,11 @@ export async function pedirEntradaFreeSinLote({
   maxUser,
   cantidadSel,
   cargarEntradasUsuario,
-  mostrarQrAlGenerar = false, // NUEVO FLAG
 }) {
-  console.log('🟦 pedirEntradaFreeSinLote()', {
-    eventoId: evento.id,
-    usuarioId,
-    maxUser,
-    cantidadSel,
-  })
-
   const maxPermitido = Number(maxUser || 0)
+
   if (maxPermitido <= 0) {
-    return Swal.fire({
-      title: 'Sin cupos',
-      html: `
-    <p style="font-size:18px;font-weight:600;text-align:center;">
-      No tenés cupos disponibles.
-    </p>
-  `,
-      icon: 'info',
-    })
+    return Swal.fire('Sin cupos', 'No tenés cupos disponibles.', 'info')
   }
 
   const cantidad = normalizarCantidad(cantidadSel, maxPermitido)
@@ -161,59 +118,24 @@ export async function pedirEntradaFreeSinLote({
 
     const qrData = generarQrEntradaPayload(qrPayload)
 
-    const ref = await addDoc(collection(db, 'entradas'), {
+    const ref = await crearEntradaBase({
       usuarioId,
       usuarioNombre,
-
-      eventoId: evento.id,
-      nombreEvento: evento.nombre,
-      fecha: evento.fecha,
-      lugar: evento.lugar,
-
-      precio: 0,
+      evento,
+      lote: null,
       metodo: 'free',
+      precioUnitario: 0,
       cantidad: 1,
-
       estado: 'aprobada',
-      usado: false,
-
       qr: qrData,
-      creadoEn: serverTimestamp(),
     })
 
     generadas.push({ id: ref.id, qr: qrData })
-
-    if (mostrarQrAlGenerar) {
-      console.log('🔍 Mostrar QR al generar:', qrData)
-    }
   }
 
   await cargarEntradasUsuario(usuarioId)
 
-  const res = await Swal.fire({
-    title: '¡Entradas generadas!',
-    html: `
-      <p style="font-size:18px;font-weight:600;text-align:center;">
-        ${cantidad} entrada(s) para <b>${evento.nombre}</b> fueron generadas 🎟️
-      </p>
-    `,
-    icon: 'success',
-
-    showCancelButton: true,
-    confirmButtonText: 'Ir a Mis Entradas',
-    cancelButtonText: 'Seguir en eventos',
-
-    customClass: {
-      confirmButton: 'swal-btn-confirm',
-      cancelButton: 'swal-btn-cancel',
-    },
-
-    buttonsStyling: false,
-    timer: 3500,
-    timerProgressBar: true,
-  })
-
-  if (res.isConfirmed) document.dispatchEvent(new Event('abrir-mis-entradas'))
+  await Swal.fire('¡Listo!', `${cantidad} entrada(s) generadas 🎟️`, 'success')
 
   return generadas
 }

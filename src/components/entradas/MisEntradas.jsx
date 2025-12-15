@@ -1,55 +1,87 @@
 // --------------------------------------------------------------
-// src/components/entradas/MisEntradas.jsx — VERSIÓN FINAL FUNCIONAL
+// src/components/entradas/MisEntradas.jsx — MIS ENTRADAS PRO 2025
 // --------------------------------------------------------------
 
 import React, { useEffect, useState } from 'react'
-import { collection, getDocs, query, where } from 'firebase/firestore'
+import { collection, getDocs, query, where, orderBy } from 'firebase/firestore'
 import { db } from '../../Firebase.js'
 
 import { useFirebase } from '../../context/FirebaseContext.jsx'
 import { generarEntradaQr } from '../../services/generarQrService.js'
+import { formatearSoloFecha } from '../../utils/utils.js'
+
+// ============================================================
+// BADGES
+// ============================================================
+function Badge({ children, color = 'secondary' }) {
+  return (
+    <span className={`badge rounded-pill bg-${color}`} style={{ fontSize: 12 }}>
+      {children}
+    </span>
+  )
+}
+
+// ============================================================
+// FORMATEAR HORA 24HS
+// ============================================================
+function formatearHora(ts) {
+  if (!ts?.toDate) return ''
+  return ts.toDate().toLocaleTimeString('es-AR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+}
 
 export default function MisEntradas() {
   const { user } = useFirebase()
-  const [entradasAgrupadas, setEntradasAgrupadas] = useState({})
+
+  const [grupos, setGrupos] = useState([])
   const [loading, setLoading] = useState(true)
   const [qrModal, setQrModal] = useState(null)
 
   // ============================================================
-  // Cargar entradas por usuario
+  // CARGAR ENTRADAS
   // ============================================================
   useEffect(() => {
-    const cargar = async () => {
-      try {
-        if (!user) {
-          setEntradasAgrupadas({})
-          setLoading(false)
-          return
-        }
+    async function cargar() {
+      if (!user) {
+        setGrupos([])
+        setLoading(false)
+        return
+      }
 
+      try {
         const q = query(
           collection(db, 'entradas'),
-          where('usuarioId', '==', user.uid)
+          where('usuarioId', '==', user.uid),
+          orderBy('creadoEn', 'desc')
         )
 
         const snap = await getDocs(q)
+
         const map = {}
 
         snap.forEach(docSnap => {
-          const data = docSnap.data()
-          const ticketId = docSnap.id
-          const key = data.eventoId || ticketId
+          const e = docSnap.data()
+          const id = docSnap.id
+
+          // 🔑 Clave: evento + lote + estado
+          const key = [e.eventoId, e.lote?.id || 'sin-lote', e.estado].join('|')
 
           if (!map[key]) {
-            map[key] = { ...data, tickets: [ticketId] }
+            map[key] = {
+              ...e,
+              tickets: [id],
+            }
           } else {
-            map[key].tickets.push(ticketId)
+            map[key].tickets.push(id)
           }
         })
 
-        setEntradasAgrupadas(map)
+        setGrupos(Object.values(map))
       } catch (err) {
-        console.error('Error cargando entradas:', err)
+        console.error('❌ Error cargando entradas:', err)
       } finally {
         setLoading(false)
       }
@@ -59,81 +91,99 @@ export default function MisEntradas() {
   }, [user])
 
   // ============================================================
-  // Abrir modal y generar QR dentro del DOM (lo que SI funciona)
+  // ABRIR MODAL QR
   // ============================================================
-  const abrirModalQr = entrada => {
-    if (!user) return
+  const abrirModalQr = grupo => {
+    setQrModal(grupo)
 
-    // Muestra el modal vacío primero
-    setQrModal(entrada)
-
-    // Luego generamos los QR dentro de los contenedores reales
     setTimeout(() => {
-      entrada.tickets.forEach(ticketId => {
-        const contenedor = document.getElementById(`qr_${ticketId}`)
-        if (!contenedor) return
+      grupo.tickets.forEach(ticketId => {
+        const cont = document.getElementById(`qr_${ticketId}`)
+        if (!cont) return
 
         generarEntradaQr({
           ticketId,
-          nombreEvento: entrada.nombre,
+          nombreEvento: grupo.nombreEvento,
           usuario: user.displayName || 'Usuario',
-          fecha: entrada.fecha,
-          lugar: entrada.lugar,
-          horario: entrada.horario ?? 'A confirmar',
+          fecha: grupo.fechaEvento,
+          lugar: grupo.lugar,
+          horario: `${grupo.horaInicio} - ${grupo.horaFin}`,
           precio:
-            entrada.precio === 0 || entrada.precio == null
-              ? 'Entrada gratuita'
-              : `$${entrada.precio}`,
-          qrContainer: contenedor,
+            grupo.precioUnitario === 0 ? 'FREE' : `$${grupo.precioUnitario}`,
+          qrContainer: cont,
           individual: true,
         })
       })
-    }, 300) // se deja así porque tu script realmente lo necesita
+    }, 300)
   }
 
   // ============================================================
-  // Render
+  // RENDER
   // ============================================================
-
-  if (!user) {
+  if (!user)
     return (
       <p className="text-center text-danger mt-3">
-        Debes iniciar sesión para ver tus entradas.
+        Debés iniciar sesión para ver tus entradas.
       </p>
     )
-  }
 
-  if (loading) {
-    return <p className="text-center text-muted my-3">Cargando...</p>
-  }
-
-  const listaEntradas = Object.values(entradasAgrupadas)
+  if (loading)
+    return <p className="text-center text-muted my-3">Cargando entradas…</p>
 
   return (
     <>
       {/* LISTADO */}
       <div className="d-flex flex-column gap-3 mt-3 mb-5">
-        {listaEntradas.length === 0 ? (
+        {grupos.length === 0 ? (
           <p className="text-center text-secondary">No tenés entradas aún.</p>
         ) : (
-          listaEntradas.map(e => (
-            <div
-              key={e.eventoId || e.tickets[0]}
-              className="card p-3 shadow-sm rounded-4"
-            >
-              <h5 className="fw-bold">{e.nombreEvento}</h5>
+          grupos.map((g, idx) => (
+            <div key={idx} className="card p-3 shadow-sm rounded-4">
+              {/* HEADER */}
+              <div className="d-flex justify-content-between align-items-start">
+                <h5 className="fw-bold m-0">{g.nombreEvento}</h5>
 
-              {e.fecha && <p className="mb-0">📅 {e.fecha}</p>}
-              <p className="mb-0">📍 {e.lugar}</p>
-              {e.horario && <p className="mb-0">🕑 {e.horario}</p>}
+                {g.estado === 'aprobada' && g.metodo === 'free' && (
+                  <Badge color="success">FREE</Badge>
+                )}
+                {g.estado === 'pendiente' && (
+                  <Badge color="warning">PENDIENTE</Badge>
+                )}
+                {g.estado === 'aprobada' && g.metodo !== 'free' && (
+                  <Badge color="primary">PAGADA</Badge>
+                )}
+                {g.usado && <Badge color="dark">USADA</Badge>}
+              </div>
 
-              <p className="mt-2">
-                🎫 <strong>{e.tickets.length}</strong> entradas
+              {/* INFO */}
+              <p className="mb-0 mt-1">
+                📅 {formatearSoloFecha(g.fechaEvento)} — 🕑 {g.horaInicio} a{' '}
+                {g.horaFin}
+              </p>
+
+              <p className="mb-0">📍 {g.lugar}</p>
+
+              {/* LOTE */}
+              {g.lote && (
+                <div className="mt-2 p-2 rounded bg-light small">
+                  🎟 <strong>{g.lote.nombre}</strong>
+                  {g.lote.incluyeConsumicion && (
+                    <span className="ms-2">🍹 Incluye consumición</span>
+                  )}
+                  <div className="text-muted">
+                    {g.lote.genero !== 'todos' && `Género: ${g.lote.genero}`}
+                  </div>
+                </div>
+              )}
+
+              {/* CANTIDAD */}
+              <p className="mt-2 mb-1">
+                🎫 <strong>{g.tickets.length}</strong> entrada(s)
               </p>
 
               <button
                 className="btn btn-dark mt-2 w-100"
-                onClick={() => abrirModalQr(e)}
+                onClick={() => abrirModalQr(g)}
               >
                 Ver QR
               </button>
@@ -143,37 +193,42 @@ export default function MisEntradas() {
       </div>
 
       {/* MODAL QR */}
-      {/* MODAL QR — PROFESIONAL + DESCARGA */}
       {qrModal && (
         <div className="qr-overlay" onClick={() => setQrModal(null)}>
           <div className="qr-card" onClick={e => e.stopPropagation()}>
-            {/* Datos del evento */}
             <p className="qr-title fw-bold">{qrModal.nombreEvento}</p>
-            {qrModal.fecha && <p className="qr-sub">📅 {qrModal.fecha}</p>}
+
+            <p className="qr-sub">
+              📅 {formatearSoloFecha(qrModal.fechaEvento)} — 🕑{' '}
+              {qrModal.horaInicio} a {qrModal.horaFin}
+            </p>
+
             <p className="qr-sub">📍 {qrModal.lugar}</p>
-            {qrModal.horario && <p className="qr-sub">🕑 {qrModal.horario}</p>}
+
+            {qrModal.lote && (
+              <p className="qr-sub">
+                🎟 {qrModal.lote.nombre}
+                {qrModal.lote.incluyeConsumicion && ' 🍹'}
+              </p>
+            )}
 
             <div className="qr-divider"></div>
 
-            {/* LISTA SCROLLEABLE */}
             <div className="qr-scroll">
-              {qrModal.tickets.map((ticketId, i) => (
-                <div key={ticketId} className="qr-item">
-                  {/* CONTENEDOR PARA EL QR */}
-                  <div id={`qr_${ticketId}`} className="qr-box"></div>
+              {qrModal.tickets.map((id, i) => (
+                <div key={id} className="qr-item">
+                  <div id={`qr_${id}`} className="qr-box"></div>
 
-                  {/* BOTÓN DESCARGAR */}
                   <button
                     className="btn btn-sm btn-dark mt-3 mb-5"
-                    onClick={() => descargarQR(ticketId, i + 1)}
+                    onClick={() => descargarQR(id, i + 1)}
                   >
-                    Descargar: Entrada #{i + 1}
+                    Descargar QR #{i + 1}
                   </button>
                 </div>
               ))}
             </div>
 
-            {/* CERRAR */}
             <button className="qr-btn" onClick={() => setQrModal(null)}>
               Cerrar
             </button>
@@ -183,37 +238,28 @@ export default function MisEntradas() {
     </>
   )
 }
-// =========================
-// DESCARGAR QR COMO PNG
-// =========================
-const descargarQR = (ticketId, nro) => {
+
+// ============================================================
+// DESCARGAR QR
+// ============================================================
+function descargarQR(ticketId, nro) {
   const cont = document.getElementById(`qr_${ticketId}`)
   if (!cont) return
 
-  // Puede ser IMG, CANVAS o SVG → buscamos cualquiera
-  const salida = cont.querySelector('img, canvas, svg')
-  if (!salida) {
-    console.warn('No se encontró QR para descargar')
-    return
-  }
+  const el = cont.querySelector('img, canvas, svg')
+  if (!el) return
 
   let dataUrl = ''
 
-  if (salida.tagName === 'IMG') {
-    dataUrl = salida.src
-  } else if (salida.tagName === 'CANVAS') {
-    dataUrl = salida.toDataURL('image/png')
-  } else if (salida.tagName === 'SVG') {
-    const svgData = new XMLSerializer().serializeToString(salida)
-    dataUrl = 'data:image/svg+xml;base64,' + btoa(svgData)
+  if (el.tagName === 'IMG') dataUrl = el.src
+  else if (el.tagName === 'CANVAS') dataUrl = el.toDataURL('image/png')
+  else {
+    const svg = new XMLSerializer().serializeToString(el)
+    dataUrl = 'data:image/svg+xml;base64,' + btoa(svg)
   }
 
-  // Nombre pro
-  const nombreArchivo = `Entrada_${nro}_${ticketId}.png`
-
-  // Crear descarga
-  const link = document.createElement('a')
-  link.href = dataUrl
-  link.download = nombreArchivo
-  link.click()
+  const a = document.createElement('a')
+  a.href = dataUrl
+  a.download = `Entrada_${nro}_${ticketId}.png`
+  a.click()
 }

@@ -21,6 +21,19 @@ export default function EntradasEventos() {
     if (typeof lotesRaw === 'object') return Object.values(lotesRaw)
     return []
   }
+  function formatearFecha(ts) {
+    if (!ts?.toDate) return 'Fecha a confirmar'
+    return ts.toDate().toLocaleDateString('es-AR')
+  }
+
+  function formatearHora(ts) {
+    if (!ts?.toDate) return ''
+    return ts.toDate().toLocaleTimeString('es-AR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false, // 🔑 FORZAR 24 HS
+    })
+  }
 
   // --------------------------------------------------------------
   // CARGAR EVENTOS
@@ -30,7 +43,11 @@ export default function EntradasEventos() {
       try {
         setLoading(true)
 
-        const q = query(collection(db, 'eventos'), orderBy('fecha', 'asc'))
+        const q = query(
+          collection(db, 'eventos'),
+          orderBy('fechaInicio', 'asc')
+        )
+
         const snap = await getDocs(q)
 
         const lista = snap.docs.map(doc => ({
@@ -102,12 +119,13 @@ export default function EntradasEventos() {
 
             <h5 className="fw-bold">{evento.nombre}</h5>
 
-            <p className="mb-0">📅 {evento.fecha || 'Fecha a confirmar'}</p>
+            <p className="mb-0">📅 {formatearFecha(evento.fechaInicio)}</p>
             <p className="mb-0">📍 {evento.lugar || 'Lugar a confirmar'}</p>
 
-            {evento.horario && evento.horario.trim() !== '' && (
-              <p className="mb-0">🕑 {evento.horario}</p>
-            )}
+            <p className="mb-0">
+              🕑 Desde: {formatearHora(evento.fechaInicio)} hs → hasta{' '}
+              {formatearHora(evento.fechaFin)} hs.
+            </p>
 
             <p className="mt-2 mb-1">
               💲 <strong>{getTextoPrecio(evento)}</strong>

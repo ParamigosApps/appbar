@@ -75,17 +75,14 @@ export default function EditarEvento({ editarId, setSeccion }) {
       // Extraer horarios del texto
       let desde = ''
       let hasta = ''
-      const match = data.horario?.match(/(\d{2}:\d{2}).+?(\d{2}:\d{2})/)
-      if (match) {
-        desde = match[1]
-        hasta = match[2]
-      }
+      data.fecha
 
       setForm({
         nombre: data.nombre,
         fecha: data.fecha,
         horarioDesde: desde,
         horarioHasta: hasta,
+        horario: `Desde ${form.horarioDesde}hs hasta ${form.horarioHasta}hs.`,
         lugar: data.lugar,
         precio: data.precio || 0,
         entradasMaximas: data.entradasMaximasEvento || '',
@@ -279,40 +276,40 @@ export default function EditarEvento({ editarId, setSeccion }) {
           onChange={handleInput}
         />
 
-        {/* ------------------- Fecha ------------------- */}
-        <label className="fw-semibold">Fecha del evento*</label>
+        {/* ------------------- Horarios ------------------- */}
+        <label className="fw-semibold">Inicio del evento*</label>
         <input
           type="date"
-          name="fecha"
-          className="form-control mb-3"
-          value={form.fecha}
+          name="fechaInicio"
+          className="form-control mb-2"
+          value={form.fechaInicio}
           onChange={handleInput}
         />
 
-        {/* ------------------- Horarios ------------------- */}
-        <label className="fw-semibold">Horarios</label>
-        <div className="row g-2 mb-3">
-          <div className="col">
-            <input
-              type="text"
-              name="horarioDesde"
-              className="form-control"
-              placeholder="22:00"
-              value={form.horarioDesde}
-              onChange={handleInput}
-            />
-          </div>
-          <div className="col">
-            <input
-              type="text"
-              name="horarioHasta"
-              className="form-control"
-              placeholder="06:00"
-              value={form.horarioHasta}
-              onChange={handleInput}
-            />
-          </div>
-        </div>
+        <input
+          type="time"
+          name="horaInicio"
+          className="form-control mb-3"
+          value={form.horaInicio}
+          onChange={handleInput}
+        />
+
+        <label className="fw-semibold">Fin del evento*</label>
+        <input
+          type="date"
+          name="fechaFin"
+          className="form-control mb-2"
+          value={form.fechaFin}
+          onChange={handleInput}
+        />
+
+        <input
+          type="time"
+          name="horaFin"
+          className="form-control mb-3"
+          value={form.horaFin}
+          onChange={handleInput}
+        />
 
         {/* ------------------- Lugar ------------------- */}
         <label className="fw-semibold">Lugar*</label>

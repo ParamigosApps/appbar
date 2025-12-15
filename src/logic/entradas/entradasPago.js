@@ -10,6 +10,7 @@ import {
   obtenerContacto,
   crearSolicitudPendiente,
 } from './entradasUtils.js'
+import { serverTimestamp } from 'firebase/firestore'
 
 // =============================================================
 // 🔵 MERCADO PAGO
@@ -214,16 +215,41 @@ export async function manejarTransferencia({
     // CREAR SOLICITUD PENDIENTE
     // ----------------------------------------------------------
     await crearSolicitudPendiente(eventoId, usuarioId, {
-      nombre: evento.nombre,
-      precio,
-      fecha: evento.fecha,
-      lugar: evento.lugar,
-      horario: evento.horario,
-      cantidad: cantidadSel,
-      loteIndice: loteSel?.index ?? null,
-      loteNombre: loteSel?.nombre ?? null,
+      // USUARIO
+      usuarioId,
       usuarioNombre,
+
+      // EVENTO (snapshot)
+      eventoId,
+      nombreEvento: evento.nombre,
+      lugar: evento.lugar,
+      fechaEvento: evento.fechaInicio,
+      horaInicio: evento.horaInicio,
+      horaFin: evento.horaFin,
+
+      // 🎟️ LOTE (snapshot completo o null)
+      lote: loteSel
+        ? {
+            id: loteSel.id ?? loteSel.index ?? null,
+            nombre: loteSel.nombre,
+            descripcion: loteSel.descripcion || '',
+            precio,
+            genero: loteSel.genero || 'todos',
+            incluyeConsumicion: !!loteSel.incluyeConsumicion,
+            desdeHora: loteSel.desdeHora || '',
+            hastaHora: loteSel.hastaHora || '',
+          }
+        : null,
+
+      // COMPRA
+      metodo: 'transferencia',
+      precioUnitario: precio,
+      cantidad: cantidadSel,
+      total: precio * cantidadSel,
+
       estado: 'pendiente',
+
+      creadoEn: serverTimestamp(),
     })
 
     // ----------------------------------------------------------

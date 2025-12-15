@@ -1,5 +1,5 @@
 // --------------------------------------------------------------
-// ListaEventos.jsx — versión corregida + responsive
+// ListaEventos.jsx — VERSIÓN FINAL (MODELO TIMESTAMP)
 // --------------------------------------------------------------
 import { useEffect, useState } from 'react'
 import Swal from 'sweetalert2'
@@ -10,9 +10,56 @@ import {
   cancelarEvento,
 } from '../../services/eventosAdmin.js'
 
-import { formatearSoloFecha } from '../../utils/utils.js'
 import { db } from '../../Firebase.js'
 import { collection, query, where, getDocs } from 'firebase/firestore'
+
+/* ============================================================
+   HELPERS
+============================================================ */
+
+// dd/mm/aaaa
+function formatearFecha(ts) {
+  if (!ts?.toDate) return '-'
+  return ts.toDate().toLocaleDateString('es-AR')
+}
+
+// HH:MM
+function formatearHora(ts) {
+  if (!ts?.toDate) return '-'
+  return ts.toDate().toLocaleTimeString('es-AR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+// Estado del evento (USANDO TIMESTAMP)
+function estadoEvento(e) {
+  if (e.estado === 'cancelado') {
+    return { label: 'Cancelado', className: 'badge bg-danger' }
+  }
+
+  if (!e.fechaInicio || !e.fechaFin) {
+    return { label: 'Sin fecha', className: 'badge bg-secondary' }
+  }
+
+  const ahora = new Date()
+  const inicio = e.fechaInicio.toDate()
+  const fin = e.fechaFin.toDate()
+
+  if (ahora < inicio) {
+    return { label: 'Próximo', className: 'badge bg-primary' }
+  }
+
+  if (ahora >= inicio && ahora <= fin) {
+    return { label: 'En curso', className: 'badge bg-warning text-dark' }
+  }
+
+  return { label: 'Finalizado', className: 'badge bg-secondary' }
+}
+
+/* ============================================================
+   COMPONENTE
+============================================================ */
 
 export default function ListaEventos({ setSeccion, setEditarId }) {
   const [eventos, setEventos] = useState([])
@@ -21,18 +68,6 @@ export default function ListaEventos({ setSeccion, setEditarId }) {
     const unsub = escucharEventos(setEventos)
     return () => unsub()
   }, [])
-
-  function obtenerHoras(horario) {
-    if (!horario) return { desde: '-', hasta: '-' }
-
-    const matchDesde = horario.match(/Desde\s(\d{2}:\d{2})/)
-    const matchHasta = horario.match(/hasta\s(\d{2}:\d{2})/i)
-
-    return {
-      desde: matchDesde ? matchDesde[1] : '-',
-      hasta: matchHasta ? matchHasta[1] : '-',
-    }
-  }
 
   async function tieneVentas(id) {
     const q = query(collection(db, 'entradas'), where('eventoId', '==', id))
@@ -66,7 +101,6 @@ export default function ListaEventos({ setSeccion, setEditarId }) {
       ).value || ''
 
     await cancelarEvento(id, motivo)
-
     Swal.fire('Evento cancelado', 'Se actualizó correctamente.', 'success')
   }
 
@@ -93,45 +127,7 @@ export default function ListaEventos({ setSeccion, setEditarId }) {
     if (!confirm.isConfirmed) return
 
     await eliminarEvento(id)
-
     Swal.fire('Eliminado', 'Evento eliminado correctamente.', 'success')
-  }
-
-  function estadoEvento(e) {
-    if (e.estado === 'cancelado')
-      return { label: 'Cancelado', className: 'badge bg-danger' }
-
-    const hoy = new Date()
-    const hoyISO = hoy.toISOString().slice(0, 10)
-
-    if (!e.fecha) return { label: 'Sin fecha', className: 'badge bg-secondary' }
-
-    const eventDate = e.fecha
-    const desde = e.horario?.match(/(\d{2}:\d{2})/)?.[1] || '00:00'
-    const hasta = e.horario?.match(/(\d{2}:\d{2})$/)?.[0] || '23:59'
-
-    const [hHasta] = hasta.split(':').map(Number)
-
-    const fechaEvento = new Date(`${eventDate}T00:00:00`)
-    const fechaHoy = new Date(`${hoyISO}T00:00:00`)
-
-    if (
-      fechaEvento < fechaHoy &&
-      !(eventDate < hoyISO && hHasta > hoy.getHours())
-    )
-      return { label: 'Finalizado', className: 'badge bg-secondary' }
-
-    if (eventDate < hoyISO && hHasta > hoy.getHours()) {
-      return { label: 'En curso', className: 'badge bg-warning text-dark' }
-    }
-
-    if (eventDate === hoyISO)
-      return { label: 'Hoy', className: 'badge bg-success' }
-
-    if (eventDate > hoyISO)
-      return { label: 'Próximo', className: 'badge bg-primary' }
-
-    return { label: 'Evento', className: 'badge bg-secondary' }
   }
 
   return (
@@ -143,7 +139,6 @@ export default function ListaEventos({ setSeccion, setEditarId }) {
 
         {eventos.map(e => {
           const estado = estadoEvento(e)
-          const horas = obtenerHoras(e.horario)
 
           return (
             <div key={e.id} className="card mb-3 shadow-sm evento-card">
@@ -156,12 +151,15 @@ export default function ListaEventos({ setSeccion, setEditarId }) {
                     </h5>
 
                     <p className="m-0">
-                      <strong>Fecha:</strong> {formatearSoloFecha(e.fecha)}
+                      <strong>Inicio:</strong> {formatearFecha(e.fechaInicio)}{' '}
+                      {formatearHora(e.fechaInicio)}
                     </p>
+
                     <p className="m-0">
-                      <strong>Inicio:</strong> {horas.desde}{' '}
-                      <strong>Fin:</strong> {horas.hasta}
+                      <strong>Fin:</strong> {formatearFecha(e.fechaFin)}{' '}
+                      {formatearHora(e.fechaFin)}
                     </p>
+
                     <p className="m-0">
                       <strong>Lugar:</strong> {e.lugar}
                     </p>
@@ -198,7 +196,7 @@ export default function ListaEventos({ setSeccion, setEditarId }) {
                   <img
                     src={e.imagenEventoUrl}
                     className="img-fluid rounded mt-3"
-                    style={{ maxHeight: '180px', objectFit: 'cover' }}
+                    style={{ maxHeight: 180, objectFit: 'cover' }}
                   />
                 )}
               </div>

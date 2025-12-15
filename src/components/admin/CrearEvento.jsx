@@ -12,12 +12,13 @@ import StarterKit from '@tiptap/starter-kit'
 export default function CrearEvento() {
   const [form, setForm] = useState({
     nombre: '',
-    fecha: '',
-    horarioDesde: '',
-    horarioHasta: '',
+    fechaInicio: '',
+    horaInicio: '',
+    fechaFin: '',
+    horaFin: '',
     lugar: '',
     precio: 0,
-    entradasMaximas: '',
+    entradasMaximas: 500,
     entradasPorUsuario: 4,
   })
 
@@ -119,14 +120,21 @@ export default function CrearEvento() {
 
   function actualizarLote(id, campo, valor) {
     setLotes(prev =>
-      prev.map(l =>
-        l.id === id
-          ? {
-              ...l,
-              [campo]: campo === 'incluyeConsumicion' ? Boolean(valor) : valor,
-            }
-          : l
-      )
+      prev.map(l => {
+        if (l.id !== id) return l
+
+        if (campo === 'cantidad') {
+          const maxDisponible = entradasDisponiblesParaLote(id)
+          const seguro = Math.min(Number(valor) || 0, maxDisponible)
+
+          return { ...l, cantidad: seguro }
+        }
+
+        return {
+          ...l,
+          [campo]: campo === 'incluyeConsumicion' ? Boolean(valor) : valor,
+        }
+      })
     )
   }
 
@@ -137,6 +145,9 @@ export default function CrearEvento() {
   function validarLotes(entradasMaximasNum) {
     if (!lotes.length) return true
 
+    // --------------------------------------------------
+    // VALIDAR CADA LOTE
+    // --------------------------------------------------
     for (const lote of lotes) {
       const nombre = (lote.nombre || '').trim()
       const cantidadNum = Number(lote.cantidad) || 0
@@ -178,15 +189,18 @@ export default function CrearEvento() {
       }
     }
 
+    // --------------------------------------------------
+    // VALIDAR SUMA TOTAL
+    // --------------------------------------------------
     const totalLotes = lotes.reduce(
       (acc, l) => acc + (Number(l.cantidad) || 0),
       0
     )
 
-    if (totalLotes > entradasMaximasNum) {
+    if (totalLotes !== entradasMaximasNum) {
       Swal.fire(
-        'Capacidad excedida',
-        `La suma de todos los lotes (${totalLotes}) supera la capacidad total (${entradasMaximasNum}).`,
+        'Cantidad inválida',
+        `La suma de entradas de los lotes (${totalLotes}) debe ser EXACTAMENTE igual a la capacidad total del evento (${entradasMaximasNum}).`,
         'error'
       )
       return false
@@ -201,16 +215,19 @@ export default function CrearEvento() {
   async function handleSubmit(e) {
     e.preventDefault()
 
-    if (!form.nombre || !form.fecha || !form.lugar) {
-      Swal.fire('Error', 'Completá nombre, fecha y lugar del evento.', 'error')
-      return
-    }
-
     if (
-      !validarHorario(form.horarioDesde) ||
-      !validarHorario(form.horarioHasta)
+      !form.nombre ||
+      !form.fechaInicio ||
+      !form.horaInicio ||
+      !form.fechaFin ||
+      !form.horaFin ||
+      !form.lugar
     ) {
-      Swal.fire('Error', 'Horario inválido. Formato 24hs HH:MM.', 'error')
+      Swal.fire(
+        'Error',
+        'Completá fechas, horarios y lugar del evento.',
+        'error'
+      )
       return
     }
 
@@ -233,19 +250,22 @@ export default function CrearEvento() {
     // --------------------------------------------------------------
     const data = {
       nombre: form.nombre,
-      fecha: form.fecha,
       lugar: form.lugar,
-      horario: `Desde ${form.horarioDesde || '-'}hs hasta ${
-        form.horarioHasta || '-'
-      }hs.`,
       precio: Number(form.precio) || 0,
-      descripcionLote: descripcionHtml, // ✔ descripción general del evento
+      descripcion: descripcionHtml,
+
+      // 🔑 OPCIÓN A — CAMPOS CORRECTOS
+      fechaInicio: form.fechaInicio,
+      horaInicio: form.horaInicio,
+      fechaFin: form.fechaFin,
+      horaFin: form.horaFin,
+
       entradasMaximasEvento: entradasMax,
       entradasPorUsuario: Number(form.entradasPorUsuario) || 1,
 
       lotes: lotes.map(l => ({
         nombre: (l.nombre || '').trim(),
-        descripcion: (l.descripcionLote || '').trim(), // ✔ AHORA SE GUARDA BIEN
+        descripcion: (l.descripcionLote || '').trim(),
         genero: l.genero || 'todos',
         precio: Number(l.precio) || 0,
         cantidad: Number(l.cantidad) || 0,
@@ -285,6 +305,24 @@ export default function CrearEvento() {
   // --------------------------------------------------------------
   // RENDER
   // --------------------------------------------------------------
+  const entradasMaximasNum = Number(form.entradasMaximas) || 0
+
+  function entradasDisponiblesParaLote(loteId) {
+    const usadasPorOtrosLotes = lotes.reduce((acc, l) => {
+      if (l.id === loteId) return acc
+      return acc + (Number(l.cantidad) || 0)
+    }, 0)
+
+    return Math.max(entradasMaximasNum - usadasPorOtrosLotes, 0)
+  }
+  function entradasDisponiblesRestantes() {
+    return Math.max(
+      entradasMaximasNum -
+        lotes.reduce((acc, l) => acc + (Number(l.cantidad) || 0), 0),
+      0
+    )
+  }
+
   return (
     <section>
       <h2 className="fw-bold mb-3">Crear Evento</h2>
@@ -302,40 +340,40 @@ export default function CrearEvento() {
             required
           />
 
-          <label className="fw-semibold">Fecha*</label>
+          {/* ------------------- Horarios ------------------- */}
+          <label className="fw-semibold">Inicio del evento*</label>
           <input
             type="date"
-            name="fecha"
-            className="form-control mb-3"
-            value={form.fecha}
+            name="fechaInicio"
+            className="form-control mb-2"
+            value={form.fechaInicio}
             onChange={handleInput}
-            required
           />
 
-          {/* ------------------- Horarios ------------------- */}
-          <label className="fw-semibold">Horarios</label>
-          <div className="row g-2 mb-3">
-            <div className="col">
-              <input
-                type="text"
-                name="horarioDesde"
-                value="22:00"
-                className="form-control"
-                value={form.horarioDesde}
-                onChange={handleInput}
-              />
-            </div>
-            <div className="col">
-              <input
-                type="text"
-                name="horarioHasta"
-                value="06:00"
-                className="form-control"
-                value={form.horarioHasta}
-                onChange={handleInput}
-              />
-            </div>
-          </div>
+          <input
+            type="time"
+            name="horaInicio"
+            className="form-control mb-3"
+            value={form.horaInicio}
+            onChange={handleInput}
+          />
+
+          <label className="fw-semibold">Fin del evento*</label>
+          <input
+            type="date"
+            name="fechaFin"
+            className="form-control mb-2"
+            value={form.fechaFin}
+            onChange={handleInput}
+          />
+
+          <input
+            type="time"
+            name="horaFin"
+            className="form-control mb-3"
+            value={form.horaFin}
+            onChange={handleInput}
+          />
 
           {/* ------------------- Lugar ------------------- */}
           <label className="fw-semibold">Lugar*</label>
@@ -366,7 +404,6 @@ export default function CrearEvento() {
             type="number"
             name="entradasMaximas"
             className="form-control mb-3"
-            placeholder="Ej: 500"
             value={form.entradasMaximas}
             onChange={handleInput}
             required
@@ -413,14 +450,6 @@ export default function CrearEvento() {
           {/* ------------------- LOTES ------------------- */}
           <hr className="my-3" />
           <h5 className="fw-bold">Lotes (opcional)</h5>
-
-          <button
-            type="button"
-            className="btn btn-outline-dark mb-3"
-            onClick={agregarLote}
-          >
-            ➕ Agregar lote
-          </button>
 
           {lotes.length > 0 && (
             <div className="mb-3">
@@ -495,17 +524,32 @@ export default function CrearEvento() {
                     {/* Cantidad */}
                     <div className="col-md-2">
                       <label className="form-label small m-0">
-                        Limite de entradas{' '}
+                        Límite de entradas{' '}
                         <span style={{ color: 'red' }}>*</span>
+                        {entradasMaximasNum > 0 && (
+                          <span className="text-muted ms-1">
+                            (Disponibles: {entradasDisponiblesRestantes()})
+                          </span>
+                        )}
                       </label>
+
                       <input
                         type="number"
-                        className="form-control form-control-sm"
-                        placeholder="Ej: 50 - (Entradas disponibles para este evento)"
+                        className={`form-control form-control-sm ${
+                          lote.cantidad >= entradasDisponiblesParaLote(lote.id)
+                            ? 'is-invalid'
+                            : ''
+                        }`}
                         value={lote.cantidad}
-                        onChange={e =>
-                          actualizarLote(lote.id, 'cantidad', e.target.value)
-                        }
+                        onChange={e => {
+                          const valor = Number(e.target.value) || 0
+                          const max = entradasDisponiblesParaLote(lote.id)
+                          actualizarLote(
+                            lote.id,
+                            'cantidad',
+                            Math.min(valor, max)
+                          )
+                        }}
                       />
                     </div>
                   </div>
@@ -543,8 +587,7 @@ export default function CrearEvento() {
                         <input
                           type="text"
                           className="form-control form-control-sm"
-                          placeholder="23:30"
-                          value={lote.desdeHora}
+                          value={form.horaInicio}
                           onChange={e =>
                             actualizarLote(lote.id, 'desdeHora', e.target.value)
                           }
@@ -594,7 +637,13 @@ export default function CrearEvento() {
               ))}
             </div>
           )}
-
+          <button
+            type="button"
+            className="btn btn-outline-dark mb-3"
+            onClick={agregarLote}
+          >
+            ➕ Agregar lote
+          </button>
           {/* SUBMIT */}
           <button className="btn btn-primary w-100 mt-5" type="submit">
             Crear evento
