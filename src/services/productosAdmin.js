@@ -191,3 +191,13 @@ export async function actualizarStockProducto(id, nuevoStock) {
     return false
   }
 }
+
+export async function actualizarCampoProducto(id, data) {
+  try {
+    await updateDoc(doc(db, 'productos', id), data)
+    return true
+  } catch (e) {
+    console.error(e)
+    return false
+  }
+}

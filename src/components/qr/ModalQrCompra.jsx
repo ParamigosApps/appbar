@@ -121,7 +121,7 @@ export async function mostrarQrCompraReact(pedido, onClose) {
 
           <p><strong>Cliente:</strong> ${usuarioNombre}</p>
           <p><strong>Lugar:</strong> ${lugar}</p>
-          <p><strong>Fecha:</strong> ${fechaHumana}</p>
+          <p><strong>Fecha de creación:</strong> ${fechaHumana}</p>
 
           <hr style="margin:10px 0;">
 

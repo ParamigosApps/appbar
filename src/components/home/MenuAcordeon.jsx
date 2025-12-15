@@ -22,6 +22,7 @@ import facebookIcon from '../../assets/img/facebook.png'
 const iconosCategorias = {
   tragos: '🍹',
   botellas: '🍾',
+  'Bebidas sin alcohol': '💧',
   combos: '🎉',
   promos: '🏷️',
   accesorios: '🧋',

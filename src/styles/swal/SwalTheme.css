@@ -167,7 +167,8 @@
 /* Línea secundaria: “Tipo de ticket / info corta” */
 .lote-extra,
 .lote-desc {
-  font-size: 0.8rem;
+  font-size: 0.85rem;
+  margin-bottom: 2px;
   color: #6b7280;
 }
 

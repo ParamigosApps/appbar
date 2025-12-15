@@ -60,7 +60,7 @@ export default function EntradasEventos() {
         .map(l => Number(l.precio) || 0)
         .filter(n => !isNaN(n))
 
-      if (precios.includes(0)) return 'Desde $0 (lotes gratuitos disponibles)'
+      if (precios.includes(0)) return 'INCLUYE INGRESOS FREE'
       return `Desde $${Math.min(...precios)}`
     }
 
@@ -122,8 +122,16 @@ export default function EntradasEventos() {
                 {lotes.map((lote, idx) => (
                   <div key={idx} className="small">
                     🎟 <strong>{lote.nombre || `Lote ${idx + 1}`}</strong> —{' '}
-                    {Number(lote.precio) > 0 ? `$${lote.precio}` : 'Gratis'}
-                    {lote.incluyeConsumicion && ' · 🍹 consumición incluida'}
+                    {Number(lote.precio) > 0 ? (
+                      `$${lote.precio}`
+                    ) : (
+                      <span className="text-dark fw-bold">{' - GRATIS '}</span>
+                    )}
+                    {lote.incluyeConsumicion && (
+                      <span className="text-dark fw-bold">
+                        {' - CON CONSUMICIÓN '}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

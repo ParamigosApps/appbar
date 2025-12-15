@@ -10,6 +10,7 @@ import {
   eliminarProducto,
   escucharProductos,
   actualizarStockProducto,
+  actualizarCampoProducto,
 } from '../../services/productosAdmin.js'
 
 export default function AdminProductos() {
@@ -23,6 +24,12 @@ export default function AdminProductos() {
   })
   const [editStockId, setEditStockId] = useState(null)
   const [stockTemp, setStockTemp] = useState('')
+
+  const [editPrecioId, setEditPrecioId] = useState(null)
+  const [precioTemp, setPrecioTemp] = useState('')
+
+  const [editCategoriaId, setEditCategoriaId] = useState(null)
+  const [categoriaTemp, setCategoriaTemp] = useState('')
 
   const [imagenFile, setImagenFile] = useState(null)
   const [previewImg, setPreviewImg] = useState(null)
@@ -261,6 +268,7 @@ export default function AdminProductos() {
             <option value="">Elegir...</option>
             <option value="Tragos">Tragos</option>
             <option value="Botellas">Botellas</option>
+            <option value="Bebidas">Bebidas</option>
             <option value="Combos">Combos</option>
             <option value="Promos">Promos</option>
             <option value="Accesorios">Accesorios</option>
@@ -347,65 +355,119 @@ export default function AdminProductos() {
                   </div>
                 </div>
 
-                {/* Categoría */}
-                <div className="producto-col">
-                  <span className="badge bg-info text-dark">
-                    {prod.categoria}
-                  </span>
-                </div>
+                {/* META: categoría + stock + precio */}
+                <div className="producto-side">
+                  <div className="producto-meta">
+                    {editCategoriaId === prod.id ? (
+                      <select
+                        className="form-select form-select-sm"
+                        value={categoriaTemp}
+                        autoFocus
+                        onChange={async e => {
+                          setCategoriaTemp(e.target.value)
+                          await actualizarCampoProducto(prod.id, {
+                            categoria: e.target.value,
+                          })
+                          setEditCategoriaId(null)
+                        }}
+                        onBlur={() => setEditCategoriaId(null)}
+                      >
+                        <option value="Tragos">Tragos</option>
+                        <option value="Botellas">Botellas</option>
+                        <option value="Bebidas">Bebidas</option>
+                        <option value="Combos">Combos</option>
+                        <option value="Promos">Promos</option>
+                        <option value="Accesorios">Accesorios</option>
+                      </select>
+                    ) : (
+                      <span
+                        className="badge bg-info text-dark badge-editable"
+                        onClick={() => {
+                          setEditCategoriaId(prod.id)
+                          setCategoriaTemp(prod.categoria)
+                        }}
+                      >
+                        {prod.categoria} <small className="edit-icon">✎</small>
+                      </span>
+                    )}
 
-                {/* Stock */}
-                <div className="producto-col">
-                  {editStockId === prod.id ? (
-                    <input
-                      type="number"
-                      className="form-control form-control-sm"
-                      style={{ maxWidth: 80, textAlign: 'center' }}
-                      value={stockTemp}
-                      autoFocus
-                      onChange={e => setStockTemp(e.target.value)}
-                      onBlur={() => guardarStockRapido(prod.id)}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') guardarStockRapido(prod.id)
-                        if (e.key === 'Escape') setEditStockId(null)
-                      }}
-                    />
-                  ) : (
-                    <span
-                      className={`badge badge-editable ${
-                        prod.stock > 0 ? 'bg-success' : 'bg-danger'
-                      }`}
-                      onClick={() => {
-                        setEditStockId(prod.id)
-                        setStockTemp(prod.stock)
-                      }}
-                      title="Editar stock"
+                    {editStockId === prod.id ? (
+                      <input
+                        type="number"
+                        className="form-control form-control-sm"
+                        style={{ maxWidth: 70, textAlign: 'center' }}
+                        value={stockTemp}
+                        autoFocus
+                        onChange={e => setStockTemp(e.target.value)}
+                        onBlur={() => guardarStockRapido(prod.id)}
+                      />
+                    ) : (
+                      <span
+                        className={`badge badge-editable ${
+                          prod.stock > 0 ? 'bg-success' : 'bg-danger'
+                        }`}
+                        onClick={() => {
+                          setEditStockId(prod.id)
+                          setStockTemp(prod.stock)
+                        }}
+                      >
+                        {prod.stock} <small className="edit-icon">✎</small>
+                      </span>
+                    )}
+
+                    {editPrecioId === prod.id ? (
+                      <input
+                        type="number"
+                        className="form-control form-control-sm"
+                        style={{ maxWidth: 90, textAlign: 'center' }}
+                        value={precioTemp}
+                        autoFocus
+                        onChange={e => setPrecioTemp(e.target.value)}
+                        onBlur={async () => {
+                          await actualizarCampoProducto(prod.id, {
+                            precio: Number(precioTemp),
+                          })
+                          setEditPrecioId(null)
+                        }}
+                        onKeyDown={async e => {
+                          if (e.key === 'Enter') {
+                            await actualizarCampoProducto(prod.id, {
+                              precio: Number(precioTemp),
+                            })
+                            setEditPrecioId(null)
+                          }
+                          if (e.key === 'Escape') setEditPrecioId(null)
+                        }}
+                      />
+                    ) : (
+                      <span
+                        className="producto-precio precio-editable"
+                        onClick={() => {
+                          setEditPrecioId(prod.id)
+                          setPrecioTemp(prod.precio ?? 0)
+                        }}
+                        title="Editar precio"
+                      >
+                        {formatoPrecio(prod.precio)}
+                        <small className="edit-icon">✎</small>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="producto-col acciones">
+                    <button
+                      className="btn btn-outline-primary btn-sm"
+                      onClick={() => onEditarProducto(prod)}
                     >
-                      {prod.stock}
-                      <small className="edit-icon">✎</small>
-                    </span>
-                  )}
-                </div>
-
-                {/* Precio */}
-                <div className="producto-col precio">
-                  {formatoPrecio(prod.precio)}
-                </div>
-
-                {/* Acciones */}
-                <div className="producto-col acciones">
-                  <button
-                    className="btn btn-outline-primary btn-sm"
-                    onClick={() => onEditarProducto(prod)}
-                  >
-                    Editar
-                  </button>
-                  <button
-                    className="btn btn-outline-danger btn-sm"
-                    onClick={() => onEliminarProducto(prod)}
-                  >
-                    Eliminar
-                  </button>
+                      Editar
+                    </button>
+                    <button
+                      className="btn btn-outline-danger btn-sm"
+                      onClick={() => onEliminarProducto(prod)}
+                    >
+                      Eliminar
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

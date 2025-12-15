@@ -77,17 +77,17 @@ ${lotes
   ${fechaHtml ? `<div class="lote-fecha-top-abs">${fechaHtml}</div>` : ''}
 
   <div class="lote-nombre-principal">
-    <span class="lote-label">Lote:</span> ${String(l.nombre).toUpperCase()}
+    <span class="lote-label">LOTE:</span> ${String(l.nombre).toUpperCase()}
   </div>
 
   ${
     l.descripcionLote?.trim()
-      ? `<div class="lote-desc"><span class="lote-label">Descripción: </span>${l.descripcionLote}</div>`
+      ? `<div class="lote-desc"><span class="lote-label">DESCRIPCIÓN: </span>${l.descripcionLote}</div>`
       : ''
   }
 
   <div class="lote-horario-box">
-    <span class="lote-label">Ingreso permitido:</span>
+    <span class="lote-label">HORA DE INGRESO:</span>
     <span class="lote-horario-value">${l.desdeHora || '-'} → ${
       l.hastaHora || '-'
     }</span>
@@ -97,8 +97,8 @@ ${lotes
   <span class="lote-label">${
     l.genero?.toLowerCase() === 'hombres' ||
     l.genero?.toLowerCase() === 'mujeres'
-      ? 'Exclusivo: '
-      : 'Género: '
+      ? 'EXCLUSIVO: '
+      : 'GÉNERO: '
   }</span>
   
     ${generoBadge}
@@ -107,7 +107,7 @@ ${lotes
   </div>
 
   <div class="lote-costo-box">
-    <span class="lote-label">Costo:</span>
+    <span class="lote-label">COSTO:</span>
     ${precioHtml}
   </div>
 
