@@ -77,6 +77,10 @@ export async function pedirEntradaFreeConLote({
     showCancelButton: true,
     confirmButtonText: 'Ir a Mis Entradas',
     cancelButtonText: 'Seguir en eventos',
+    customClass: {
+      confirmButton: 'swal-btn-confirm',
+      cancelButton: 'swal-btn-cancel',
+    },
     buttonsStyling: false,
     timer: 3500,
   })

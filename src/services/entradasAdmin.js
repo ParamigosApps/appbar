@@ -23,26 +23,34 @@ export function escucharEntradasPendientes(setLista) {
   return onSnapshot(q, snap => {
     const arr = snap.docs.map(d => {
       const data = d.data()
+
+      const cantidad = Number(data.cantidad) || 1
+
+      // ✅ PRECIO CANÓNICO (ORDEN CORRECTO)
+      const precioUnitario =
+        Number(data.lote?.precio) ||
+        Number(data.precioUnitario) ||
+        Number(data.precio) ||
+        0
+
       return {
         id: d.id,
         ...data,
-        // normalizar campos
-        cantidad: Number(data.cantidad || 1),
-        precio: Number(data.precio || 0),
-        monto:
-          typeof data.monto === 'number'
-            ? data.monto
-            : Number(data.precio || 0) * Number(data.cantidad || 1),
+
+        cantidad,
+        precioUnitario,
+        precio: precioUnitario, // 🔁 alias para UI legacy
+        monto: precioUnitario * cantidad,
+
+        // 🔥 LOTE GARANTIZADO
+        lote: data.lote ?? null,
+        loteNombre: data.lote?.nombre || data.loteNombre || 'Entrada general',
+
         pagado: data.pagado ?? false,
       }
     })
 
-    // Ordenar por fecha de creación (si existe)
-    arr.sort((a, b) => {
-      const fa = a.creadaEn || ''
-      const fb = b.creadaEn || ''
-      return fb.localeCompare(fa)
-    })
+    arr.sort((a, b) => (b.creadoEn || '').localeCompare(a.creadoEn || ''))
 
     setLista(arr)
   })
@@ -54,6 +62,9 @@ export function escucharEntradasPendientes(setLista) {
 //   - Elimina la solicitud pendiente
 //   - Crea notificación en "notificaciones"
 // --------------------------------------------------------------
+// --------------------------------------------------------------
+// ✅ APROBAR ENTRADA PENDIENTE (VERSIÓN CORREGIDA 2025)
+// --------------------------------------------------------------
 export async function aprobarEntrada(entrada) {
   try {
     const {
@@ -62,13 +73,21 @@ export async function aprobarEntrada(entrada) {
       usuarioId,
       usuarioNombre,
       eventoNombre,
+
       cantidad = 1,
-      fecha,
+      precio = 0,
+
+      fecha, // legacy (string)
+      fechaEvento, // nuevo (Timestamp o string)
       lugar,
       horario,
-      precio,
+      horaInicio,
+      horaFin,
+
+      lote = null, // 🟢 OBJETO LOTE REAL
       loteIndice = null,
       loteNombre = null,
+
       pagado,
     } = entrada
 
@@ -79,31 +98,58 @@ export async function aprobarEntrada(entrada) {
     const cant = Number(cantidad) || 1
     const precioNum = Number(precio) || 0
 
-    // 1) Crear entradas reales (1 doc por persona)
+    // ----------------------------------------------------------
+    // 1️⃣ Crear entradas reales (1 doc por entrada)
+    // ----------------------------------------------------------
     for (let i = 0; i < cant; i++) {
       await addDoc(collection(db, 'entradas'), {
         eventoId,
         usuarioId,
         usuarioNombre: usuarioNombre || 'Usuario',
+
         nombreEvento: eventoNombre || 'Evento',
-        fecha,
-        lugar,
-        horario,
-        precio: precioNum,
-        cantidad: 1,
-        creadoEn: new Date().toISOString(),
-        estado: 'aprobada',
+
+        // 🧠 FECHAS (modelo nuevo + compatibilidad)
+        fechaEvento: fechaEvento || fecha || null,
+        horaInicio: horaInicio || null,
+        horaFin: horaFin || null,
+
+        lugar: lugar || '',
+        horario: horario || '',
+
+        // 💰
+        precioUnitario: precioNum,
+
+        // 🟢 LOTE REAL (CLAVE DEL FIX)
+        lote:
+          lote && typeof lote === 'object'
+            ? lote
+            : loteNombre
+            ? { nombre: loteNombre }
+            : null,
+
+        // legacy (no rompen nada)
         loteIndice,
         loteNombre,
+
+        estado: 'aprobada',
+        metodo: 'transferencia',
+
         pagado: pagado ?? true,
         usado: false,
+
+        creadoEn: serverTimestamp(),
       })
     }
 
-    // 2) Eliminar pendiente
+    // ----------------------------------------------------------
+    // 2️⃣ Eliminar pendiente
+    // ----------------------------------------------------------
     await deleteDoc(doc(db, 'entradasPendientes', id))
 
-    // 3) Notificación al usuario (mismo esquema que tu admin.js viejo)
+    // ----------------------------------------------------------
+    // 3️⃣ Notificación
+    // ----------------------------------------------------------
     await addDoc(collection(db, 'notificaciones'), {
       usuarioId,
       nombreEvento: eventoNombre,

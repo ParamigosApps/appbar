@@ -268,7 +268,7 @@ export default function AdminProductos() {
             <option value="">Elegir...</option>
             <option value="Tragos">Tragos</option>
             <option value="Botellas">Botellas</option>
-            <option value="Bebidas">Bebidas</option>
+            <option value="Sin alcohol">Sin alcohol</option>
             <option value="Combos">Combos</option>
             <option value="Promos">Promos</option>
             <option value="Accesorios">Accesorios</option>
@@ -374,7 +374,7 @@ export default function AdminProductos() {
                       >
                         <option value="Tragos">Tragos</option>
                         <option value="Botellas">Botellas</option>
-                        <option value="Bebidas">Bebidas</option>
+                        <option value="Sin alcohol">Sin alcohol</option>
                         <option value="Combos">Combos</option>
                         <option value="Promos">Promos</option>
                         <option value="Accesorios">Accesorios</option>

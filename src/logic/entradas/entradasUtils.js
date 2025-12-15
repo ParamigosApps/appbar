@@ -50,6 +50,9 @@ export function clampCantidad(v, min, max) {
 // --------------------------------------------------------------
 // 🔥 CREAR / ACTUALIZAR SOLICITUD PENDIENTE (transferencias)
 // --------------------------------------------------------------
+// --------------------------------------------------------------
+// 🔥 CREAR / ACTUALIZAR SOLICITUD PENDIENTE (transferencia)
+// --------------------------------------------------------------
 export async function crearSolicitudPendiente(
   eventoId,
   usuarioId,
@@ -66,42 +69,79 @@ export async function crearSolicitudPendiente(
     where('usuarioId', '==', usuarioId),
   ]
 
-  if (entradaBase.loteIndice !== undefined && entradaBase.loteIndice !== null) {
-    filtros.push(where('loteIndice', '==', entradaBase.loteIndice))
+  if (entradaBase.lote?.id) {
+    filtros.push(where('lote.id', '==', entradaBase.lote.id))
   }
 
   const existentes = await getDocs(
     query(collection(db, 'entradasPendientes'), ...filtros)
   )
 
-  // Si NO existe → crear nuevo documento
-  if (existentes.empty) {
-    return await addDoc(collection(db, 'entradasPendientes'), {
-      eventoId,
-      usuarioId,
-      usuarioNombre: entradaBase.usuarioNombre || 'Usuario',
-      eventoNombre: entradaBase.nombre,
-      cantidad: entradaBase.cantidad,
-      monto: entradaBase.cantidad * entradaBase.precio,
-      estado: 'pendiente',
-      creadaEn: new Date().toISOString(),
-      fecha: entradaBase.fecha,
-      lugar: entradaBase.lugar,
-      horario: entradaBase.horario || 'A confirmar',
-      precio: entradaBase.precio,
-      loteIndice: entradaBase.loteIndice ?? null,
-      loteNombre: entradaBase.loteNombre ?? null,
-    })
+  const cantidad = Number(entradaBase.cantidad) || 1
+  const precioUnitario =
+    Number(entradaBase.lote?.precio) ||
+    Number(entradaBase.precioUnitario) ||
+    Number(entradaBase.precio) ||
+    0
+
+  // ----------------------------------------------------------
+  // 🧠 DATA BASE CORRECTA
+  // ----------------------------------------------------------
+  const dataBase = {
+    eventoId,
+    eventoNombre: entradaBase.eventoNombre,
+
+    usuarioId,
+    usuarioNombre: entradaBase.usuarioNombre || 'Usuario',
+
+    cantidad,
+    precioUnitario,
+    monto: cantidad * precioUnitario,
+
+    // 🟢 LOTE COMPLETO (CLAVE)
+    lote: entradaBase.lote
+      ? {
+          id: entradaBase.lote.id || null,
+          nombre: entradaBase.lote.nombre,
+          precio: precioUnitario,
+          incluyeConsumicion: !!entradaBase.lote.incluyeConsumicion,
+          genero: entradaBase.lote.genero || 'todos',
+        }
+      : null,
+
+    // legacy (no romper nada viejo)
+    loteNombre: entradaBase.lote?.nombre ?? 'Entrada general',
+
+    metodo: 'transferencia',
+    estado: 'pendiente',
+
+    fechaEvento: entradaBase.fechaEvento,
+    horaInicio: entradaBase.horaInicio,
+    horaFin: entradaBase.horaFin,
+    lugar: entradaBase.lugar,
+
+    creadoEn: new Date().toISOString(),
   }
 
-  // Si existe → actualizar cantidad y monto
+  // 🛡️ LIMPIEZA
+  Object.keys(dataBase).forEach(k => {
+    if (dataBase[k] === undefined) delete dataBase[k]
+  })
+
+  // ----------------------------------------------------------
+  // ➕ CREAR O ACTUALIZAR
+  // ----------------------------------------------------------
+  if (existentes.empty) {
+    return await addDoc(collection(db, 'entradasPendientes'), dataBase)
+  }
+
   const ref = existentes.docs[0].ref
-  const prev = existentes.docs[0].data().cantidad || 1
-  const updated = prev + entradaBase.cantidad
+  const prev = Number(existentes.docs[0].data().cantidad) || 1
+  const updated = prev + cantidad
 
   return updateDoc(ref, {
     cantidad: updated,
-    monto: updated * entradaBase.precio,
+    monto: updated * precioUnitario,
     actualizadaEn: new Date().toISOString(),
   })
 }

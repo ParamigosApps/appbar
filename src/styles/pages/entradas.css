@@ -187,3 +187,43 @@
     width: 100%;
   }
 }
+
+.lote-row {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 8px 10px;
+  margin-top: 8px;
+  font-size: 0.85rem;
+}
+
+.lote-linea-1 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: space-between;
+  line-height: 1.2;
+}
+
+.lote-nombre {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lote-linea-2 {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+  color: #555;
+  font-size: 0.8rem;
+}
+
+.lote-horario {
+  white-space: nowrap;
+}
+
+.lote-consu {
+  font-size: 0.9rem;
+}

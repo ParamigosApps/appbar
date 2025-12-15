@@ -1,5 +1,5 @@
 // --------------------------------------------------------------
-// src/components/admin/EntradasPendientes.jsx — PREMIUM 2025 EXTENDED
+// src/components/admin/EntradasPendientes.jsx — PREMIUM 2025 FINAL
 // --------------------------------------------------------------
 import { useEffect, useState, Fragment, useMemo } from 'react'
 import {
@@ -19,12 +19,17 @@ function normalizar(str) {
     .toLowerCase()
 }
 
+function formatearFechaAdmin(fecha) {
+  if (!fecha) return ''
+  if (fecha.toDate) return fecha.toDate().toLocaleDateString('es-AR')
+  return fecha
+}
+
 // COLORES SEGÚN LOTE
 const loteColors = {
-  'Lote 1': '#0d6efd',
-  'Lote 2': '#198754',
-  'Lote 3': '#fd7e14',
-  'Lote 4': '#dc3545',
+  VIP: '#dc3545',
+  General: '#0d6efd',
+  'Entrada general': '#0d6efd',
 }
 
 // ORDENADORES
@@ -34,8 +39,18 @@ const ordenadores = {
     label: 'Monto (alto → bajo)',
     fn: arr =>
       [...arr].sort((a, b) => {
-        const tA = a.monto ?? a.precio * a.cantidad
-        const tB = b.monto ?? b.precio * b.cantidad
+        const tA =
+          (Number(a.precioUnitario) ||
+            Number(a.lote?.precio) ||
+            Number(a.precio) ||
+            0) * (Number(a.cantidad) || 1)
+
+        const tB =
+          (Number(b.precioUnitario) ||
+            Number(b.lote?.precio) ||
+            Number(b.precio) ||
+            0) * (Number(b.cantidad) || 1)
+
         return tB - tA
       }),
   },
@@ -46,42 +61,44 @@ const ordenadores = {
         normalizar(a.eventoNombre).localeCompare(normalizar(b.eventoNombre))
       ),
   },
-  fechaDesc: {
-    label: 'Fecha (nuevo → viejo)',
-    fn: arr =>
-      [...arr].sort((a, b) =>
-        (b.creadoEn || '').localeCompare(a.creadoEn || '')
-      ),
-  },
 }
 
+// ============================================================
+// COMPONENTE
+// ============================================================
 export default function EntradasPendientes() {
   const [lista, setLista] = useState([])
   const [loading, setLoading] = useState(true)
-  const [openEvent, setOpenEvent] = useState(null)
+  const [openKey, setOpenKey] = useState(null)
 
-  // BUSQUEDA
   const [busqueda, setBusqueda] = useState('')
-
-  // ORDEN
   const [orden, setOrden] = useState('none')
 
-  // --------------------------------------------------------------
-  // 🔥 Escucha en tiempo real
-  // --------------------------------------------------------------
+  // ------------------------------------------------------------
+  // 🔥 Escucha realtime
+  // ------------------------------------------------------------
   useEffect(() => {
-    const unsub = escucharEntradasPendientes(entradas => {
-      setLista(entradas)
+    const unsub = escucharEntradasPendientes(data => {
+      setLista(data)
       setLoading(false)
     })
     return () => unsub && unsub()
   }, [])
 
-  // --------------------------------------------------------------
-  // 🔥 ACCIONES
-  // --------------------------------------------------------------
+  // ------------------------------------------------------------
+  // 🔥 APROBAR
+  // ------------------------------------------------------------
   async function handleAprobar(e) {
-    const total = e.monto ?? (e.precio || 0) * (e.cantidad || 1)
+    const precioUnitario =
+      Number(e.precioUnitario) ||
+      Number(e.lote?.precio) ||
+      Number(e.precio) ||
+      0
+
+    const cantidad = Number(e.cantidad) || 1
+    const total = precioUnitario * cantidad
+
+    const nombreLote = e.lote?.nombre || e.loteNombre || 'Entrada general'
 
     const ok = await Swal.fire({
       title: '¿Aprobar entrada?',
@@ -90,31 +107,18 @@ export default function EntradasPendientes() {
         <div style="text-align:left; font-size:14px; line-height:1.4;">
           <p><b>Usuario:</b> ${e.usuarioNombre}</p>
           <p><b>Evento:</b> ${e.eventoNombre}</p>
-
-          ${
-            e.fecha || e.horario
-              ? `<p><b>Fecha / Hora:</b> ${e.fecha || ''} ${
-                  e.horario ? '· ' + e.horario : ''
-                }</p>`
-              : ''
-          }
-
-          <p><b>Lote:</b> ${e.loteNombre || 'Sin lote'}</p>
-          <p><b>Cantidad:</b> ${e.cantidad}</p>
-          <p><b>Precio unitario:</b> $${e.precio}</p>
-
+          <p><b>Fecha / Hora:</b>
+            ${formatearFechaAdmin(e.fechaEvento || e.fecha)}
+            ${e.horario ? ' · ' + e.horario : ''}
+          </p>
+          <p><b>Lote:</b> ${nombreLote}</p>
+          <p><b>Cantidad:</b> ${cantidad}</p>
+          <p><b>Precio unitario:</b> $${precioUnitario}</p>
           <p style="margin-top:8px;">
             <b>Total a recibir:</b>
             <span style="color:#0d6efd; font-weight:bold;">$${total}</span>
           </p>
-
           <p><b>Método de pago:</b> Transferencia</p>
-
-          ${
-            e.notaAdmin
-              ? `<p style="margin-top:8px;"><b>Nota interna:</b><br>${e.notaAdmin}</p>`
-              : ''
-          }
         </div>
       `,
       showCancelButton: true,
@@ -125,12 +129,24 @@ export default function EntradasPendientes() {
 
     if (!ok.isConfirmed) return
 
-    const exito = await aprobarEntrada(e)
+    const entradaNormalizada = {
+      ...e,
+      precioUnitario,
+      lote: e.lote ?? {
+        nombre: nombreLote,
+        precio: precioUnitario,
+      },
+    }
+
+    const exito = await aprobarEntrada(entradaNormalizada)
     if (!exito) return Swal.fire('Error', 'No se pudo aprobar.', 'error')
 
     Swal.fire('Listo', 'Entrada aprobada.', 'success')
   }
 
+  // ------------------------------------------------------------
+  // ❌ RECHAZAR
+  // ------------------------------------------------------------
   async function handleRechazar(e) {
     const ok = await Swal.fire({
       title: '¿Rechazar solicitud?',
@@ -149,14 +165,13 @@ export default function EntradasPendientes() {
     Swal.fire('Listo', 'Solicitud rechazada.', 'info')
   }
 
-  // --------------------------------------------------------------
-  // 🔥 PROCESAR LISTA COMPLETA
-  // --------------------------------------------------------------
+  // ------------------------------------------------------------
+  // 🔥 PROCESAR LISTA
+  // ------------------------------------------------------------
   const procesada = useMemo(() => {
     let arr = [...lista]
 
-    // BUSQUEDA — IGNORA ACENTOS
-    if (busqueda.trim() !== '') {
+    if (busqueda.trim()) {
       const b = normalizar(busqueda)
       arr = arr.filter(
         e =>
@@ -165,31 +180,39 @@ export default function EntradasPendientes() {
       )
     }
 
-    // ORDEN
     arr = ordenadores[orden].fn(arr)
 
-    // AGRUPADO
     return arr.reduce((acc, e) => {
-      if (!acc[e.eventoNombre]) acc[e.eventoNombre] = []
-      acc[e.eventoNombre].push(e)
+      const loteNombre = e.lote?.nombre || e.loteNombre || 'Entrada general'
+
+      const key = `${e.eventoNombre}__${loteNombre}`
+
+      if (!acc[key]) {
+        acc[key] = {
+          eventoNombre: e.eventoNombre,
+          loteNombre,
+          entradas: [],
+        }
+      }
+
+      acc[key].entradas.push(e)
       return acc
     }, {})
   }, [lista, busqueda, orden])
 
-  if (loading) return <p>Cargando...</p>
+  if (loading) return <p>Cargando…</p>
 
-  // --------------------------------------------------------------
-  // 🔥 UI FINAL
-  // --------------------------------------------------------------
+  // ------------------------------------------------------------
+  // UI
+  // ------------------------------------------------------------
   return (
     <div>
       <h4 className="fw-bold mb-3">Entradas Pendientes</h4>
 
-      {/* BUSQUEDA + ORDEN */}
-      <div className="d-flex flex-wrap gap-2 mb-3">
+      <div className="d-flex gap-2 mb-3">
         <input
           className="form-control"
-          placeholder="Buscar usuario o evento..."
+          placeholder="Buscar usuario o evento…"
           style={{ maxWidth: 240 }}
           value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
@@ -197,150 +220,96 @@ export default function EntradasPendientes() {
 
         <select
           className="form-select"
-          value={orden}
           style={{ maxWidth: 200 }}
+          value={orden}
           onChange={e => setOrden(e.target.value)}
         >
-          {Object.keys(ordenadores).map(k => (
+          {Object.entries(ordenadores).map(([k, v]) => (
             <option key={k} value={k}>
-              {ordenadores[k].label}
+              {v.label}
             </option>
           ))}
         </select>
       </div>
 
-      {Object.keys(procesada).length === 0 && (
-        <p className="text-muted">No hay resultados.</p>
-      )}
+      {Object.entries(procesada).map(([key, grupo]) => {
+        const { eventoNombre, loteNombre, entradas } = grupo
+        const isOpen = openKey === key
 
-      {/* EVENTOS AGRUPADOS */}
-      {Object.entries(procesada).map(([evento, entradas]) => {
-        const isOpen = openEvent === evento
-
-        // RESUMEN AVANZADO DEL EVENTO
-        const totalSolicitudes = entradas.length
         const totalEntradas = entradas.reduce(
-          (a, e) => a + (e.cantidad || 0),
+          (a, e) => a + (Number(e.cantidad) || 0),
           0
         )
+
         const totalMonto = entradas.reduce(
-          (a, e) => a + (e.monto ?? e.precio * e.cantidad),
+          (a, e) =>
+            a +
+            (Number(e.precioUnitario) ||
+              Number(e.lote?.precio) ||
+              Number(e.precio) ||
+              0) *
+              (Number(e.cantidad) || 1),
           0
         )
 
         return (
-          <Fragment key={evento}>
-            {/* CABECERA EVENTO SUPER PREMIUM */}
+          <Fragment key={key}>
             <div
               className="rounded p-3 mb-2"
               style={{
                 background: '#e8ecf1',
                 cursor: 'pointer',
-                borderLeft: '6px solid #0d6efd',
+                borderLeft: `6px solid ${loteColors[loteNombre] || '#999'}`,
               }}
-              onClick={() =>
-                setOpenEvent(prev => (prev === evento ? null : evento))
-              }
+              onClick={() => setOpenKey(prev => (prev === key ? null : key))}
             >
-              <div className="d-flex justify-content-between">
-                <h5 className="fw-bold text-primary m-0">{evento}</h5>
-                <span className="text-secondary fw-semibold">
-                  {isOpen ? '▲' : '▼'}
-                </span>
-              </div>
-
-              {/* RESUMEN */}
-              <div
-                className="mt-2"
-                style={{ fontSize: '0.82rem', color: '#333', lineHeight: 1.25 }}
-              >
-                <b>{totalSolicitudes}</b> solicitudes • <b>{totalEntradas}</b>{' '}
-                entradas pedidas • <b>${totalMonto}</b> total
+              <h5 className="fw-bold m-0 text-primary">{eventoNombre}</h5>
+              <div className="text-muted small">🎟 {loteNombre}</div>
+              <div className="small mt-1">
+                {totalEntradas} entradas • ${totalMonto}
               </div>
             </div>
 
-            {/* LISTA DE SOLICITUDES */}
             {isOpen &&
               entradas.map(e => {
-                const total = e.monto ?? e.precio * e.cantidad
-                const colorLote = loteColors[e.loteNombre] || '#999'
+                const precioUnitario =
+                  Number(e.precioUnitario) ||
+                  Number(e.lote?.precio) ||
+                  Number(e.precio) ||
+                  0
 
-                const montoAlto = total >= 20000 // badge automático
-                const inconsistencias = !e.precio || !e.cantidad
-
-                // frecuencia del usuario
-                const comprasUsuario = lista.filter(
-                  x => x.usuarioNombre === e.usuarioNombre
-                ).length
-                const usuarioFrecuente = comprasUsuario >= 5
+                const total = precioUnitario * (Number(e.cantidad) || 1)
 
                 return (
                   <div
                     key={e.id}
-                    className="shadow-sm p-2 mb-2 rounded d-flex justify-content-between align-items-center"
+                    className="shadow-sm p-2 mb-2 rounded d-flex justify-content-between"
                     style={{
-                      height: '75px',
                       background: '#fff',
-                      borderLeft: `4px solid ${colorLote}`,
+                      borderLeft: `4px solid ${
+                        loteColors[
+                          e.lote?.nombre || e.loteNombre || 'Entrada general'
+                        ] || '#999'
+                      }`,
                     }}
                   >
-                    {/* IZQUIERDA */}
-                    <div
-                      className="d-flex flex-column"
-                      style={{ lineHeight: 1.2 }}
-                    >
+                    <div>
                       <strong>{e.usuarioNombre}</strong>
-
-                      <div
-                        className="text-muted"
-                        style={{ fontSize: '0.78rem' }}
-                      >
-                        Lote: {e.loteNombre || '-'} • x{e.cantidad}
-                      </div>
-
-                      <div
-                        className="fw-semibold"
-                        style={{ fontSize: '0.8rem', color: '#0d6efd' }}
-                      >
-                        ${total}
-                      </div>
-
-                      {/* BADGES */}
-                      <div className="d-flex gap-1 mt-1">
-                        {montoAlto && (
-                          <span className="badge bg-warning text-dark small">
-                            Monto alto
-                          </span>
-                        )}
-
-                        {usuarioFrecuente && (
-                          <span className="badge bg-info text-dark small">
-                            Cliente frecuente
-                          </span>
-                        )}
-
-                        {inconsistencias && (
-                          <span className="badge bg-danger small">
-                            Datos incompletos
-                          </span>
-                        )}
+                      <div className="small text-muted">
+                        x{e.cantidad} • ${total}
                       </div>
                     </div>
 
-                    {/* DERECHA */}
-                    <div className="d-flex align-items-center gap-2">
+                    <div className="d-flex gap-2">
                       <button
+                        className="btn btn-success btn-sm"
                         onClick={() => handleAprobar(e)}
-                        className="btn btn-success"
-                        style={{ width: 40, height: 40, padding: 0 }}
                       >
                         ✓
                       </button>
-
                       <button
+                        className="btn btn-danger btn-sm"
                         onClick={() => handleRechazar(e)}
-                        className="btn btn-danger"
-                        style={{ width: 40, height: 40, padding: 0 }}
                       >
                         ✗
                       </button>

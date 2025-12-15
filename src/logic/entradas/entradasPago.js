@@ -39,7 +39,7 @@ export async function manejarMercadoPago({
     const url = await crearPreferenciaEntrada({
       usuarioId,
       eventoId,
-      nombreEvento: evento.nombre,
+      eventoNombre: evento.nombre,
       cantidad: cantidadSel,
       precio,
       imagenEventoUrl: evento.imagenEventoUrl || evento.imagen,
@@ -221,7 +221,7 @@ export async function manejarTransferencia({
 
       // EVENTO (snapshot)
       eventoId,
-      nombreEvento: evento.nombre,
+      eventoNombre: evento.nombre,
       lugar: evento.lugar,
       fechaEvento: evento.fechaInicio,
       horaInicio: evento.horaInicio,

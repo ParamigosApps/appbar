@@ -24,6 +24,9 @@ export async function generarEntradaQr({
     div.style.justifyContent = 'center'
     div.style.alignItems = 'center'
 
+    // --------------------------------------------------
+    // QR PURO (sin info duplicada)
+    // --------------------------------------------------
     new QRCode(div, {
       text: ticketId.toString(),
       width: tamaño,
@@ -31,6 +34,9 @@ export async function generarEntradaQr({
       correctLevel: QRCode.CorrectLevel.M,
     })
 
+    // --------------------------------------------------
+    // DESCARGA (opcional)
+    // --------------------------------------------------
     if (downloadLink) {
       setTimeout(() => {
         const img = div.querySelector('img')

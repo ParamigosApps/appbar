@@ -21,19 +21,37 @@ export function formatearFecha(fecha = new Date()) {
     return 'Fecha inválida'
   }
 }
-export function formatearSoloFecha(fecha = new Date()) {
-  try {
-    const d = fecha instanceof Date ? fecha : new Date(fecha)
+export function formatearSoloFecha(valor) {
+  if (!valor) return '—'
 
-    const dia = String(d.getDate()).padStart(2, '0')
-    const mes = String(d.getMonth() + 1).padStart(2, '0')
-    const año = d.getFullYear()
+  let fecha = null
 
-    return `${dia}/${mes}/${año}`
-  } catch (e) {
-    console.error('Error formatearFecha:', e)
-    return 'Fecha inválida'
+  // 1️⃣ Firestore Timestamp
+  if (typeof valor?.toDate === 'function') {
+    fecha = valor.toDate()
+
+    // 2️⃣ Date nativo
+  } else if (valor instanceof Date) {
+    fecha = valor
+
+    // 3️⃣ Número (timestamp en ms)
+  } else if (typeof valor === 'number') {
+    fecha = new Date(valor)
+
+    // 4️⃣ String (ISO, yyyy-mm-dd, timestamp string)
+  } else if (typeof valor === 'string') {
+    const num = Number(valor)
+    fecha = !isNaN(num) ? new Date(num) : new Date(valor)
   }
+
+  // ❌ Fecha inválida
+  if (!fecha || isNaN(fecha.getTime())) return '—'
+
+  const dia = String(fecha.getDate()).padStart(2, '0')
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0')
+  const año = fecha.getFullYear()
+
+  return `${dia}/${mes}/${año}`
 }
 
 // Fecha exacta de compra
