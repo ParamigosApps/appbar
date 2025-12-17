@@ -25,10 +25,22 @@ import AdminProductos from './components/admin/AdminProductos.jsx'
 import AdminConfiguracion from './components/admin/AdminConfiguracion.jsx'
 import AdminEmpleados from './components/admin/AdminEmpleados.jsx'
 import LectorQr from './components/qr/LectorQr.jsx'
+import { ToastContainer } from 'react-toastify'
 
 export default function App() {
   return (
     <BrowserRouter>
+      {/* 🔔 TOASTIFY GLOBAL */}
+      <ToastContainer
+        position="top-center"
+        autoClose={3000}
+        hideProgressBar
+        newestOnTop
+        closeOnClick
+        pauseOnHover
+        draggable
+        theme="dark"
+      />
       <Routes>
         {/* ACCESOS SIN LAYOUT */}
 

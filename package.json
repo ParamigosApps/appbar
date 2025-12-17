@@ -27,6 +27,7 @@
     "react-dom": "^19.2.0",
     "react-qr-code": "^2.0.18",
     "react-router-dom": "^7.9.6",
+    "react-toastify": "^11.0.5",
     "sweetalert2": "^11.26.4",
     "sweetalert2-react-content": "^5.1.0",
     "toastify-js": "^1.12.0"

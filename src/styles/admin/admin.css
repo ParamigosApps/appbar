@@ -289,7 +289,7 @@
   align-items: center;
   gap: 16px;
   padding: 16px;
-  min-width: 400px;
+  width: 800px;
   border-radius: 14px;
   background: #fff;
   border: 1px solid #e5e5e5;
@@ -353,6 +353,10 @@
 
 .precio-editable:hover .edit-icon {
   opacity: 1;
+}
+
+.producto-form {
+  padding: 24px !important;
 }
 /* ------------------------------------------------------------
    RESPONSIVE

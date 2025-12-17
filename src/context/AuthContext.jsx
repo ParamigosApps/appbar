@@ -1,9 +1,17 @@
 // -----------------------------------------------------------
-// 📌 AUTH CONTEXT — versión FINAL con persistencia REAL (PRO)
+// 📌 AUTH CONTEXT — FINAL ESTABLE
 // -----------------------------------------------------------
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useRef } from 'react'
 import { auth, db } from '../Firebase.js'
-
+import {
+  GoogleAuthProvider,
+  FacebookAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+} from 'firebase/auth'
 import {
   doc,
   getDoc,
@@ -14,49 +22,102 @@ import {
   getDocs,
   serverTimestamp,
 } from 'firebase/firestore'
-
-import {
-  GoogleAuthProvider,
-  FacebookAuthProvider,
-  signInWithPopup,
-  signOut,
-  onAuthStateChanged,
-} from 'firebase/auth'
-
 import Swal from 'sweetalert2'
-
+import { toast } from 'react-toastify'
 const AuthContext = createContext()
 export const useAuth = () => useContext(AuthContext)
 
-// -----------------------------------------------------------
-// CONSTANTES LOCALSTORAGE
-// -----------------------------------------------------------
 const LS_ADMIN = 'session_admin'
-
-// -----------------------------------------------------------
-// LOGIN ADMIN MANUAL
-// -----------------------------------------------------------
 const MASTER_USER = 'admin'
 const MASTER_PASS = '1234'
 
 export function AuthProvider({ children }) {
-  // 👤 USUARIO FRONT
   const [user, setUser] = useState(null)
-
-  // 🛠 ADMIN / EMPLEADO
   const [adminUser, setAdminUser] = useState(null)
-
   const [rolUsuario, setRolUsuario] = useState(0)
   const [permisos, setPermisos] = useState({})
   const [loading, setLoading] = useState(true)
 
-  const [loginSettings, setLoginSettings] = useState({
+  const [loginSettings] = useState({
     google: true,
     facebook: true,
     phone: true,
   })
-
+  const recaptchaRef = useRef(null)
   const [loginAbierto, setLoginAbierto] = useState(false)
+
+  // -----------------------------------------------------------
+  // TELÉFONO
+  // -----------------------------------------------------------
+  const confirmationRef = useRef(null)
+
+  async function loginTelefonoEnviarCodigo(phone) {
+    if (!phone || phone.length < 8) {
+      toast.error('Ingresá un número válido')
+      return
+    }
+
+    try {
+      toast.info('Enviando código SMS...', { autoClose: 2000 })
+
+      if (!recaptchaRef.current) {
+        recaptchaRef.current = new RecaptchaVerifier(
+          auth,
+          'recaptcha-container',
+          {
+            size: 'invisible',
+          }
+        )
+      }
+
+      confirmationRef.current = await signInWithPhoneNumber(
+        auth,
+        phone,
+        recaptchaRef.current
+      )
+
+      toast.success('Código enviado 📲 Revisá tu SMS')
+    } catch (err) {
+      console.error(err)
+
+      if (err.code === 'auth/too-many-requests') {
+        toast.error('Demasiados intentos. Probá más tarde.')
+      } else if (err.code === 'auth/invalid-phone-number') {
+        toast.error('Número inválido')
+      } else {
+        toast.error('No se pudo enviar el código')
+      }
+    }
+  }
+
+  async function loginTelefonoValidarCodigo(code) {
+    if (!confirmationRef.current) {
+      toast.error('Primero solicitá el código')
+      return
+    }
+
+    try {
+      toast.info('Validando código...')
+
+      const res = await confirmationRef.current.confirm(code)
+
+      await setDoc(
+        doc(db, 'usuarios', res.user.uid),
+        {
+          uid: res.user.uid,
+          phoneNumber: res.user.phoneNumber,
+          creadoEn: serverTimestamp(),
+        },
+        { merge: true }
+      )
+
+      setUser(res.user)
+
+      toast.success('Sesión iniciada correctamente ✅')
+    } catch (err) {
+      toast.error('Código incorrecto')
+    }
+  }
 
   // -----------------------------------------------------------
   function abrirLoginGlobal() {
@@ -69,11 +130,10 @@ export function AuthProvider({ children }) {
   }
 
   // -----------------------------------------------------------
-  // 🔥 LOGIN ADMIN / EMPLEADO (NO FIREBASE)
+  // ADMIN MANUAL
   // -----------------------------------------------------------
   async function loginAdminManual(usuario, pass) {
     try {
-      // ADMIN MASTER
       if (usuario === MASTER_USER && pass === MASTER_PASS) {
         const admin = {
           uid: 'admin-master',
@@ -85,13 +145,10 @@ export function AuthProvider({ children }) {
         setAdminUser(admin)
         setRolUsuario(4)
         localStorage.setItem(LS_ADMIN, JSON.stringify(admin))
-
-        Swal.fire('Ingreso correcto', 'Bienvenido administrador', 'success')
         cerrarLoginGlobal()
         return true
       }
 
-      // EMPLEADO NORMAL
       const q = query(
         collection(db, 'empleados'),
         where('email', '==', usuario),
@@ -99,125 +156,66 @@ export function AuthProvider({ children }) {
       )
 
       const snap = await getDocs(q)
-      if (snap.empty) {
-        Swal.fire('Error', 'Usuario o contraseña incorrectos', 'error')
-        return false
-      }
+      if (snap.empty) return false
 
       const data = snap.docs[0].data()
 
-      const empleado = {
+      setAdminUser({
         uid: data.uid,
         displayName: data.nombre,
         email: data.email,
         manual: true,
-      }
+      })
 
-      setAdminUser(empleado)
       setRolUsuario(Number(data.nivel) || 1)
-      localStorage.setItem(LS_ADMIN, JSON.stringify(empleado))
-
-      Swal.fire('Ingreso correcto', `Bienvenido, ${data.nombre}`, 'success')
+      localStorage.setItem(LS_ADMIN, JSON.stringify(data))
       cerrarLoginGlobal()
       return true
-    } catch (err) {
-      console.error('ERROR loginAdminManual:', err)
-      Swal.fire('Error', 'No se pudo iniciar sesión', 'error')
+    } catch {
       return false
     }
   }
 
   // -----------------------------------------------------------
-  async function cargarPermisos() {
-    try {
-      const ref = doc(db, 'configuracion', 'permisos')
-      const snap = await getDoc(ref)
-      if (snap.exists()) setPermisos(snap.data())
-    } catch (err) {
-      console.error('Error cargando permisos:', err)
-    }
-  }
-
-  async function cargarRol(uid) {
-    try {
-      if (uid === 'admin-master') {
-        setRolUsuario(4)
-        return
-      }
-
-      const q = query(collection(db, 'empleados'), where('uid', '==', uid))
-      const snap = await getDocs(q)
-
-      if (!snap.empty) {
-        const data = snap.docs[0].data()
-        setRolUsuario(Number(data.nivel) || 1)
-        return
-      }
-
-      setRolUsuario(0)
-    } catch (err) {
-      console.error('Error rol:', err)
-    }
-  }
-
-  // -----------------------------------------------------------
-  // LOGIN GOOGLE (USUARIOS FRONT)
-  // -----------------------------------------------------------
   async function loginGoogle() {
-    try {
-      const provider = new GoogleAuthProvider()
-      const result = await signInWithPopup(auth, provider)
-      const u = result.user
+    const res = await signInWithPopup(auth, new GoogleAuthProvider())
+    const u = res.user
 
-      await setDoc(
-        doc(db, 'usuarios', u.uid),
-        {
-          nombre: u.displayName || u.email,
-          email: u.email,
-          uid: u.uid,
-          creadoEn: serverTimestamp(),
-        },
-        { merge: true }
-      )
+    await setDoc(
+      doc(db, 'usuarios', u.uid),
+      {
+        nombre: u.displayName || u.email,
+        email: u.email,
+        uid: u.uid,
+        creadoEn: serverTimestamp(),
+      },
+      { merge: true }
+    )
 
-      setUser(u)
-      cerrarLoginGlobal()
-    } catch (err) {
-      if (err.code === 'auth/popup-closed-by-user') return
-      Swal.fire('Error', err.message, 'error')
-    }
+    setUser({ ...u, nombre: u.displayName || u.email })
+    cerrarLoginGlobal()
   }
 
-  // -----------------------------------------------------------
   async function loginFacebook() {
-    try {
-      const provider = new FacebookAuthProvider()
-      const res = await signInWithPopup(auth, provider)
-      const u = res.user
+    const res = await signInWithPopup(auth, new FacebookAuthProvider())
+    const u = res.user
 
-      await setDoc(
-        doc(db, 'usuarios', u.uid),
-        {
-          nombre: u.displayName,
-          email: u.email,
-          uid: u.uid,
-          provider: 'facebook',
-          creadoEn: serverTimestamp(),
-        },
-        { merge: true }
-      )
+    await setDoc(
+      doc(db, 'usuarios', u.uid),
+      {
+        nombre: u.displayName || u.email,
+        email: u.email,
+        uid: u.uid,
+        provider: 'facebook',
+        creadoEn: serverTimestamp(),
+      },
+      { merge: true }
+    )
 
-      setUser(u)
-      cerrarLoginGlobal()
-    } catch (err) {
-      if (err.code === 'auth/popup-closed-by-user') return
-      Swal.fire('Error', err.message, 'error')
-    }
+    setUser({ ...u, nombre: u.displayName || u.email })
+    cerrarLoginGlobal()
   }
 
-  // -----------------------------------------------------------
-  // LOGOUT TOTAL
-  // -----------------------------------------------------------
   async function logout() {
     await signOut(auth)
     setUser(null)
@@ -227,50 +225,52 @@ export function AuthProvider({ children }) {
   }
 
   // -----------------------------------------------------------
-  // 🔥 RESTAURAR SESIÓN
+  // RESTAURAR SESIÓN
   // -----------------------------------------------------------
   useEffect(() => {
-    cargarPermisos()
-
-    // 1️⃣ ADMIN
+    // ADMIN MANUAL (NO corta Firebase)
     const adminSession = localStorage.getItem(LS_ADMIN)
     if (adminSession) {
       const saved = JSON.parse(adminSession)
       setAdminUser(saved)
       setRolUsuario(saved.uid === 'admin-master' ? 4 : 1)
-      setLoading(false)
-      return
     }
 
-    // 2️⃣ FIREBASE USER
-    const unsub = onAuthStateChanged(auth, u => {
-      setUser(u || null)
+    // FIREBASE AUTH (SIEMPRE)
+    const unsub = onAuthStateChanged(auth, async u => {
+      if (u) {
+        try {
+          const ref = doc(db, 'usuarios', u.uid)
+          const snap = await getDoc(ref)
+          setUser(snap.exists() ? { ...u, ...snap.data() } : u)
+        } catch {
+          setUser(u)
+        }
+      } else {
+        setUser(null)
+      }
+
       setLoading(false)
     })
 
     return () => unsub()
   }, [])
 
-  // -----------------------------------------------------------
   return (
     <AuthContext.Provider
       value={{
-        // 👤 FRONT
         user,
-
-        // 🛠 ADMIN
         adminUser,
         rolUsuario,
         permisos,
         loading,
-
         loginSettings,
-
         loginGoogle,
         loginFacebook,
+        loginTelefonoEnviarCodigo,
+        loginTelefonoValidarCodigo,
         loginAdminManual,
         logout,
-
         abrirLoginGlobal,
         cerrarLoginGlobal,
         loginAbierto,

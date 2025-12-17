@@ -7,7 +7,6 @@ import { useCatalogo } from '../../context/CatalogoContext.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useEntradas } from '../../context/EntradasContext.jsx'
 
-// Componentes
 import EntradasEventos from '../entradas/EntradasEventos.jsx'
 import MisEntradas from '../entradas/MisEntradas.jsx'
 import RedesSociales from '../home/RedesSociales.jsx'
@@ -63,9 +62,7 @@ export default function MenuAcordeon() {
     catalogoVisible,
     abrirProductoDetalle,
   } = useCatalogo()
-
-  const { entradasPendientes, eventos, historial, misEntradas } = useEntradas()
-
+  const { eventos, historial, misEntradas } = useEntradas()
   const {
     user,
     loginSettings,
@@ -74,9 +71,9 @@ export default function MenuAcordeon() {
     loginTelefonoEnviarCodigo,
     loginTelefonoValidarCodigo,
     logout,
+    loading,
   } = useAuth()
 
-  const contadorPendientes = entradasPendientes?.length ?? 0
   const contadorMisEntradas = misEntradas?.length ?? 0
 
   // ------------------------------------------------------------
@@ -119,6 +116,7 @@ export default function MenuAcordeon() {
     cargarUbicacion()
   }, [])
 
+  const [confirmacionTelefono, setConfirmacionTelefono] = useState(null)
   // ------------------------------------------------------------
   // RENDER
   // ------------------------------------------------------------
@@ -382,10 +380,54 @@ export default function MenuAcordeon() {
                         Historial de entradas usadas
                       </h6>
 
-                      {!user && (
-                        <p className="text-center text-danger mt-3">
-                          Debes iniciar sesión para ver tu historial.
+                      {loading && (
+                        <p className="text-muted text-center">
+                          Verificando sesión...
                         </p>
+                      )}
+
+                      {!loading && !user && (
+                        <>
+                          {loginSettings.google && (
+                            <button
+                              className="google-btn d-block mx-auto mb-2"
+                              onClick={loginGoogle}
+                            >
+                              <img src={googleIcon} alt="Google" />
+                              <span>Iniciar sesión con Google</span>
+                            </button>
+                          )}
+
+                          {loginSettings.facebook && (
+                            <button
+                              className="facebook-btn-small d-block mx-auto mb-3"
+                              onClick={loginFacebook}
+                            >
+                              <span className="facebook-icon-box">
+                                <img src={facebookIcon} alt="Facebook" />
+                              </span>
+                              Iniciar sesión con Facebook
+                            </button>
+                          )}
+                        </>
+                      )}
+
+                      {!loading && user && (
+                        <div>
+                          <p className="fw-bold fs-5">
+                            Hola,{' '}
+                            {user.displayName ||
+                              user.nombre ||
+                              user.phoneNumber}
+                          </p>
+
+                          <button
+                            className="google-btn logout mx-auto"
+                            onClick={logout}
+                          >
+                            Cerrar sesión
+                          </button>
+                        </div>
                       )}
 
                       {user && historial?.length === 0 && (
