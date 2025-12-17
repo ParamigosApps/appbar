@@ -47,3 +47,61 @@ export function swalError({
     buttonsStyling: false,
   })
 }
+
+// =====================================================
+// 🔴 CONFIRM DANGER (RECHAZAR)
+// =====================================================
+export function swalConfirmDanger({
+  title = '¿Confirmar acción?',
+  html = '',
+  confirmText = 'Rechazar',
+  cancelText = 'Cancelar',
+  width = 520,
+}) {
+  return Swal.fire({
+    title,
+    html,
+    icon: 'warning',
+    width,
+
+    showCancelButton: true,
+    confirmButtonText: confirmText,
+    cancelButtonText: cancelText,
+
+    customClass: {
+      confirmButton: 'swal-btn-danger',
+      cancelButton: 'swal-btn-dark',
+    },
+
+    buttonsStyling: false,
+  })
+}
+
+// =====================================================
+// 🟡 CONFIRM WARNING (OPCIONAL / FUTURO)
+// =====================================================
+export function swalConfirmWarning({
+  title = '¿Confirmar?',
+  html = '',
+  confirmText = 'Continuar',
+  cancelText = 'Cancelar',
+  width = 520,
+}) {
+  return Swal.fire({
+    title,
+    html,
+    icon: 'question',
+    width,
+
+    showCancelButton: true,
+    confirmButtonText: confirmText,
+    cancelButtonText: cancelText,
+
+    customClass: {
+      confirmButton: 'swal-btn-confirm',
+      cancelButton: 'swal-btn-dark',
+    },
+
+    buttonsStyling: false,
+  })
+}

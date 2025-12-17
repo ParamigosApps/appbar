@@ -1,7 +1,7 @@
 // --------------------------------------------------------------
 // AdminPage.jsx — PANEL ADMIN PREMIUM con QR Entradas / QR Caja
 // --------------------------------------------------------------
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
@@ -9,14 +9,16 @@ import { useAuth } from '../context/AuthContext.jsx'
 import CrearEvento from '../components/admin/CrearEvento.jsx'
 import ListaEventos from '../components/admin/ListaEventos.jsx'
 import EditarEvento from '../components/admin/EditarEvento.jsx'
-import PedidosPendientes from '../components/admin/PedidosPendientes.jsx'
 import AdminProductos from '../components/admin/AdminProductos.jsx'
 import AdminEmpleados from '../components/admin/AdminEmpleados.jsx'
 import AdminConfiguracion from '../components/admin/AdminConfiguracion.jsx'
 import ComprasAdmin from '../components/admin/ComprasAdmin.jsx'
 import EntradasAdmin from '../components/admin/EntradasAdmin.jsx'
 import DashboardVentas from '../components/admin/DashboardVentas.jsx'
+
 import '../styles/admin/admin.css'
+
+import { escucharCantidadEntradasPendientes } from '../services/entradasAdmin.js'
 
 export default function AdminPage() {
   const navigate = useNavigate()
@@ -26,8 +28,10 @@ export default function AdminPage() {
   const [editarId, setEditarId] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  const [entradasPendientes, setEntradasPendientes] = useState(0)
+
   // --------------------------------------------------------------
-  // Helper: validar si el usuario tiene permiso para un módulo
+  // Helper permisos
   // --------------------------------------------------------------
   function acceso(mod) {
     if (!permisos || !rolUsuario) return false
@@ -38,7 +42,18 @@ export default function AdminPage() {
   }
 
   // --------------------------------------------------------------
-  // Render dinámico del contenido
+  // Badge entradas pendientes (REALTIME)
+  // --------------------------------------------------------------
+  useEffect(() => {
+    if (!acceso('entradas')) return
+
+    const unsub = escucharCantidadEntradasPendientes(setEntradasPendientes)
+
+    return () => unsub && unsub()
+  }, [rolUsuario, permisos])
+
+  // --------------------------------------------------------------
+  // Render dinámico
   // --------------------------------------------------------------
   function renderSeccion() {
     switch (seccion) {
@@ -86,11 +101,9 @@ export default function AdminPage() {
   // --------------------------------------------------------------
   return (
     <div className="admin-layout">
-      {/* ---------------- SIDEBAR ---------------- */}
       <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <h3 className="sidebar-title">ADMIN</h3>
 
-        {/* INFO DEL USUARIO */}
         <div className="admin-user-info">
           <div className="user-name">
             {user?.displayName || user?.email || 'Usuario'}
@@ -98,7 +111,6 @@ export default function AdminPage() {
           <div className="user-role">Rol: {rolUsuario || 'invitado'}</div>
         </div>
 
-        {/* EVENTOS */}
         {acceso('eventos') && (
           <>
             <button
@@ -123,20 +135,21 @@ export default function AdminPage() {
           </>
         )}
 
-        {/* ADMIN ENTRADAS */}
         {acceso('entradas') && (
           <button
-            className="side-btn"
+            className="side-btn side-btn-badge"
             onClick={() => {
               setSeccion('entradas-pendientes')
               setSidebarOpen(false)
             }}
           >
             🎟 Entradas
+            {entradasPendientes > 0 && (
+              <span className="badge-pendientes">{entradasPendientes}</span>
+            )}
           </button>
         )}
 
-        {/* ADMIN COMPRAS */}
         {acceso('compras') && (
           <button
             className="side-btn"
@@ -149,7 +162,6 @@ export default function AdminPage() {
           </button>
         )}
 
-        {/* DASHBOARD */}
         {acceso('dashboard') && (
           <button
             className="side-btn"
@@ -162,7 +174,6 @@ export default function AdminPage() {
           </button>
         )}
 
-        {/* PRODUCTOS */}
         {acceso('productos') && (
           <button
             className="side-btn"
@@ -175,7 +186,6 @@ export default function AdminPage() {
           </button>
         )}
 
-        {/* EMPLEADOS */}
         {acceso('empleados') && (
           <button
             className="side-btn"
@@ -187,10 +197,6 @@ export default function AdminPage() {
             👤 Empleados
           </button>
         )}
-
-        {/* ------------------------- */}
-        {/* SEPARACIÓN QR POR MÓDULO */}
-        {/* ------------------------- */}
 
         {acceso('qr') && (
           <button
@@ -210,7 +216,6 @@ export default function AdminPage() {
           </button>
         )}
 
-        {/* CONFIGURACIÓN */}
         {acceso('config') && (
           <button
             className="side-btn"
@@ -234,7 +239,6 @@ export default function AdminPage() {
         </button>
       </aside>
 
-      {/* ---------------- CONTENIDO ---------------- */}
       <main className="admin-main">
         <button
           className="admin-menu-toggle"

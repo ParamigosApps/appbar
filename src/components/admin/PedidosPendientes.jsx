@@ -82,7 +82,7 @@ export default function PedidosPendientes() {
 
             <div className="d-flex gap-2 mt-3">
               <button
-                className="btn btn-success w-100"
+                className="btn swal-btn-confirm w-100"
                 onClick={() => handleAprobar(c)}
               >
                 Aprobar

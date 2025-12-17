@@ -11,6 +11,7 @@ import {
   query,
   where,
   updateDoc,
+  serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../../Firebase.js'
 
@@ -76,7 +77,7 @@ export async function crearSolicitudPendiente(
     0
 
   // ----------------------------------------------------------
-  // 🧠 DATA BASE CORRECTA
+  // 🧠 DATA BASE
   // ----------------------------------------------------------
   const dataBase = {
     eventoId,
@@ -89,7 +90,6 @@ export async function crearSolicitudPendiente(
     precioUnitario,
     monto: cantidad * precioUnitario,
 
-    // 🟢 LOTE COMPLETO (CLAVE)
     lote: entradaBase.lote
       ? {
           id: entradaBase.lote.id || null,
@@ -100,7 +100,6 @@ export async function crearSolicitudPendiente(
         }
       : null,
 
-    // legacy (no romper nada viejo)
     loteNombre: entradaBase.lote?.nombre ?? 'Entrada general',
 
     metodo: 'transferencia',
@@ -111,29 +110,44 @@ export async function crearSolicitudPendiente(
     horaFin: entradaBase.horaFin,
     lugar: entradaBase.lugar,
 
-    creadoEn: new Date().toISOString(),
+    // 🔥 CLAVE PARA ADMIN
+    ultimaModificacionPor: 'usuario',
+    ultimaModificacionEn: serverTimestamp(),
+
+    creadoEn: serverTimestamp(),
   }
 
-  // 🛡️ LIMPIEZA
+  // 🧹 LIMPIEZA
   Object.keys(dataBase).forEach(k => {
     if (dataBase[k] === undefined) delete dataBase[k]
   })
 
   // ----------------------------------------------------------
-  // ➕ CREAR O ACTUALIZAR
+  // ➕ CREAR
   // ----------------------------------------------------------
   if (existentes.empty) {
+    console.log('🆕 Creando entrada pendiente')
     return await addDoc(collection(db, 'entradasPendientes'), dataBase)
   }
 
+  // ----------------------------------------------------------
+  // 🔁 ACTUALIZAR (usuario agregó más entradas)
+  // ----------------------------------------------------------
   const ref = existentes.docs[0].ref
   const prev = Number(existentes.docs[0].data().cantidad) || 1
   const updated = prev + cantidad
 
+  console.log('🔁 Actualizando entrada pendiente')
+
   return updateDoc(ref, {
     cantidad: updated,
     monto: updated * precioUnitario,
-    actualizadaEn: new Date().toISOString(),
+
+    // 🔥 CLAVE PARA ADMIN
+    ultimaModificacionPor: 'usuario',
+    ultimaModificacionEn: serverTimestamp(),
+
+    actualizadaEn: serverTimestamp(),
   })
 }
 

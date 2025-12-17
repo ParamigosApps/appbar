@@ -1,9 +1,16 @@
 // --------------------------------------------------------------
-// src/components/entradas/MisEntradas.jsx — MIS ENTRADAS PRO 2025 (FINAL)
+// src/components/entradas/MisEntradas.jsx
+// MIS ENTRADAS PRO 2025 — REALTIME FINAL
 // --------------------------------------------------------------
 
-import React, { useEffect, useState, useCallback } from 'react'
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore'
+import React, { useEffect, useState } from 'react'
+import {
+  collection,
+  onSnapshot,
+  query,
+  where,
+  orderBy,
+} from 'firebase/firestore'
 import { db } from '../../Firebase.js'
 
 import { useFirebase } from '../../context/FirebaseContext.jsx'
@@ -21,6 +28,9 @@ function Badge({ children, color = 'secondary' }) {
   )
 }
 
+// ============================================================
+// COMPONENTE
+// ============================================================
 export default function MisEntradas() {
   const { user } = useFirebase()
 
@@ -29,14 +39,14 @@ export default function MisEntradas() {
   const [qrModal, setQrModal] = useState(null)
 
   // ============================================================
-  // CARGAR ENTRADAS + PENDIENTES
+  // 🔥 REALTIME: ENTRADAS + PENDIENTES
   // ============================================================
-  const cargarEntradas = useCallback(async () => {
+  useEffect(() => {
     if (!user) return
 
     setLoading(true)
 
-    const map = {}
+    let map = {}
 
     // -----------------------------
     // ENTRADAS APROBADAS
@@ -47,38 +57,38 @@ export default function MisEntradas() {
       orderBy('creadoEn', 'desc')
     )
 
-    const snapAprobadas = await getDocs(qAprobadas)
+    const unsubAprobadas = onSnapshot(qAprobadas, snap => {
+      map = {}
 
-    snapAprobadas.forEach(docSnap => {
-      const e = docSnap.data()
-      const id = docSnap.id
+      snap.forEach(docSnap => {
+        const e = docSnap.data()
+        const id = docSnap.id
 
-      const eventoKey = e.eventoId
-      const loteKey = e.lote?.nombre || 'Entrada general'
+        const eventoKey = e.eventoId
+        const loteKey = e.lote?.nombre || 'Entrada general'
 
-      if (!map[eventoKey]) {
-        map[eventoKey] = {
-          eventoId: e.eventoId,
-          nombreEvento: e.nombreEvento,
-          lugar: e.lugar,
-          fechaEvento: e.fechaEvento,
-          horaInicio: e.horaInicio,
-          horaFin: e.horaFin,
-          lotes: {},
+        if (!map[eventoKey]) {
+          map[eventoKey] = {
+            eventoId: e.eventoId,
+            nombreEvento: e.nombreEvento,
+            lugar: e.lugar,
+            fechaEvento: e.fechaEvento,
+            horaInicio: e.horaInicio,
+            horaFin: e.horaFin,
+            lotes: {},
+          }
         }
-      }
 
-      if (!map[eventoKey].lotes[loteKey]) {
-        map[eventoKey].lotes[loteKey] = {
-          lote: e.lote || null,
-          metodo: e.metodo,
-          precioUnitario: e.precioUnitario ?? 0,
-          ticketsAprobados: [],
-          ticketsPendientes: [],
+        if (!map[eventoKey].lotes[loteKey]) {
+          map[eventoKey].lotes[loteKey] = {
+            lote: e.lote || null,
+            ticketsAprobados: [],
+            ticketsPendientes: [],
+          }
         }
-      }
 
-      map[eventoKey].lotes[loteKey].ticketsAprobados.push(id)
+        map[eventoKey].lotes[loteKey].ticketsAprobados.push(id)
+      })
     })
 
     // -----------------------------
@@ -89,56 +99,52 @@ export default function MisEntradas() {
       where('usuarioId', '==', user.uid)
     )
 
-    const snapPendientes = await getDocs(qPendientes)
+    const unsubPendientes = onSnapshot(qPendientes, snap => {
+      snap.forEach(docSnap => {
+        const p = docSnap.data()
+        const id = docSnap.id
 
-    snapPendientes.forEach(docSnap => {
-      const p = docSnap.data()
-      const id = docSnap.id
+        const eventoKey = p.eventoId
+        const loteKey = p.lote?.nombre || p.loteNombre || 'Entrada general'
 
-      const eventoKey = p.eventoId
-      const loteKey = p.lote?.nombre || p.loteNombre || 'Entrada general'
-
-      if (!map[eventoKey]) {
-        map[eventoKey] = {
-          eventoId: p.eventoId,
-          nombreEvento: p.eventoNombre,
-          lugar: p.lugar,
-          fechaEvento: p.fechaEvento,
-          horaInicio: p.horaInicio,
-          horaFin: p.horaFin,
-          lotes: {},
+        if (!map[eventoKey]) {
+          map[eventoKey] = {
+            eventoId: p.eventoId,
+            nombreEvento: p.eventoNombre,
+            lugar: p.lugar,
+            fechaEvento: p.fechaEvento,
+            horaInicio: p.horaInicio,
+            horaFin: p.horaFin,
+            lotes: {},
+          }
         }
-      }
 
-      if (!map[eventoKey].lotes[loteKey]) {
-        map[eventoKey].lotes[loteKey] = {
-          lote: p.lote || null,
-          metodo: p.metodo,
-          precioUnitario: p.precioUnitario ?? p.precio ?? 0,
-          ticketsAprobados: [],
-          ticketsPendientes: [],
+        if (!map[eventoKey].lotes[loteKey]) {
+          map[eventoKey].lotes[loteKey] = {
+            lote: p.lote || null,
+            ticketsAprobados: [],
+            ticketsPendientes: [],
+          }
         }
-      }
 
-      const cant = Number(p.cantidad) || 1
-      for (let i = 0; i < cant; i++) {
-        map[eventoKey].lotes[loteKey].ticketsPendientes.push(id + '_' + i)
-      }
+        const cant = Number(p.cantidad) || 1
+        for (let i = 0; i < cant; i++) {
+          map[eventoKey].lotes[loteKey].ticketsPendientes.push(id + '_' + i)
+        }
+      })
+
+      setGrupos(Object.values(map))
+      setLoading(false)
     })
 
-    setGrupos(Object.values(map))
-    setLoading(false)
+    return () => {
+      unsubAprobadas()
+      unsubPendientes()
+    }
   }, [user])
 
   // ============================================================
-  // AUTO LOAD
-  // ============================================================
-  useEffect(() => {
-    cargarEntradas()
-  }, [cargarEntradas])
-
-  // ============================================================
-  // ABRIR QR
+  // ABRIR MODAL QR
   // ============================================================
   const abrirModalQr = data => {
     setQrModal(data)
@@ -151,8 +157,6 @@ export default function MisEntradas() {
         generarEntradaQr({
           ticketId,
           qrContainer: cont,
-
-          // INFO VISUAL
           eventoNombre: data.nombreEvento,
           loteNombre: data.lote?.nombre || 'Entrada general',
           fecha: formatearSoloFecha(data.fechaEvento),
@@ -217,22 +221,6 @@ export default function MisEntradas() {
 
                     <div className="text-muted d-flex justify-content-between">
                       <span>Cantidad: {total}</span>
-                      {l.lote?.desdeHora && l.lote?.hastaHora && (
-                        <span
-                          style={{
-                            fontWeight: 700,
-                            background: '#e9ecef',
-                            padding: '2px 8px',
-                            borderRadius: '12px',
-                            fontSize: '0.75rem',
-                            color: '#3b3e40ff',
-                            margin: '4px 0 0 0',
-                          }}
-                        >
-                          ⏰ INGRESO: {l.lote.desdeHora}HS – {l.lote.hastaHora}
-                          HS
-                        </span>
-                      )}
                     </div>
 
                     {aprobadas > 0 && (
@@ -256,53 +244,30 @@ export default function MisEntradas() {
         )}
       </div>
 
-      {/* MODAL QR */}
+      {/* ================= MODAL QR ================= */}
       {qrModal && (
         <div className="qr-overlay" onClick={() => setQrModal(null)}>
           <div className="qr-card" onClick={e => e.stopPropagation()}>
-            {/* ================= HEADER ================= */}
             <div className="qr-header">
               <p className="qr-title fw-bold mb-1">{qrModal.nombreEvento}</p>
-
-              {qrModal.lote && (
-                <p className="qr-sub fw-semibold mb-1">
-                  🎟 {qrModal.lote.nombre}
-                  {qrModal.lote.incluyeConsumicion && ' 🍹'}
-                </p>
-              )}
-
               <p className="qr-sub text-muted mb-1">
                 📅 {formatearSoloFecha(qrModal.fechaEvento)}
               </p>
-
-              {qrModal.lote?.desdeHora && qrModal.lote?.hastaHora && (
-                <p className="qr-sub fw-bold">
-                  ⏰ INGRESO {qrModal.lote.desdeHora}–{qrModal.lote.hastaHora}
-                </p>
-              )}
             </div>
 
             <div className="qr-divider"></div>
 
-            {/* ================= QR LIST ================= */}
             <div className="qr-scroll">
-              {Array.isArray(qrModal.ticketsAprobados) &&
-                qrModal.ticketsAprobados.map((id, i) => (
-                  <div key={id} className="qr-item">
-                    <div id={`qr_${id}`} className="qr-box"></div>
-
-                    {/* BOTÓN DESCARGA */}
-                    <button
-                      className="btn btn-sm btn-dark mt-2 mb-2"
-                      onClick={() => descargarQR(id, i + 1)}
-                    >
-                      Descargar Entrada #{i + 1}
-                    </button>
-                  </div>
-                ))}
+              {qrModal.ticketsAprobados.map((id, i) => (
+                <div key={id} className="qr-item">
+                  <div id={`qr_${id}`} className="qr-box"></div>
+                  <button className="btn btn-sm btn-dark mt-2">
+                    Entrada #{i + 1}
+                  </button>
+                </div>
+              ))}
             </div>
 
-            {/* ================= FOOTER ================= */}
             <button className="qr-btn" onClick={() => setQrModal(null)}>
               Cerrar
             </button>

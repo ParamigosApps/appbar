@@ -227,7 +227,7 @@ export async function manejarTransferencia({
       horaInicio: evento.horaInicio,
       horaFin: evento.horaFin,
 
-      // 🎟️ LOTE (snapshot completo o null)
+      // 🎟️ LOTE
       lote: loteSel
         ? {
             id: loteSel.id ?? loteSel.index ?? null,
@@ -248,6 +248,10 @@ export async function manejarTransferencia({
       total: precio * cantidadSel,
 
       estado: 'pendiente',
+
+      // 🔴 CLAVE PARA EL ADMIN
+      ultimaModificacionPor: 'usuario',
+      ultimaModificacionEn: serverTimestamp(),
 
       creadoEn: serverTimestamp(),
     })

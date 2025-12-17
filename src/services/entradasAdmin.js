@@ -10,12 +10,32 @@ import {
   onSnapshot,
   query,
   updateDoc,
-  where,
   serverTimestamp,
 } from 'firebase/firestore'
 
 // --------------------------------------------------------------
-// 🔍 ESCUCHAR ENTRADAS PENDIENTES (tempo real para Admin)
+// Utils
+// --------------------------------------------------------------
+function fechaToMs(valor) {
+  if (!valor) return 0
+
+  if (typeof valor.toDate === 'function') {
+    return valor.toDate().getTime()
+  }
+
+  if (typeof valor === 'string') {
+    return new Date(valor).getTime() || 0
+  }
+
+  if (valor instanceof Date) {
+    return valor.getTime()
+  }
+
+  return 0
+}
+
+// --------------------------------------------------------------
+// 🔍 ESCUCHAR LISTA DE ENTRADAS PENDIENTES (ADMIN)
 // --------------------------------------------------------------
 export function escucharEntradasPendientes(setLista) {
   const q = query(collection(db, 'entradasPendientes'))
@@ -23,10 +43,9 @@ export function escucharEntradasPendientes(setLista) {
   return onSnapshot(q, snap => {
     const arr = snap.docs.map(d => {
       const data = d.data()
-
       const cantidad = Number(data.cantidad) || 1
 
-      // ✅ PRECIO CANÓNICO (ORDEN CORRECTO)
+      // 💰 Precio canónico
       const precioUnitario =
         Number(data.lote?.precio) ||
         Number(data.precioUnitario) ||
@@ -39,10 +58,10 @@ export function escucharEntradasPendientes(setLista) {
 
         cantidad,
         precioUnitario,
-        precio: precioUnitario, // 🔁 alias para UI legacy
+        precio: precioUnitario, // legacy UI
         monto: precioUnitario * cantidad,
 
-        // 🔥 LOTE GARANTIZADO
+        // 🟢 Lote garantizado
         lote: data.lote ?? null,
         loteNombre: data.lote?.nombre || data.loteNombre || 'Entrada general',
 
@@ -50,20 +69,25 @@ export function escucharEntradasPendientes(setLista) {
       }
     })
 
-    arr.sort((a, b) => (b.creadoEn || '').localeCompare(a.creadoEn || ''))
+    arr.sort((a, b) => fechaToMs(b.creadoEn) - fechaToMs(a.creadoEn))
 
     setLista(arr)
   })
 }
 
 // --------------------------------------------------------------
-// ✅ APROBAR ENTRADA PENDIENTE
-//   - Crea UNA entrada en "entradas" por cada unidad (cantidad)
-//   - Elimina la solicitud pendiente
-//   - Crea notificación en "notificaciones"
+// 🔴 ESCUCHAR CANTIDAD DE ENTRADAS PENDIENTES (BADGE)
 // --------------------------------------------------------------
+export function escucharCantidadEntradasPendientes(setCantidad) {
+  const q = query(collection(db, 'entradasPendientes'))
+
+  return onSnapshot(q, snap => {
+    setCantidad(snap.size)
+  })
+}
+
 // --------------------------------------------------------------
-// ✅ APROBAR ENTRADA PENDIENTE (VERSIÓN CORREGIDA 2025)
+// ✅ APROBAR ENTRADA PENDIENTE (VERSIÓN FINAL 2025)
 // --------------------------------------------------------------
 export async function aprobarEntrada(entrada) {
   try {
@@ -77,14 +101,14 @@ export async function aprobarEntrada(entrada) {
       cantidad = 1,
       precio = 0,
 
-      fecha, // legacy (string)
-      fechaEvento, // nuevo (Timestamp o string)
+      fecha, // legacy
+      fechaEvento,
       lugar,
       horario,
       horaInicio,
       horaFin,
 
-      lote = null, // 🟢 OBJETO LOTE REAL
+      lote = null,
       loteIndice = null,
       loteNombre = null,
 
@@ -92,14 +116,14 @@ export async function aprobarEntrada(entrada) {
     } = entrada
 
     if (!eventoId || !usuarioId) {
-      throw new Error('Faltan datos clave (eventoId o usuarioId)')
+      throw new Error('Faltan datos clave')
     }
 
     const cant = Number(cantidad) || 1
     const precioNum = Number(precio) || 0
 
     // ----------------------------------------------------------
-    // 1️⃣ Crear entradas reales (1 doc por entrada)
+    // 1️⃣ Crear entradas reales
     // ----------------------------------------------------------
     for (let i = 0; i < cant; i++) {
       await addDoc(collection(db, 'entradas'), {
@@ -109,7 +133,6 @@ export async function aprobarEntrada(entrada) {
 
         nombreEvento: eventoNombre || 'Evento',
 
-        // 🧠 FECHAS (modelo nuevo + compatibilidad)
         fechaEvento: fechaEvento || fecha || null,
         horaInicio: horaInicio || null,
         horaFin: horaFin || null,
@@ -117,10 +140,8 @@ export async function aprobarEntrada(entrada) {
         lugar: lugar || '',
         horario: horario || '',
 
-        // 💰
         precioUnitario: precioNum,
 
-        // 🟢 LOTE REAL (CLAVE DEL FIX)
         lote:
           lote && typeof lote === 'object'
             ? lote
@@ -128,7 +149,6 @@ export async function aprobarEntrada(entrada) {
             ? { nombre: loteNombre }
             : null,
 
-        // legacy (no rompen nada)
         loteIndice,
         loteNombre,
 
@@ -180,7 +200,7 @@ export async function rechazarEntrada(id) {
 }
 
 // --------------------------------------------------------------
-// 💰 MARCAR COMO PAGADA / NO PAGADA (pendiente)
+// 💰 MARCAR COMO PAGADA / NO PAGADA
 // --------------------------------------------------------------
 export async function marcarComoPagada(id, pagado) {
   try {

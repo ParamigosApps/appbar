@@ -724,3 +724,37 @@
   padding: 18px;
   border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
+
+.side-btn-badge {
+  position: relative;
+}
+
+.badge-pendientes {
+  position: absolute;
+  top: 5px;
+  right: 106px;
+
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+
+  background: #dc2626;
+  color: #fff;
+
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 30px;
+}
+
+.btn.swal-btn-adm {
+  min-width: 60px;
+  padding: 10px 8px !important;
+
+  font-size: 2.2vh !important;
+  font-weight: 700 !important;
+}
+
+#swal-btn-adm-danger {
+  background-color: #dc2626 !important;
+  color: #e7e7e7 !important;
+}

@@ -70,6 +70,7 @@ export default function AdminConfiguracion() {
     permisos: false,
     banco: false,
     redes: false,
+    ubicacion: false,
   })
 
   const toggle = key => setOpen(o => ({ ...o, [key]: !o[key] }))
@@ -91,6 +92,10 @@ export default function AdminConfiguracion() {
     webContacto: '',
     xContacto: '',
   })
+  const [ubicacion, setUbicacion] = useState({
+    mapsEmbedUrl: '',
+    mapsLink: '',
+  })
 
   // ============================================================
   // CARGA INICIAL
@@ -99,6 +104,7 @@ export default function AdminConfiguracion() {
     cargarPermisos()
     cargarDatosBancarios()
     cargarRedes()
+    cargarUbicacion()
   }, [])
 
   async function cargarPermisos() {
@@ -127,6 +133,11 @@ export default function AdminConfiguracion() {
   async function cargarRedes() {
     const snap = await getDoc(doc(db, 'configuracion', 'social'))
     if (snap.exists()) setSocial(snap.data())
+  }
+
+  async function cargarUbicacion() {
+    const snap = await getDoc(doc(db, 'configuracion', 'ubicacion'))
+    if (snap.exists()) setUbicacion(snap.data())
   }
 
   // ============================================================
@@ -165,6 +176,23 @@ export default function AdminConfiguracion() {
     })
   }
 
+  async function guardarUbicacion() {
+    if (!ubicacion.mapsEmbedUrl) {
+      swalError({
+        title: 'Error',
+        text: 'El link EMBED de Google Maps es obligatorio',
+      })
+      return
+    }
+
+    await setDoc(doc(db, 'configuracion', 'ubicacion'), ubicacion)
+
+    swalSuccess({
+      title: 'Ubicación',
+      text: 'Mapa actualizado correctamente',
+    })
+  }
+
   if (!permisos) return <p>Cargando configuración...</p>
 
   // ============================================================
@@ -181,7 +209,7 @@ export default function AdminConfiguracion() {
     if (k === 'whatsappContacto') return esWhatsappValido(v)
     return esUrlValida(v)
   })
-
+  const ubicacionCompleta = !!ubicacion.mapsEmbedUrl
   const modulos = [
     'dashboard',
     'qr',
@@ -305,6 +333,39 @@ export default function AdminConfiguracion() {
         <div className="mt-1 d-flex justify-content-center">
           <button className="btn swal-btn-confirm" onClick={guardarRedes}>
             Guardar datos
+          </button>
+        </div>
+      </Seccion>
+
+      {/* ===================================================== */}
+      <Seccion
+        title="Ubicación (Google Maps)"
+        open={open.ubicacion}
+        onToggle={() => toggle('ubicacion')}
+        completo={ubicacionCompleta}
+      >
+        <input
+          className="form-control mb-2"
+          placeholder="EMBED URL - EJ: https://www.google.com/maps/embed?pb=!1..."
+          value={ubicacion.mapsEmbedUrl}
+          onChange={e =>
+            setUbicacion({ ...ubicacion, mapsEmbedUrl: e.target.value })
+          }
+        />
+
+        <input
+          className="form-control mb-2"
+          placeholder="LINK A MAPS - EJ: https://maps.app.goo.gl/4Lzckp6NUrDuo6..."
+          value={ubicacion.mapsLink}
+          onChange={e =>
+            setUbicacion({ ...ubicacion, mapsLink: e.target.value })
+          }
+        />
+
+        <div className="form-divider my-3" />
+        <div className="mt-1 d-flex justify-content-center">
+          <button className="btn swal-btn-confirm" onClick={guardarUbicacion}>
+            Guardar ubicación
           </button>
         </div>
       </Seccion>

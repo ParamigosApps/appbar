@@ -143,11 +143,11 @@ export default function EntradasEventos() {
                     {Number(lote.precio) > 0 ? (
                       `$${lote.precio}`
                     ) : (
-                      <span className="text-dark fw-bold">{' - GRATIS '}</span>
+                      <span className="text-dark fw-bold">{' GRATIS '}</span>
                     )}
                     {lote.incluyeConsumicion && (
                       <span className="text-dark fw-bold">
-                        {' - CON CONSUMICIÓN '}
+                        {' | CON CONSUMICIÓN '}
                       </span>
                     )}
                   </div>

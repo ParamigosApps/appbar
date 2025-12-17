@@ -16,13 +16,16 @@ import RedesSociales from '../home/RedesSociales.jsx'
 import googleIcon from '../../assets/img/google.png'
 import facebookIcon from '../../assets/img/facebook.png'
 
+import { db } from '../../Firebase.js'
+import { doc, getDoc } from 'firebase/firestore'
+
 // --------------------------------------------------------------
 // ÍCONOS DE CATEGORÍAS
 // --------------------------------------------------------------
 const iconosCategorias = {
-  tragos: '🍹',
+  tragos: '🥂',
   botellas: '🍾',
-  'sin alcohol': '💧',
+  'sin alcohol': '⚡︎',
   combos: '🎉',
   promos: '🏷️',
   accesorios: '🧋',
@@ -40,6 +43,11 @@ export default function MenuAcordeon() {
   const [entradasInterno, setEntradasInterno] = useState(null)
   const [mostrarMapa, setMostrarMapa] = useState(false)
   const [mostrarTelefono, setMostrarTelefono] = useState(false)
+  const [ubicacion, setUbicacion] = useState({
+    mapsEmbedUrl: '',
+    mapsLink: '',
+  })
+  const [ubicacionCargada, setUbicacionCargada] = useState(false)
 
   const toggle = key => setAbierto(prev => (prev === key ? null : key))
 
@@ -91,6 +99,24 @@ export default function MenuAcordeon() {
 
     document.addEventListener('abrir-mis-entradas', handler)
     return () => document.removeEventListener('abrir-mis-entradas', handler)
+  }, [])
+
+  useEffect(() => {
+    async function cargarUbicacion() {
+      const ref = doc(db, 'configuracion', 'ubicacion')
+      const snap = await getDoc(ref)
+
+      if (snap.exists()) {
+        setUbicacion({
+          mapsEmbedUrl: snap.data().mapsEmbedUrl || '',
+          mapsLink: snap.data().mapsLink || '',
+        })
+      }
+
+      setUbicacionCargada(true)
+    }
+
+    cargarUbicacion()
   }, [])
 
   // ------------------------------------------------------------
@@ -409,8 +435,8 @@ export default function MenuAcordeon() {
           </div>
 
           {/* ======================================================
-              UBICACIÓN
-          ======================================================= */}
+          UBICACIÓN
+          ====================================================== */}
           <div className="accordion-item">
             <h2 className="accordion-header">
               <button
@@ -429,21 +455,49 @@ export default function MenuAcordeon() {
             {abierto === 'ubicacion' && (
               <div className="accordion-collapse show">
                 <div className="accordion-body d-grid gap-2">
-                  <button
-                    className="btn ubicacion-btn btn-outline-dark mb-3"
-                    onClick={() => setMostrarMapa(prev => !prev)}
-                  >
-                    Ver mapa
-                  </button>
+                  {!ubicacionCargada && (
+                    <p className="text-muted text-center">
+                      Cargando ubicación...
+                    </p>
+                  )}
 
-                  {mostrarMapa && (
-                    <div className="ubicacion-mapa">
-                      <iframe
-                        src="https://www.google.com/maps/embed?...."
-                        loading="lazy"
-                        allowFullScreen
-                      ></iframe>
-                    </div>
+                  {ubicacionCargada && !ubicacion.mapsEmbedUrl && (
+                    <p className="text-muted text-center">
+                      Ubicación no configurada.
+                    </p>
+                  )}
+
+                  {ubicacionCargada && ubicacion.mapsEmbedUrl && (
+                    <>
+                      <button
+                        className="btn ubicacion-btn btn-outline-dark mb-2"
+                        onClick={() => setMostrarMapa(prev => !prev)}
+                      >
+                        {mostrarMapa ? 'Ocultar mapa' : 'Ver mapa'}
+                      </button>
+
+                      {mostrarMapa && (
+                        <div className="ubicacion-mapa">
+                          <iframe
+                            src={ubicacion.mapsEmbedUrl}
+                            loading="lazy"
+                            referrerPolicy="no-referrer-when-downgrade"
+                            allowFullScreen
+                          />
+                        </div>
+                      )}
+
+                      {ubicacion.mapsLink && (
+                        <a
+                          href={ubicacion.mapsLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-outline-secondary mt-2"
+                        >
+                          Abrir en Google Maps
+                        </a>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

@@ -16,6 +16,7 @@ import { useFirebase } from './FirebaseContext.jsx'
 import { useAuth } from './AuthContext.jsx'
 import { useQr } from './QrContext.jsx'
 
+import Swal from 'sweetalert2'
 // LÓGICA
 import { calcularCuposEvento } from '../logic/entradas/entradasEventos.js'
 import {
@@ -37,8 +38,6 @@ import {
   abrirSeleccionLote,
   abrirResumenLote,
 } from '../services/entradasSwal.js'
-
-import Swal from 'sweetalert2'
 
 // --------------------------------------------------------------
 // CONTEXTO
@@ -344,6 +343,45 @@ export function EntradasProvider({ children }) {
       Swal.fire('Error', 'Ocurrió un error inesperado.', 'error')
     }
   }
+  // ============================================================
+  // 🔔 NOTIFICACIÓN: ENTRADA APROBADA
+  // ============================================================
+  useEffect(() => {
+    if (!user) return
+
+    const q = query(
+      collection(db, 'entradas'),
+      where('usuarioId', '==', user.uid)
+    )
+
+    let firstLoad = true
+
+    const unsub = onSnapshot(q, snap => {
+      if (firstLoad) {
+        firstLoad = false
+        return
+      }
+
+      snap.docChanges().forEach(change => {
+        if (change.type === 'added') {
+          const e = change.doc.data()
+
+          Swal.fire({
+            icon: 'success',
+            title: '🎉 Entrada aprobada',
+            html: `
+            <b>${e.nombreEvento}</b><br/>
+            Tu entrada ya está disponible.
+          `,
+            timer: 3500,
+            showConfirmButton: false,
+          })
+        }
+      })
+    })
+
+    return () => unsub()
+  }, [user])
 
   // --------------------------------------------------------------
   // EXPORTAR
