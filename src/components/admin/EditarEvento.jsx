@@ -17,9 +17,10 @@ export default function EditarEvento({ editarId, setSeccion }) {
 
   const [form, setForm] = useState({
     nombre: '',
-    fecha: '',
-    horarioDesde: '',
-    horarioHasta: '',
+    fechaInicio: '',
+    horaInicio: '',
+    fechaFin: '',
+    horaFin: '',
     lugar: '',
     precio: 0,
     entradasMaximas: '',
@@ -34,6 +35,27 @@ export default function EditarEvento({ editarId, setSeccion }) {
 
   const [lotes, setLotes] = useState([])
   const MAX_DESC = 180
+
+  function toInputDate(value) {
+    if (!value) return ''
+
+    // Firestore Timestamp
+    if (value?.seconds) {
+      return new Date(value.seconds * 1000).toISOString().slice(0, 10)
+    }
+
+    // Date
+    if (value instanceof Date) {
+      return value.toISOString().slice(0, 10)
+    }
+
+    // String YYYY-MM-DD
+    if (typeof value === 'string') {
+      return value
+    }
+
+    return ''
+  }
 
   // --------------------------------------------------------------
   // TIPTAP
@@ -78,12 +100,15 @@ export default function EditarEvento({ editarId, setSeccion }) {
       data.fecha
 
       setForm({
-        nombre: data.nombre,
-        fecha: data.fecha,
-        horarioDesde: desde,
-        horarioHasta: hasta,
-        horario: `Desde ${form.horarioDesde}hs hasta ${form.horarioHasta}hs.`,
-        lugar: data.lugar,
+        nombre: data.nombre || '',
+
+        fechaInicio: toInputDate(data.fechaInicio),
+        horaInicio: data.horaInicio || '',
+
+        fechaFin: toInputDate(data.fechaFin),
+        horaFin: data.horaFin || '',
+
+        lugar: data.lugar || '',
         precio: data.precio || 0,
         entradasMaximas: data.entradasMaximasEvento || '',
         entradasPorUsuario: data.entradasPorUsuario || 1,
@@ -200,16 +225,15 @@ export default function EditarEvento({ editarId, setSeccion }) {
   async function handleSubmit(e) {
     e.preventDefault()
 
-    if (!form.nombre || !form.fecha || !form.lugar) {
-      Swal.fire('Error', 'Completá nombre, fecha y lugar.', 'error')
-      return
-    }
-
     if (
-      !validarHorario(form.horarioDesde) ||
-      !validarHorario(form.horarioHasta)
+      !form.nombre ||
+      !form.fechaInicio ||
+      !form.horaInicio ||
+      !form.fechaFin ||
+      !form.horaFin ||
+      !form.lugar
     ) {
-      Swal.fire('Error', 'Horario inválido (HH:MM).', 'error')
+      Swal.fire('Error', 'Completá nombre, fecha y lugar.', 'error')
       return
     }
 
@@ -220,17 +244,21 @@ export default function EditarEvento({ editarId, setSeccion }) {
 
     const data = {
       nombre: form.nombre,
-      fecha: form.fecha,
       lugar: form.lugar,
-      horario: `Desde ${form.horarioDesde || '-'}hs hasta ${
-        form.horarioHasta || '-'
-      }hs.`,
       precio: Number(form.precio) || 0,
       descripcion: descripcionHtml,
+
+      fechaInicio: form.fechaInicio,
+      horaInicio: form.horaInicio,
+      fechaFin: form.fechaFin,
+      horaFin: form.horaFin,
+
       entradasMaximasEvento: max,
       entradasPorUsuario: Number(form.entradasPorUsuario) || 1,
+
       lotes: lotes.map(l => ({
         nombre: (l.nombre || '').trim(),
+        descripcion: (l.descripcion || '').trim(),
         genero: l.genero || 'todos',
         precio: Number(l.precio) || 0,
         cantidad: Number(l.cantidad) || 0,

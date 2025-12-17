@@ -43,7 +43,7 @@ export default function AdminPage() {
   function renderSeccion() {
     switch (seccion) {
       case 'crear-evento':
-        return <CrearEvento />
+        return <CrearEvento setSeccion={setSeccion} />
 
       case 'eventos-lista':
         return (

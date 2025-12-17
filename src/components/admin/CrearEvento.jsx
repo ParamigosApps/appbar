@@ -9,7 +9,7 @@ import Swal from 'sweetalert2'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 
-export default function CrearEvento() {
+export default function CrearEvento({ setSeccion = () => {} }) {
   const [form, setForm] = useState({
     nombre: '',
     fechaInicio: '',
@@ -448,7 +448,7 @@ export default function CrearEvento() {
           </small>
 
           {/* ------------------- LOTES ------------------- */}
-          <hr className="my-3" />
+
           <h5 className="fw-bold">Lotes (opcional)</h5>
 
           {lotes.length > 0 && (
@@ -645,9 +645,12 @@ export default function CrearEvento() {
             ➕ Agregar lote
           </button>
           {/* SUBMIT */}
-          <button className="btn btn-primary w-100 mt-5" type="submit">
-            Crear evento
-          </button>
+          <div className="form-divider my-3" />
+          <div className="mt-1 d-flex justify-content-center">
+            <button className="btn swal-btn-confirm " type="submit">
+              Crear evento
+            </button>
+          </div>
         </form>
       </div>
     </section>

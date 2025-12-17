@@ -300,10 +300,13 @@ export default function AdminEmpleados() {
             )}
           </div>
         </div>
-
-        <button className="btn btn-success mt-3">
-          {modo === 'crear' ? 'Crear' : 'Guardar cambios'}
-        </button>
+        {/* SUBMIT */}
+        <div className="form-divider my-4" />
+        <div className="mt-1  d-flex justify-content-center">
+          <button className="btn swal-btn-confirm mt-3">
+            {modo === 'crear' ? 'Crear cuenta' : 'Guardar cambios'}
+          </button>
+        </div>
 
         {modo === 'editar' && (
           <button

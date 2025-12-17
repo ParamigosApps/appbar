@@ -27,7 +27,10 @@ import {
   manejarMercadoPago,
 } from '../logic/entradas/entradasPago.js'
 
-import { crearSolicitudPendiente } from '../logic/entradas/entradasUtils.js'
+import {
+  crearSolicitudPendiente,
+  obtenerTotalPendientes,
+} from '../logic/entradas/entradasUtils.js'
 
 // SWALS
 import {
@@ -182,6 +185,10 @@ export function EntradasProvider({ children }) {
 
         const precioLote = Number(loteSel.precio || 0)
         const restantes = loteSel.restantes
+        const totalPendientes = await obtenerTotalPendientes({
+          eventoId: evento.id,
+          usuarioId: user.uid,
+        })
 
         // --------------------------------------------------------------
         // LOTES FREE
@@ -191,7 +198,7 @@ export function EntradasProvider({ children }) {
 
           const resResumen = await abrirResumenLote(evento, loteSel, {
             totalObtenidas: totalUsuario,
-            totalPendientes: 0,
+            totalPendientes: totalPendientes,
             limiteUsuario: limitePorUsuario - totalUsuario,
             maxCantidad,
             cuposLote: restantes,
@@ -221,7 +228,7 @@ export function EntradasProvider({ children }) {
 
         const resResumen = await abrirResumenLote(evento, loteSel, {
           totalObtenidas: totalUsuario,
-          totalPendientes: 0,
+          totalPendientes: totalPendientes,
           limiteUsuario: limitePorUsuario - totalUsuario,
           maxCantidad: maxCantidadPago,
           cuposLote: restantes,

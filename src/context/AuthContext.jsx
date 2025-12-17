@@ -1,5 +1,5 @@
 // -----------------------------------------------------------
-// 📌 AUTH CONTEXT — versión FINAL con persistencia REAL
+// 📌 AUTH CONTEXT — versión FINAL con persistencia REAL (PRO)
 // -----------------------------------------------------------
 import { createContext, useContext, useEffect, useState } from 'react'
 import { auth, db } from '../Firebase.js'
@@ -29,13 +29,23 @@ const AuthContext = createContext()
 export const useAuth = () => useContext(AuthContext)
 
 // -----------------------------------------------------------
-// LOGIN ADMIN MANUAL (NO FIREBASE) – PERO PERSISTE EN LOCALSTORAGE
+// CONSTANTES LOCALSTORAGE
+// -----------------------------------------------------------
+const LS_ADMIN = 'session_admin'
+
+// -----------------------------------------------------------
+// LOGIN ADMIN MANUAL
 // -----------------------------------------------------------
 const MASTER_USER = 'admin'
 const MASTER_PASS = '1234'
 
 export function AuthProvider({ children }) {
+  // 👤 USUARIO FRONT
   const [user, setUser] = useState(null)
+
+  // 🛠 ADMIN / EMPLEADO
+  const [adminUser, setAdminUser] = useState(null)
+
   const [rolUsuario, setRolUsuario] = useState(0)
   const [permisos, setPermisos] = useState({})
   const [loading, setLoading] = useState(true)
@@ -53,33 +63,35 @@ export function AuthProvider({ children }) {
     setLoginAbierto(true)
     document.dispatchEvent(new CustomEvent('abrir-login'))
   }
+
   function cerrarLoginGlobal() {
     setLoginAbierto(false)
   }
 
   // -----------------------------------------------------------
-  // 🔥 LOGIN ADMIN MANUAL CON PERSISTENCIA LOCAL
+  // 🔥 LOGIN ADMIN / EMPLEADO (NO FIREBASE)
   // -----------------------------------------------------------
   async function loginAdminManual(usuario, pass) {
     try {
+      // ADMIN MASTER
       if (usuario === MASTER_USER && pass === MASTER_PASS) {
-        const adminUser = {
+        const admin = {
           uid: 'admin-master',
           displayName: 'Administrador',
           email: 'admin@app.com',
           manual: true,
         }
 
-        setUser(adminUser)
+        setAdminUser(admin)
         setRolUsuario(4)
-        localStorage.setItem('adminTemp', JSON.stringify(adminUser))
+        localStorage.setItem(LS_ADMIN, JSON.stringify(admin))
 
         Swal.fire('Ingreso correcto', 'Bienvenido administrador', 'success')
         cerrarLoginGlobal()
         return true
       }
 
-      // Empleado normal
+      // EMPLEADO NORMAL
       const q = query(
         collection(db, 'empleados'),
         where('email', '==', usuario),
@@ -94,17 +106,16 @@ export function AuthProvider({ children }) {
 
       const data = snap.docs[0].data()
 
-      const empleadoUser = {
+      const empleado = {
         uid: data.uid,
         displayName: data.nombre,
         email: data.email,
         manual: true,
       }
 
-      setUser(empleadoUser)
+      setAdminUser(empleado)
       setRolUsuario(Number(data.nivel) || 1)
-
-      localStorage.setItem('adminTemp', JSON.stringify(empleadoUser))
+      localStorage.setItem(LS_ADMIN, JSON.stringify(empleado))
 
       Swal.fire('Ingreso correcto', `Bienvenido, ${data.nombre}`, 'success')
       cerrarLoginGlobal()
@@ -150,7 +161,7 @@ export function AuthProvider({ children }) {
   }
 
   // -----------------------------------------------------------
-  // LOGIN GOOGLE
+  // LOGIN GOOGLE (USUARIOS FRONT)
   // -----------------------------------------------------------
   async function loginGoogle() {
     try {
@@ -170,7 +181,6 @@ export function AuthProvider({ children }) {
       )
 
       setUser(u)
-      await cargarRol(u.uid)
       cerrarLoginGlobal()
     } catch (err) {
       if (err.code === 'auth/popup-closed-by-user') return
@@ -198,7 +208,6 @@ export function AuthProvider({ children }) {
       )
 
       setUser(u)
-      await cargarRol(u.uid)
       cerrarLoginGlobal()
     } catch (err) {
       if (err.code === 'auth/popup-closed-by-user') return
@@ -207,40 +216,35 @@ export function AuthProvider({ children }) {
   }
 
   // -----------------------------------------------------------
-  // LOGOUT
+  // LOGOUT TOTAL
   // -----------------------------------------------------------
   async function logout() {
     await signOut(auth)
     setUser(null)
+    setAdminUser(null)
     setRolUsuario(0)
-    localStorage.removeItem('adminTemp')
+    localStorage.removeItem(LS_ADMIN)
   }
 
   // -----------------------------------------------------------
-  // 🔥 RESTAURAR SESIÓN MANUAL + SESIÓN FIREBASE
+  // 🔥 RESTAURAR SESIÓN
   // -----------------------------------------------------------
   useEffect(() => {
     cargarPermisos()
 
-    // 1) Revisar login manual
-    const temp = localStorage.getItem('adminTemp')
-    if (temp) {
-      const saved = JSON.parse(temp)
-      setUser(saved)
+    // 1️⃣ ADMIN
+    const adminSession = localStorage.getItem(LS_ADMIN)
+    if (adminSession) {
+      const saved = JSON.parse(adminSession)
+      setAdminUser(saved)
       setRolUsuario(saved.uid === 'admin-master' ? 4 : 1)
       setLoading(false)
       return
     }
 
-    // 2) Revisar login Firebase
-    const unsub = onAuthStateChanged(auth, async u => {
-      if (u) {
-        setUser(u)
-        await cargarRol(u.uid)
-      } else {
-        setUser(null)
-        setRolUsuario(0)
-      }
+    // 2️⃣ FIREBASE USER
+    const unsub = onAuthStateChanged(auth, u => {
+      setUser(u || null)
       setLoading(false)
     })
 
@@ -251,7 +255,11 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider
       value={{
+        // 👤 FRONT
         user,
+
+        // 🛠 ADMIN
+        adminUser,
         rolUsuario,
         permisos,
         loading,

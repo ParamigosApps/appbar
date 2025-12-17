@@ -1,28 +1,39 @@
 // --------------------------------------------------------------
-// AdminRoute.jsx — Protección REAL con loading + permisos
+// AdminRoute.jsx — Protección REAL con loading + permisos (FIX)
 // --------------------------------------------------------------
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 
 export default function AdminRoute({ modulo }) {
-  const { user, rolUsuario, permisos, loading } = useAuth()
+  const { adminUser, rolUsuario, permisos, loading } = useAuth()
 
-  // Esperar a que Firebase / LocalStorage terminen de cargar
-  if (loading) return null
+  // ⏳ Mientras carga auth → no mostrar nada PERO sin romper navegación
+  if (loading) {
+    return <div style={{ padding: 40, textAlign: 'center' }}>Cargando...</div>
+  }
 
-  // No está logueado
-  if (!user) return <Navigate to="/login-empleado" replace />
+  if (!adminUser) return <Navigate to="/acceso" replace />
 
-  // Permisos aún no cargados
-  if (!permisos || !permisos[`nivel${rolUsuario}`]) return null
+  // 🔐 Permisos aún no disponibles
+  if (!permisos || !permisos[`nivel${rolUsuario}`]) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>
+        Verificando permisos...
+      </div>
+    )
+  }
 
   const lista = permisos[`nivel${rolUsuario}`]
 
-  // Acceso total
-  if (lista.includes('*')) return <Outlet />
+  // ✅ Acceso total
+  if (lista.includes('*')) {
+    return <Outlet />
+  }
 
-  // Validar acceso al módulo
-  if (!lista.includes(modulo)) return <Navigate to="/" replace />
+  // ❌ No tiene permiso para el módulo
+  if (modulo && !lista.includes(modulo)) {
+    return <Navigate to="/" replace />
+  }
 
   return <Outlet />
 }

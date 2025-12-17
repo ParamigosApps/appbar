@@ -306,10 +306,13 @@ export default function AdminProductos() {
               Marcar como destacado
             </label>
           </div>
-
-          <button type="submit" className="btn btn-success w-100">
-            {editId ? 'Actualizar producto' : 'Guardar producto'}
-          </button>
+          {/* SUBMIT */}
+          <div className="form-divider my-4" />
+          <div className="mt-1  d-flex justify-content-center">
+            <button type="submit" className="btn swal-btn-confirm mb-4 mt-1">
+              {editId ? 'Actualizar producto' : 'Guardar producto'}
+            </button>
+          </div>
 
           {editId && (
             <button

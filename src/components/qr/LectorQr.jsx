@@ -12,6 +12,7 @@ import {
   validarTicket,
   validarCompra,
   marcarEntradaUsada,
+  detectarTipoPorFirestore,
 } from '../../services/lectorQr.js'
 
 import {
@@ -42,17 +43,38 @@ function fechaLarga(fecha) {
 // --------------------------------------------------------------
 // Determinar si un evento está vigente HOY
 // --------------------------------------------------------------
-function eventoEstaVigente(ev) {
-  if (!ev?.fecha) return false
-  const hoy = new Date()
-  const [a, m, d] = ev.fecha.split('-').map(Number)
-  const diaEvento = new Date(a, m - 1, d)
+function eventoEstado(ev) {
+  if (!ev?.fechaInicio || !ev?.fechaFin) return 'invalido'
 
-  return (
-    diaEvento.getFullYear() === hoy.getFullYear() &&
-    diaEvento.getMonth() === hoy.getMonth() &&
-    diaEvento.getDate() === hoy.getDate()
+  const ahora = new Date()
+
+  const inicio = ev.fechaInicio.toDate()
+  const fin = ev.fechaFin.toDate()
+
+  // 🔑 Normalizamos a "solo fecha"
+  const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
+
+  const diaInicio = new Date(
+    inicio.getFullYear(),
+    inicio.getMonth(),
+    inicio.getDate()
   )
+
+  const diaFin = new Date(fin.getFullYear(), fin.getMonth(), fin.getDate())
+
+  // 🟢 El día de inicio ya cuenta como vigente
+  if (hoy >= diaInicio && hoy <= diaFin) return 'vigente'
+
+  // ⏳ Todavía no llegó el día
+  if (hoy < diaInicio) return 'proximo'
+
+  return 'pasado'
+}
+
+function fechaLargaTimestamp(ts) {
+  if (!ts) return 'No definida'
+  const d = ts.toDate()
+  return d.toLocaleDateString('es-AR')
 }
 
 export default function LectorQr({ modoInicial = 'entradas' }) {
@@ -67,6 +89,7 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   const [eventoInfo, setEventoInfo] = useState(null)
   const [infoAbierto, setInfoAbierto] = useState(false)
   const [pedidoCaja, setPedidoCaja] = useState(null)
+  const selectorMostrado = useRef(false)
 
   // Scanner refs
   const html5Qr = useRef(null)
@@ -96,39 +119,70 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   }
 
   const beepOk = () => beep(900, 130)
+  const tituloTexto =
+    modo === 'entradas'
+      ? 'Seleccioná el evento a verificar entradas:'
+      : 'Seleccioná el evento activo de caja:'
 
   // --------------------------------------------------------------
   // SELECCIÓN DE EVENTO (ENTRADAS)
   // --------------------------------------------------------------
   useEffect(() => {
-    if (modo !== 'entradas') return
+    if (!['entradas', 'caja'].includes(modo)) return
+    if (selectorMostrado.current) return
+
+    selectorMostrado.current = true
 
     async function cargarEventos() {
       const snap = await getDocs(query(collection(db, 'eventos')))
       const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      if (!arr.length) return
+      if (!arr.length) {
+        navigate('/admin', { replace: true })
+        return
+      }
 
       let html = `
-        <div style="font-size:15px;margin-bottom:8px">Seleccioná el evento:</div>
-        <select id="evento-select" class="swal2-select" style="width:100%;padding:12px">
-          <option disabled selected value="">Elegí un evento</option>
-      `
+      <div style="font-size:15px;margin-bottom:8px;margin-top:16px;">
+        ${tituloTexto}
+      </div>
+      <select id="evento-select" class="swal2-select" style="width:100%;padding:12px">
+        <option disabled selected value="">Elegí un evento</option>
+    `
 
       arr.forEach(ev => {
-        if (eventoEstaVigente(ev)) {
-          html += `<option value="${ev.id}">
-            ${ev.nombre} — ${fechaLarga(ev.fecha)}
-          </option>`
-        }
+        const estado = eventoEstado(ev)
+        if (estado === 'pasado') return
+
+        const disabled = estado === 'proximo' ? 'disabled' : ''
+        const color = estado === 'proximo' ? 'style="color:#9ca3af"' : ''
+        const tag =
+          estado === 'vigente'
+            ? '🟢 HOY'
+            : estado === 'proximo'
+            ? '⏳ PRÓXIMO'
+            : ''
+
+        html += `
+        <option value="${ev.id}" ${disabled} ${color}>
+          ${tag} ${ev.nombre} — ${fechaLargaTimestamp(ev.fechaInicio)}
+        </option>
+      `
       })
 
       html += `</select>`
 
-      const { value } = await Swal.fire({
+      const res = await Swal.fire({
         title: 'Seleccionar evento',
         html,
         confirmButtonText: 'Continuar',
+        showCloseButton: true,
         allowOutsideClick: false,
+
+        customClass: {
+          popup: 'swal-select-evento',
+          confirmButton: 'swal-btn-confirm',
+        },
+
         preConfirm: () => {
           const el = document.getElementById('evento-select')
           if (!el?.value) {
@@ -139,12 +193,19 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
         },
       })
 
-      setEventoSeleccionado(value)
-      cargarEstadisticasEvento(value)
+      // ❌ Cerró sin elegir → recién AHORA navegamos
+      if (res.isDismissed || !res.value) {
+        navigate('/admin', { replace: true })
+        return
+      }
+
+      // ✅ Evento válido
+      setEventoSeleccionado(res.value)
+      await cargarEstadisticasEvento(res.value)
     }
 
     cargarEventos()
-  }, [modo])
+  }, [modo, navigate])
 
   // --------------------------------------------------------------
   // ESTADÍSTICAS EVENTO
@@ -230,8 +291,29 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
         return
       }
 
-      const dec = decodificarQr(text)
-      const payload = analizarPayload(dec)
+      let dec = decodificarQr(text)
+      let payload = analizarPayload(dec)
+      // 🔍 Si el QR no indica tipo, lo resolvemos contra Firestore
+      const idPlano =
+        payload.entradaId ||
+        payload.compraId ||
+        payload.id ||
+        dec.payload?.id ||
+        dec.id ||
+        text
+
+      if (payload.tipo === 'desconocido' && idPlano) {
+        console.log('🔎 Resolviendo tipo por Firestore:', idPlano)
+
+        const detectado = await detectarTipoPorFirestore(idPlano)
+
+        payload = {
+          ...payload,
+          ...detectado,
+        }
+
+        console.log('✅ Tipo resuelto:', payload)
+      }
 
       let res = null
 
@@ -240,7 +322,7 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
       // =========================
       if (modo === 'entradas') {
         if (!payload.esEntrada) {
-          mostrarError('QR de compra no válido para entradas')
+          mostrarError('QR no corresponde a una entrada')
           return
         }
 
@@ -456,6 +538,20 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
             Volver
           </button>
         </div>
+
+        {modo === 'entradas' && eventoSeleccionado && eventoInfo && (
+          <div className="evento-activo">
+            <div className="evento-activo-label">🎟 Evento seleccionado</div>
+
+            <div className="evento-activo-nombre">{eventoInfo.nombre}</div>
+
+            <div className="evento-activo-fecha">
+              📅 {eventoInfo.fechaInicio?.toDate().toLocaleDateString('es-AR')}
+              {eventoInfo.horaInicio && ` · ⏰ ${eventoInfo.horaInicio}`}
+            </div>
+          </div>
+        )}
+
         <div id="qr-reader" />
         {pedidoCaja && (
           <div className="card mt-3 p-3">

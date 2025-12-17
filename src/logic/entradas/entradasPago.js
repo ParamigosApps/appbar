@@ -271,6 +271,7 @@ export async function manejarTransferencia({
         cancelButton: 'swal-btn-cancel',
       },
       buttonsStyling: false,
+      timerProgressBar: true,
     })
 
     if (fin.isConfirmed) {

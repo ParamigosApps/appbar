@@ -310,3 +310,116 @@
 .btn-wsp:active {
   transform: scale(0.97);
 }
+
+/* =====================================================
+   EVENTO ACTIVO — VALIDADOR QR
+===================================================== */
+
+.evento-activo {
+  margin-bottom: 18px;
+  padding: 18px 20px;
+  border-radius: 14px;
+
+  background: linear-gradient(135deg, #ffffff70, rgba(1, 8, 21, 0.082));
+  color: #424040;
+
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+/* Etiqueta superior */
+.evento-activo-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  opacity: 0.6;
+  letter-spacing: 0.3px;
+  margin-bottom: 4px;
+}
+
+/* Nombre del evento (PROTAGONISTA) */
+.evento-activo-nombre {
+  font-size: 1.7rem;
+  font-weight: 800;
+  line-height: 1.15;
+  margin-bottom: 6px;
+}
+
+/* Fecha y hora */
+.evento-activo-fecha {
+  font-size: 1.2rem;
+  font-weight: 700;
+  opacity: 0.95;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+  .evento-activo {
+    padding: 16px;
+  }
+
+  .evento-activo-nombre {
+    font-size: 1.35rem;
+  }
+
+  .evento-activo-fecha {
+    font-size: 0.95rem;
+  }
+}
+
+/* =====================================================
+   FIX DEFINITIVO — ENCAJE QR CAMERA
+===================================================== */
+
+/* Contenedor general */
+#qr-reader {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto 24px auto;
+
+  padding: 12px;
+
+  background: #ffffff;
+  border: 2px solid rgba(0, 0, 0, 0.12);
+
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Contenedor interno que crea html5-qrcode */
+#qr-reader > div {
+  width: 100% !important;
+  max-width: 100% !important;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* VIDEO de la cámara */
+#qr-reader video {
+  width: 100% !important;
+  height: auto !important;
+
+  max-height: 360px;
+
+  object-fit: cover;
+}
+
+/* CANVAS (marco blanco del scanner) */
+#qr-reader canvas {
+  width: 100% !important;
+  height: auto !important;
+}
+#qr-reader::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+
+  pointer-events: none;
+
+  box-shadow: inset 0 0 0 2px rgba(20, 168, 226, 0.25),
+    inset 0 0 20px rgba(20, 168, 226, 0.15);
+}

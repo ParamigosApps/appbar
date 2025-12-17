@@ -464,3 +464,120 @@
 .badge-editable:hover .edit-icon {
   opacity: 1;
 }
+
+.swal-select-evento {
+  width: 100% !important;
+  max-width: 600px !important;
+  box-sizing: border-box;
+}
+
+#swal2-html-container {
+  max-width: 400px;
+  margin: 0 auto;
+}
+#evento-select {
+  min-width: 340px;
+  margin: 0 auto;
+}
+.form-divider {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(0, 0, 0, 0.25),
+    transparent
+  );
+}
+/* ==============================
+   SECCIÓN ACORDEÓN PRO
+============================== */
+
+.seccion-card {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.seccion-card.open {
+  border-color: rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+.seccion-header {
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  background: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 0.02),
+    rgba(0, 0, 0, 0.01)
+  );
+}
+
+.seccion-header:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.seccion-title {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+/* ==============================
+   STATUS
+============================== */
+
+.seccion-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.seccion-status.ok {
+  color: #16a34a;
+}
+
+.seccion-status.pending {
+  color: #ca8a04;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.chevron {
+  font-size: 1.1rem;
+  margin-left: 6px;
+}
+
+/* ==============================
+   BODY ANIMADO
+============================== */
+
+.seccion-body {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease, opacity 0.25s ease;
+}
+
+.seccion-body.open {
+  max-height: 1200px; /* ajustable */
+  opacity: 1;
+}
+
+.seccion-body-inner {
+  padding: 18px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}

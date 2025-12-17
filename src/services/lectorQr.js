@@ -5,24 +5,60 @@ import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../Firebase.js'
 
 /* ============================================================
-   FECHA → dd/mm/aaaa
+   VALIDAR HORARIO FREE (EVENTO + LOTE)
    ============================================================ */
-function formatearFechaDMY(fechaStr) {
-  const [a, m, d] = fechaStr.split('-')
-  return `${d}/${m}/${a}`
-}
+function validarHorarioFree(lote, evento) {
+  if (!lote?.desdeHora || !lote?.hastaHora) return { ok: true }
+  if (!evento?.fechaInicio) return { ok: true }
 
+  const base = evento.fechaInicio.toDate()
+
+  const fechaStr = `${base.getFullYear()}-${String(
+    base.getMonth() + 1
+  ).padStart(2, '0')}-${String(base.getDate()).padStart(2, '0')}`
+
+  const { start, end } = intervaloEvento(
+    fechaStr,
+    lote.desdeHora,
+    lote.hastaHora
+  )
+
+  const now = new Date()
+
+  if (now < start)
+    return {
+      ok: false,
+      motivo: `Horario FREE inicia a las <b>${lote.desdeHora}</b>`,
+    }
+
+  if (now > end)
+    return {
+      ok: false,
+      motivo: `Horario FREE finalizó a las <b>${lote.hastaHora}</b>`,
+    }
+
+  return { ok: true }
+}
 /* ============================================================
    DECODIFICAR QR
    ============================================================ */
 export function decodificarQr(rawText) {
+  console.log('📥 QR RAW TEXT:', rawText)
+
   if (!rawText) return { raw: '', error: 'QR vacío' }
 
   let payload = null
 
   try {
     payload = JSON.parse(rawText)
-  } catch (_) {}
+
+    // 🔑 FIX: doble JSON string
+    if (typeof payload === 'string') {
+      payload = JSON.parse(payload)
+    }
+  } catch (err) {
+    console.warn('⚠️ No se pudo parsear JSON, usando fallback', err)
+  }
 
   if (!payload && rawText.includes('|')) {
     const [prefix, id] = rawText.split('|')
@@ -34,6 +70,9 @@ export function decodificarQr(rawText) {
   }
 
   if (!payload) payload = { id: rawText }
+
+  console.log('📦 Payload decodificado FINAL:', payload)
+
   return { raw: rawText, payload }
 }
 
@@ -41,40 +80,35 @@ export function decodificarQr(rawText) {
    ANALIZAR PAYLOAD
    ============================================================ */
 export function analizarPayload(info) {
-  if (!info || !info.payload)
-    return { tipo: 'desconocido', esEntrada: false, esCompra: false }
+  console.log('🟡 analizarPayload RAW:', info)
+
+  if (!info?.payload) {
+    return {
+      tipo: 'desconocido',
+      esEntrada: false,
+      esCompra: false,
+    }
+  }
 
   const base = info.payload
-  let tipo = base.tipo
+  const tipo = base.tipo || 'desconocido'
 
-  // ------------------------------------------------------------------
-  // FIX CLAVE:
-  // ticketId es de COMPRAS (tu modelo de compras lo usa), NO de entradas
-  // ------------------------------------------------------------------
-  if (!tipo) {
-    if (base.entradaId) tipo = 'entrada'
-    else if (base.compraId || base.pedidoId || base.ticketId) tipo = 'compra'
-    else tipo = 'desconocido'
-  }
+  const esEntrada = tipo === 'entrada'
+  const esCompra = tipo === 'compra'
 
-  // IDs finales
-  const entradaId = base.entradaId || (tipo === 'entrada' ? base.id : null)
-
-  const compraId =
-    base.compraId || base.pedidoId || (tipo === 'compra' ? base.id : null)
-
-  // ticketId (si viene)
-  const ticketId = base.ticketId || null
-
-  return {
+  const result = {
     ...base,
     tipo,
-    entradaId,
-    compraId,
-    ticketId,
-    esEntrada: Boolean(entradaId),
-    esCompra: Boolean(compraId || ticketId), // compra puede venir por ticketId
+    entradaId: esEntrada ? base.id || base.entradaId || null : null,
+    compraId: esCompra ? base.id || base.compraId || null : null,
+    ticketId: base.ticketId || null,
+    esEntrada,
+    esCompra,
   }
+
+  console.log('✅ Payload procesado:', result)
+
+  return result
 }
 
 /* ============================================================
@@ -85,7 +119,6 @@ export async function obtenerEvento(eventoId) {
   if (!snap.exists()) return null
   return { id: eventoId, ...snap.data() }
 }
-
 /* ============================================================
    INTERVALO DE TIEMPO
    ============================================================ */
@@ -115,52 +148,26 @@ function intervaloEvento(fecha, desde, hasta) {
 }
 
 /* ============================================================
-   VALIDAR HORARIO FREE
-   ============================================================ */
-function validarHorarioFree(lote, fechaEvento) {
-  if (!lote.desdeHora || !lote.hastaHora) return { ok: true }
-
-  const now = new Date()
-  const { start, end } = intervaloEvento(
-    fechaEvento,
-    lote.desdeHora,
-    lote.hastaHora
-  )
-
-  if (now < start)
-    return {
-      ok: false,
-      motivo: `Horario FREE inicia a las <b>${lote.desdeHora}</b>`,
-    }
-
-  if (now > end)
-    return {
-      ok: false,
-      motivo: `Horario FREE finalizó a las <b>${lote.hastaHora}</b>`,
-    }
-
-  return { ok: true }
-}
-
-/* ============================================================
    VALIDAR HORARIO DE EVENTO
    ============================================================ */
 function validarHorarioEvento(evento) {
-  const now = new Date()
+  if (!evento.fechaInicio || !evento.fechaFin) return { ok: true }
 
-  const match = evento.horario?.match(/(\d{2}:\d{2}).+?(\d{2}:\d{2})/)
-  if (!match) return { ok: true }
+  const ahora = new Date()
+  const inicio = evento.fechaInicio.toDate()
+  const fin = evento.fechaFin.toDate()
 
-  const desde = match[1]
-  const hasta = match[2]
+  if (ahora < inicio)
+    return {
+      ok: false,
+      motivo: `El evento inicia a las <b>${evento.horaInicio}</b> hs.`,
+    }
 
-  const { start, end } = intervaloEvento(evento.fecha, desde, hasta)
-
-  if (now < start)
-    return { ok: false, motivo: `El evento inicia a las <b>${desde}</b> hs.` }
-
-  if (now > end)
-    return { ok: false, motivo: `El evento finalizó a las <b>${hasta}</b> hs.` }
+  if (ahora > fin)
+    return {
+      ok: false,
+      motivo: `El evento finalizó a las <b>${evento.horaFin}</b> hs.`,
+    }
 
   return { ok: true }
 }
@@ -206,7 +213,9 @@ export async function validarTicket(payload, eventoForzado = null) {
   if (!evento)
     return rechazoEntrada('Evento no encontrado', 'Este evento ya no existe.')
 
-  const fechaLarga = formatearFechaDMY(evento.fecha)
+  const fechaLarga = evento.fechaInicio
+    ? evento.fechaInicio.toDate().toLocaleDateString('es-AR')
+    : ''
 
   // VALIDAR HORARIO DEL EVENTO
   const validEv = validarHorarioEvento(evento)
@@ -226,13 +235,16 @@ export async function validarTicket(payload, eventoForzado = null) {
     const tiempo = tiempoTranscurrido(data.usadoEn)
     return rechazoEntrada('Entrada ya usada', `Validada hace ${tiempo}.`)
   }
-
-  // FREE
+  // FREE — validar horario del lote
   if (data.precio === 0) {
     const lote = evento.lotes?.[data.loteIndice]
+
     if (lote) {
-      const val = validarHorarioFree(lote, evento.fecha)
-      if (!val.ok) return rechazoEntrada('Free fuera de horario', val.motivo)
+      const val = validarHorarioFree(lote, evento)
+
+      if (!val.ok) {
+        return rechazoEntrada('Free fuera de horario', val.motivo)
+      }
     }
   }
 
@@ -374,12 +386,30 @@ export async function marcarCompraRetirada(id) {
 
 export async function detectarTipoPorFirestore(id) {
   const e = await getDoc(doc(db, 'entradas', id))
-  if (e.exists()) return { tipo: 'entrada', entradaId: id, esEntrada: true }
+  if (e.exists()) {
+    return {
+      tipo: 'entrada',
+      entradaId: id,
+      esEntrada: true,
+      esCompra: false,
+    }
+  }
 
   const c = await getDoc(doc(db, 'compras', id))
-  if (c.exists()) return { tipo: 'compra', compraId: id, esCompra: true }
+  if (c.exists()) {
+    return {
+      tipo: 'compra',
+      compraId: id,
+      esEntrada: false,
+      esCompra: true,
+    }
+  }
 
-  return { tipo: 'desconocido' }
+  return {
+    tipo: 'desconocido',
+    esEntrada: false,
+    esCompra: false,
+  }
 }
 
 function tiempoTranscurrido(timestamp) {

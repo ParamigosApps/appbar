@@ -48,9 +48,6 @@ export function clampCantidad(v, min, max) {
 }
 
 // --------------------------------------------------------------
-// 🔥 CREAR / ACTUALIZAR SOLICITUD PENDIENTE (transferencias)
-// --------------------------------------------------------------
-// --------------------------------------------------------------
 // 🔥 CREAR / ACTUALIZAR SOLICITUD PENDIENTE (transferencia)
 // --------------------------------------------------------------
 export async function crearSolicitudPendiente(
@@ -58,12 +55,6 @@ export async function crearSolicitudPendiente(
   usuarioId,
   entradaBase
 ) {
-  console.log('🧾 crearSolicitudPendiente()', {
-    eventoId,
-    usuarioId,
-    entradaBase,
-  })
-
   const filtros = [
     where('eventoId', '==', eventoId),
     where('usuarioId', '==', usuarioId),
@@ -144,4 +135,28 @@ export async function crearSolicitudPendiente(
     monto: updated * precioUnitario,
     actualizadaEn: new Date().toISOString(),
   })
+}
+
+export async function obtenerTotalPendientes({
+  eventoId,
+  usuarioId,
+  loteId = null,
+}) {
+  if (!eventoId || !usuarioId) return 0
+
+  const filtros = [
+    where('eventoId', '==', eventoId),
+    where('usuarioId', '==', usuarioId),
+  ]
+
+  if (loteId) {
+    filtros.push(where('lote.id', '==', loteId))
+  }
+
+  const q = query(collection(db, 'entradasPendientes'), ...filtros)
+
+  const snap = await getDocs(q)
+
+  console.log('⏳ totalPendientes:', snap.size)
+  return snap.size
 }

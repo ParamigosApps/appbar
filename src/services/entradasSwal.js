@@ -194,15 +194,15 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
             totalObtenidas > 0
               ? `
             <div class="limite-row">
-              <span class="label">Tus entradas:</span>
+              <span class="label infoCantEntradas">Tus entradas:</span>
               <span class="value infoCantEntradas">${totalObtenidas}</span>
             </div>`
               : ''
           }
 
           <div class="limite-row">
-            <span class="label">Máximo permitido por cuenta:</span>
-            <span class="value infoCantEntradas">
+            <span class="label infoMaximoEntradas ">Máximo por cuenta:</span>
+            <span class="value infoMaximoEntradas">
               ${evento.entradasPorUsuario ?? '—'}
             </span>
           </div>
@@ -211,14 +211,14 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
             totalPendientes > 0
               ? `
             <div class="limite-row">
-              <span class="label">Pendientes:</span>
-              <span class="value infoCantEntradas">${totalPendientes}</span>
+              <span class="label infoCantPendientes">Entradas pendientes:</span>
+              <span class="value infoCantPendientes">${totalPendientes}</span>
             </div>`
               : ''
           }
 
           <div class="limite-row total">
-            <span class="label">Disponibles ahora:</span>
+            <span class="label infoDisponiblesEntradas">Disponibles ahora:</span>
             <span class="value highlight">${disponiblesAhora}</span>
           </div>
         </div>

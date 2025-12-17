@@ -82,6 +82,7 @@ export async function pedirEntradaFreeConLote({
       cancelButton: 'swal-btn-cancel',
     },
     buttonsStyling: false,
+    timerProgressBar: true,
     timer: 3500,
   })
 
@@ -139,7 +140,25 @@ export async function pedirEntradaFreeSinLote({
 
   await cargarEntradasUsuario(usuarioId)
 
-  await Swal.fire('¡Listo!', `${cantidad} entrada(s) generadas 🎟️`, 'success')
+  Swal.fire({
+    title: '¡Entradas generadas!',
+    html: `
+      <p style="font-size:18px;font-weight:600;text-align:center;">
+        ${cantidad} entrada(s) para <b>${evento.nombre}</b> 🎟️
+      </p>
+    `,
+    icon: 'success',
+    showCancelButton: true,
+    confirmButtonText: 'Ir a Mis Entradas',
+    cancelButtonText: 'Cerrar',
+    customClass: {
+      confirmButton: 'swal-btn-confirm',
+      cancelButton: 'swal-btn-cancel',
+    },
+    buttonsStyling: false,
+    timer: 3500,
+    timerProgressBar: true,
+  })
 
   return generadas
 }
