@@ -326,7 +326,7 @@ export default function AdminProductos() {
         </form>
 
         {/* LISTA DE PRODUCTOS */}
-        <h4 className="fw-bold mt-5 mb-2">Productos cargados</h4>
+        <h4 className="fw-bold mt-5 mb-4">Productos cargados</h4>
 
         {productos.length === 0 ? (
           <p className="text-muted">No hay productos todavía.</p>

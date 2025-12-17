@@ -139,7 +139,7 @@ export default function EntradasVendidas() {
   // --------------------------------------------------------------
   return (
     <div>
-      <h4 className="fw-bold mb-3">Entradas Vendidas / Aprobadas</h4>
+      <h4 className="fw-bold mb-3 mt-4">Entradas Vendidas / Aprobadas</h4>
 
       {/* BUSQUEDA */}
       <div className="d-flex flex-wrap gap-2 mb-3">
@@ -168,11 +168,15 @@ export default function EntradasVendidas() {
         const col = colorEvento(idx)
 
         const allTickets = Object.values(users).flatMap(u => u.tickets)
-        const totalMonto = allTickets.reduce(
-          (a, e) => a + e.precio * e.cantidad,
-          0
-        )
-        const unidades = allTickets.reduce((a, e) => a + e.cantidad, 0)
+        const totalMonto = allTickets.reduce((a, e) => {
+          const precio =
+            Number(e.precioUnitario) ||
+            Number(e.lote?.precio) ||
+            Number(e.precio) ||
+            0
+          return a + precio
+        }, 0)
+        const unidades = allTickets.length
         const compradores = Object.keys(users).length
 
         const usadas = allTickets.filter(t => t.usado).length
@@ -240,10 +244,14 @@ export default function EntradasVendidas() {
                 .map(([key, data]) => {
                   const tickets = data.tickets
 
-                  const totalUser = tickets.reduce(
-                    (a, e) => a + e.precio * e.cantidad,
-                    0
-                  )
+                  const totalUser = tickets.reduce((a, e) => {
+                    const precio =
+                      Number(e.precioUnitario) ||
+                      Number(e.lote?.precio) ||
+                      Number(e.precio) ||
+                      0
+                    return a + precio
+                  }, 0)
 
                   const dni = tickets[0]?.dni || '—'
                   const usadas = tickets.filter(t => t.usado).length
@@ -259,7 +267,8 @@ export default function EntradasVendidas() {
                           cantidad: 0,
                         }
                       }
-                      acc[key].cantidad += t.cantidad
+                      acc[key].cantidad += 1
+
                       return acc
                     }, {})
                   )

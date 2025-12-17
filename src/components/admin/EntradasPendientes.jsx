@@ -303,7 +303,7 @@ export default function EntradasPendientes() {
   // ------------------------------------------------------------
   return (
     <div>
-      <h4 className="fw-bold mb-3">Entradas Pendientes</h4>
+      <h4 className="fw-bold mb-3 mt-4">Entradas Pendientes</h4>
 
       {procesada.map(evento => {
         const isOpen = openKey === evento.eventoId
