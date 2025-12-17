@@ -324,7 +324,7 @@ export default function CrearEvento({ setSeccion = () => {} }) {
   }
 
   return (
-    <section>
+    <section className="crear-evento-page">
       <h2 className="fw-bold mb-3">Crear Evento</h2>
       <div className="container py-3">
         <form onSubmit={handleSubmit} className="border rounded p-3 shadow-sm">

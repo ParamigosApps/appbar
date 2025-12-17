@@ -129,7 +129,9 @@
 ------------------------------------------------------------ */
 .admin-content {
   background: #ffffff;
-  padding: 25px;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 10px;
 
   border-radius: 12px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
@@ -252,11 +254,152 @@
   .stat-card h4 {
     font-size: 1.4rem;
   }
+
+  .eventos-page {
+    padding: 0;
+  }
+
+  .eventos-container {
+    padding: 6px;
+  }
+
+  /* Card */
+  .evento-card {
+    margin-bottom: 10px;
+  }
+
+  .evento-card .card-body {
+    padding: 10px;
+  }
+
+  /* Header: forzar columna */
+  .evento-card .d-flex.justify-content-between {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 8px;
+  }
+
+  /* Título */
+  .evento-card h5 {
+    font-size: 0.95rem;
+    line-height: 1.25;
+  }
+
+  .evento-card .badge {
+    font-size: 0.65rem;
+    padding: 4px 6px;
+    margin-left: 4px;
+  }
+
+  /* Texto info */
+  .evento-card p {
+    font-size: 0.8rem;
+    margin-bottom: 2px;
+  }
+
+  /* Botonera */
+  .evento-card .text-end {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .evento-card .btn {
+    width: 100%;
+    font-size: 0.75rem;
+    padding: 6px;
+  }
+
+  /* Imagen */
+  .evento-card img {
+    max-height: 140px !important;
+    margin-top: 8px;
+  }
+
+  .crear-evento-page {
+    padding: 0;
+  }
+
+  /* Contenedor general */
+  .crear-evento-page .container {
+    padding: 8px;
+  }
+
+  /* Form principal */
+  .crear-evento-page form {
+    padding: 10px !important;
+  }
+
+  /* Labels más compactos */
+  .crear-evento-page label {
+    margin-bottom: 4px;
+    font-size: 0.85rem;
+  }
+
+  /* Inputs */
+  .crear-evento-page .form-control,
+  .crear-evento-page .form-select {
+    padding: 6px 8px;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+  }
+
+  /* Editor TipTap */
+  .crear-evento-page .border.rounded.p-2 {
+    padding: 6px;
+    min-height: 120px;
+  }
+
+  /* Texto contador */
+  .crear-evento-page small {
+    font-size: 0.75rem;
+  }
+
+  /* Lotes */
+  .crear-evento-page .row.g-2 {
+    --bs-gutter-x: 0.5rem;
+    --bs-gutter-y: 0.5rem;
+  }
+
+  .crear-evento-page .border.rounded.p-2.bg-light {
+    padding: 8px;
+    margin-bottom: 10px;
+  }
+
+  /* Forzar columnas a una sola */
+  .crear-evento-page .col-md-2,
+  .crear-evento-page .col-md-4,
+  .crear-evento-page .col-md-12 {
+    width: 100%;
+  }
+
+  /* Botón agregar lote */
+  .crear-evento-page .btn-outline-dark {
+    width: 100%;
+    padding: 8px;
+    font-size: 0.9rem;
+  }
+
+  /* Divider */
+  .crear-evento-page .form-divider {
+    margin: 12px 0;
+  }
+
+  /* Botón submit */
+  .crear-evento-page .swal-btn-confirm {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+  }
 }
 
-/* ================================
-   RESPONSIVE
-================================ */
+@media (min-width: 1200px) {
+  .admin-content {
+    padding: 40px;
+  }
+}
 
 .badge-editable {
   cursor: pointer;

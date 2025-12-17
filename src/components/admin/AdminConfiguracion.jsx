@@ -1,13 +1,8 @@
-// -------------------------------------------------------------------
-// AdminConfiguracion.jsx — CONFIGURACIÓN TOTAL (FINAL PRO 2025)
-// Acordeón + Indicadores + Validaciones automáticas
-// -------------------------------------------------------------------
-
 import { useEffect, useState } from 'react'
 import { db } from '../../Firebase.js'
 import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore'
 import Swal from 'sweetalert2'
-
+import { swalSuccess, swalError } from '../../utils/swalUtils.js'
 // ============================================================
 // HELPERS VALIDACIÓN
 // ============================================================
@@ -139,22 +134,35 @@ export default function AdminConfiguracion() {
   // ============================================================
   async function guardarPermisos() {
     await updateDoc(doc(db, 'configuracion', 'permisos'), permisos)
-    Swal.fire('OK', 'Permisos actualizados', 'success')
+    swalSuccess({
+      title: 'Accesos de empleados',
+      text: 'Actualizados con exito',
+    })
   }
 
   async function guardarBanco() {
     if (!esCbuValido(datosBanco.cbuBanco)) {
-      Swal.fire('Error', 'CBU inválido (22 dígitos)', 'error')
+      swalError({
+        title: 'Error',
+        text: 'CBU inválido (22 dígitos)',
+      })
       return
     }
 
     await setDoc(doc(db, 'configuracion', 'datosBancarios'), datosBanco)
-    Swal.fire('OK', 'Datos bancarios guardados', 'success')
+    swalSuccess({
+      title: 'Datos bancarios',
+      text: 'Actualizados con exito',
+    })
   }
 
   async function guardarRedes() {
     await setDoc(doc(db, 'configuracion', 'social'), social)
-    Swal.fire('OK', 'Redes sociales guardadas', 'success')
+
+    swalSuccess({
+      title: 'Redes sociales',
+      text: 'Actualizadas con exito',
+    })
   }
 
   if (!permisos) return <p>Cargando configuración...</p>
