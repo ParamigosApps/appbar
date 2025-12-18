@@ -157,7 +157,7 @@ export default function EntradasEventos() {
 
             {/* BOTÓN */}
             <button
-              className="btn btn-dark mt-2 w-100"
+              className="btn swal-btn-confirm mt-2 w-50 d-block mx-auto"
               onClick={() => pedirEntrada(evento)}
             >
               {tieneLotes ? 'Ver opciones de entrada' : 'Pedir entrada'}

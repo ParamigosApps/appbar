@@ -40,3 +40,17 @@ export async function cargarEventoPorId(id) {
     return null
   }
 }
+
+export async function obtenerLotesOrdenados(eventoId) {
+  const q = query(
+    collection(db, 'eventos', eventoId, 'lotes'),
+    orderBy('precio', 'asc') // 🔑 0 primero → gratis
+  )
+
+  const snap = await getDocs(q)
+
+  return snap.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  }))
+}

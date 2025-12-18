@@ -23,34 +23,92 @@ function crearSwalConTheme(theme = 'light') {
   })
 }
 
+function estadoLote(l, evento) {
+  if (!evento?.fecha) return 'invalido'
+
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+
+  const fechaEvento = new Date(evento.fecha)
+  fechaEvento.setHours(0, 0, 0, 0)
+
+  if (fechaEvento.getTime() === hoy.getTime()) return 'hoy'
+  if (fechaEvento > hoy) return 'proximo'
+  return 'pasado'
+}
+
 // ======================================================================
 // SELECCIÓN DE LOTE
 // ======================================================================
 export async function abrirSeleccionLote(evento, lotes, theme = 'light') {
   const MySwal = crearSwalConTheme(theme)
+  const lotesOrdenados = [...lotes].sort((a, b) => {
+    // 1️⃣ Estado del evento
+    const ea = estadoLote(a, evento)
+    const eb = estadoLote(b, evento)
+
+    const ordenEstado = { hoy: 0, proximo: 1, pasado: 2 }
+    if (ordenEstado[ea] !== ordenEstado[eb]) {
+      return ordenEstado[ea] - ordenEstado[eb]
+    }
+
+    // 2️⃣ Precio (GRATIS primero)
+    const pa = Number(a.precio ?? 0)
+    const pb = Number(b.precio ?? 0)
+
+    if (pa !== pb) {
+      return pa - pb // 0 primero → GRATIS
+    }
+
+    // 3️⃣ Mismo precio → más stock primero
+    return (b.restantes ?? 0) - (a.restantes ?? 0)
+  })
 
   return await MySwal.fire({
     title: `<span class="swal-title-main">${evento.nombre}</span>`,
 
     html: `
       <div class="lotes-scroll">
-        <div class="lotes-wrapper">
-${lotes
+        <div id="swal-lotes" class="lotes-wrapper">
+${lotesOrdenados
   .map(l => {
     const agotado = l.restantes <= 0
     const porc =
       l.cantidad > 0 ? Math.round((l.restantes / l.cantidad) * 100) : 0
 
+    const estado = estadoLote(l, evento)
+    const esHoy = estado === 'hoy'
+    const esPasado = estado === 'pasado'
+
+    const generoRaw = l.genero?.toLowerCase()
+
     const generoClase =
-      l.genero?.toLowerCase() === 'mujeres'
+      generoRaw === 'mujeres'
         ? 'badge-rose'
-        : l.genero?.toLowerCase() === 'hombres'
+        : generoRaw === 'hombres'
         ? 'badge-blue'
         : 'badge-unisex'
 
-    const generoBadge = `<span class="lote-badge ${generoClase}">${(
-      l.genero || 'UNISEX'
-    ).toUpperCase()}</span>`
+    // etiqueta fija + valor en badge (imitando COSTO)
+    const generoLabel =
+      generoRaw === 'mujeres' || generoRaw === 'hombres'
+        ? 'EXCLUSIVO:'
+        : 'GÉNERO:'
+
+    const generoValue =
+      generoRaw === 'mujeres'
+        ? 'MUJERES'
+        : generoRaw === 'hombres'
+        ? 'HOMBRES'
+        : 'TODOS'
+
+    // ✅ MISMA IDEA QUE COSTO: <label> + <valor>
+    const generoBadge = `
+  <div class="lote-costo-box lote-genero-box">
+    <span class="lote-label">${generoLabel}</span>
+    <span class="lote-badge ${generoClase}">${generoValue}</span>
+  </div>
+`
 
     const consumicionBadge = l.incluyeConsumicion
       ? `<span class="lote-badge badge-consu-ok">🍸 CON CONSUMICIÓN</span>`
@@ -69,12 +127,25 @@ ${lotes
           : `<span class="lote-badge badge-orange">POCOS CUPOS</span>`
     }
 
+    const badgeHoy = esHoy
+      ? `<span class="lote-badge badge-hoy">🟢 HOY</span>`
+      : ''
+
     const fechaHtml =
-      evento.fecha && formatearSoloFecha ? formatearSoloFecha(evento.fecha) : ''
+      evento.fechaInicio && formatearSoloFecha
+        ? `<div class="lote-fecha-top-abs">${formatearSoloFecha(
+            evento.fechaInicio
+          )}</div>`
+        : ''
+
+    const mostrarCTA = !agotado && !esPasado
 
     return `
-<div class="lote-card ${agotado ? 'lote-sin-cupos' : ''}" data-id="${l.index}">
-  ${fechaHtml ? `<div class="lote-fecha-top-abs">${fechaHtml}</div>` : ''}
+<div class="lote-card ${agotado ? 'lote-sin-cupos' : ''} ${
+      esPasado ? 'lote-pasado' : ''
+    }" data-id="${l.index}">
+
+  ${fechaHtml}
 
   <div class="lote-nombre-principal">
     <span class="lote-label">LOTE:</span> ${String(l.nombre).toUpperCase()}
@@ -94,13 +165,7 @@ ${lotes
   </div>
 
   <div class="lote-badges">
-  <span class="lote-label">${
-    l.genero?.toLowerCase() === 'hombres' ||
-    l.genero?.toLowerCase() === 'mujeres'
-      ? 'EXCLUSIVO: '
-      : 'GÉNERO: '
-  }</span>
-  
+    ${badgeHoy}
     ${generoBadge}
     ${consumicionBadge}
     ${badgeStock}
@@ -113,8 +178,10 @@ ${lotes
 
   <div class="lote-footer-flex">
     ${
-      agotado
-        ? `<div class="lote-agotado-btn">AGOTADO</div>`
+      !mostrarCTA
+        ? `<div class="lote-agotado-btn">${
+            esPasado ? 'NO VIGENTE' : 'AGOTADO'
+          }</div>`
         : `<div class="lote-select-mini">ADQUIRIR</div>`
     }
   </div>
@@ -122,6 +189,7 @@ ${lotes
 `
   })
   .join('')}
+
         </div>
       </div>
     `,

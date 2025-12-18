@@ -78,12 +78,20 @@ export default function MisEntradas() {
           }
         }
 
+        const precioEntrada = Number(e.precioUnitario ?? e.precio ?? 0)
+
         if (!mapRef.current[eventoKey].lotes[loteKey]) {
           mapRef.current[eventoKey].lotes[loteKey] = {
             lote: e.lote || null,
+            precioUnitario: precioEntrada,
             ticketsAprobados: [],
             ticketsPendientes: [],
           }
+        } else {
+          mapRef.current[eventoKey].lotes[loteKey].precioUnitario = Math.min(
+            mapRef.current[eventoKey].lotes[loteKey].precioUnitario,
+            precioEntrada
+          )
         }
 
         mapRef.current[eventoKey].lotes[loteKey].ticketsAprobados.push({
@@ -174,6 +182,37 @@ export default function MisEntradas() {
   }
 
   // ============================================================
+  // ORDEN LOTES (FREE -> más caro)
+  // ============================================================
+  function parsePrecio(valor) {
+    if (valor === null || valor === undefined) return 0
+    if (typeof valor === 'number') return Number.isFinite(valor) ? valor : 0
+
+    // strings tipo "$5.000", "5.000", "5000", "ARS 7000"
+    const soloDigitos = String(valor).replace(/[^\d]/g, '')
+    const n = Number(soloDigitos)
+    return Number.isFinite(n) ? n : 0
+  }
+
+  function getPrecioLote(l) {
+    // 1) precio dentro del objeto lote
+    const p1 = parsePrecio(l?.lote?.precio)
+    const p2 = parsePrecio(l?.lote?.precioUnitario)
+
+    // 2) fallback: si por algún motivo lo guardaste a nivel entrada/loteGroup
+    const p3 = parsePrecio(l?.precio)
+    const p4 = parsePrecio(l?.precioUnitario)
+
+    return p1 || p2 || p3 || p4 || 0
+  }
+
+  function esFreeLote(l) {
+    // Regla: FREE si el precio “real” da 0
+    // (esto cubre lote null + precioUnitario 0, strings vacíos, etc.)
+    return getPrecioLote(l) === 0
+  }
+
+  // ============================================================
   // RENDER
   // ============================================================
   if (!user) {
@@ -194,64 +233,73 @@ export default function MisEntradas() {
         {grupos.length === 0 ? (
           <p className="text-center text-secondary">No tenés entradas aún.</p>
         ) : (
-          grupos.map((g, idx) => (
-            <div key={idx} className="card p-3 shadow-sm rounded-4">
-              <h5 className="fw-bold m-0">{g.nombreEvento}</h5>
+          grupos.map((g, idx) => {
+            const tieneEntradasAprobadas = Object.values(g.lotes).some(
+              l => l.ticketsAprobados.length > 0
+            )
 
-              <p className="mb-0 mt-1">
-                📅 {formatearSoloFecha(g.fechaEvento)} — 🕑 {g.horaInicio} a{' '}
-                {g.horaFin}
-              </p>
+            return (
+              <div key={idx} className="card p-3 shadow-sm rounded-4">
+                <h5 className="fw-bold m-0">{g.nombreEvento}</h5>
 
-              <p className="mb-0">📍 {g.lugar}</p>
+                <p className="mb-0 mt-1">
+                  📅 {formatearSoloFecha(g.fechaEvento)} — 🕑 {g.horaInicio} a{' '}
+                  {g.horaFin}
+                </p>
 
-              {Object.values(g.lotes).map((l, i) => {
-                const aprobadas = l.ticketsAprobados.length
-                const pendientes = l.ticketsPendientes.length
-                const total = aprobadas + pendientes
+                <p className="mb-0">📍 {g.lugar}</p>
 
-                return (
-                  <div
-                    key={i}
-                    className="ticket-card mt-2 p-3 rounded-4 shadow-sm"
-                  >
-                    {/* HEADER */}
-                    <div className="d-flex justify-content-between align-items-center mb-1">
-                      <div className="fw-bold">
-                        🎟 {l.lote?.nombre || 'Entrada general'}
+                {Object.values(g.lotes)
+                  .sort((a, b) => a.precioUnitario - b.precioUnitario)
+
+                  .map((l, i) => {
+                    const aprobadas = l.ticketsAprobados.length
+                    const pendientes = l.ticketsPendientes.length
+                    const total = aprobadas + pendientes
+
+                    return (
+                      <div key={i} className="ticket-card rounded-4 shadow-sm ">
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                          <div className="fw-bold">
+                            🎟 {l.lote?.nombre || 'Entrada general'}
+                          </div>
+
+                          {pendientes > 0 ? (
+                            <Badge color="warning">Pendiente</Badge>
+                          ) : (
+                            <Badge color="success">Entradas pagas</Badge>
+                          )}
+                        </div>
+
+                        <div className="ticket-info text-muted">
+                          Cantidad: <strong>{total}</strong>
+                        </div>
                       </div>
+                    )
+                  })}
 
-                      {pendientes > 0 ? (
-                        <Badge color="warning">Pendiente</Badge>
-                      ) : (
-                        <Badge color="success">Listas para usar</Badge>
-                      )}
-                    </div>
+                {/* BOTÓN ÚNICO POR EVENTO */}
+                {tieneEntradasAprobadas && (
+                  <button
+                    className="btn swal-btn-confirm w-50 d-block mx-auto mt-3"
+                    onClick={() => {
+                      const lotesArray = Object.values(g.lotes)
 
-                    {/* INFO */}
-                    <div className="ticket-info text-muted mb-2">
-                      <span>Cantidad:</span> <strong>{total}</strong>
-                    </div>
-
-                    {/* CTA */}
-                    {aprobadas > 0 && (
-                      <button
-                        className="btn btn-dark btn-sm w-100 ticket-btn"
-                        onClick={() =>
-                          abrirModalQr({
-                            ...g,
-                            ...l,
-                          })
-                        }
-                      >
-                        {aprobadas === 1 ? 'Ver entrada' : 'Ver entradas'}
-                      </button>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          ))
+                      abrirModalQr({
+                        ...g,
+                        ticketsAprobados: lotesArray.flatMap(
+                          l => l.ticketsAprobados
+                        ),
+                        lote: null,
+                      })
+                    }}
+                  >
+                    Ver QR
+                  </button>
+                )}
+              </div>
+            )
+          })
         )}
       </div>
 
@@ -276,13 +324,6 @@ export default function MisEntradas() {
                 <p className="qr-sub mb-1">📍 {qrModal.lugar}</p>
               )}
 
-              {qrModal.lote?.nombre && (
-                <p className="qr-sub fw-semibold">
-                  🎟 {qrModal.lote.nombre}
-                  {qrModal.lote?.incluyeConsumicion && ' 🍹'}
-                </p>
-              )}
-
               <div className="qr-divider" />
             </div>
 
@@ -305,7 +346,6 @@ export default function MisEntradas() {
 
             <button
               className="swal-btn-alt mt-3"
-              id="btn-cerrar"
               onClick={() => setQrModal(null)}
             >
               Cerrar

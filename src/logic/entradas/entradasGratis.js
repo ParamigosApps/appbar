@@ -49,9 +49,15 @@ export async function pedirEntradaFreeConLote({
       usuarioId,
       usuarioNombre,
       evento,
-      lote: loteSel,
+
       metodo: 'free',
       precioUnitario: 0,
+
+      lote: {
+        id: loteSel?.id ?? null,
+        nombre: loteSel?.nombre ?? 'Entrada general',
+      },
+
       cantidad: 1,
       estado: 'aprobada',
       aprobadaPor: 'sistema',

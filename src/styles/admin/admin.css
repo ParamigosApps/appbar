@@ -690,10 +690,11 @@
   box-sizing: border-box;
 }
 
-#swal2-html-container {
+/* SWAL CAUSA DEFORMACION EN LOTE DE ENTRADAS */
+/* #swal2-html-container {
   max-width: 400px;
   margin: 0 auto;
-}
+} */
 #evento-select {
   min-width: 340px;
   margin: 0 auto;

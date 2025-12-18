@@ -476,6 +476,9 @@
   border-radius: 12px;
   margin-bottom: 16px;
   font-size: 0.9rem;
+  max-width: 350px;
+  max-height: 130;
+  margin: 0 auto;
 }
 
 .limite-row {
@@ -646,22 +649,24 @@
 }
 
 /* LOGO */
-.method-mp .mp-logo {
+.method-mp {
   height: 32px; /* 🔹 un poco más chico */
-  width: auto;
+  max-width: 160px;
   display: block;
 }
-
+.mp-logo {
+  width: 120px;
+}
 .method-transfer {
   background: var(--color-primary);
-  color: #565555;
+  color: #3e3d3d;
 
   height: 52px;
   width: 46%;
-  max-width: 360px;
+  max-width: 160px;
   border-radius: 14px;
-  font-size: 0.8rem;
-  font-weight: 680;
+  font-size: 0.95rem;
+  font-weight: 700;
 
   cursor: pointer;
 

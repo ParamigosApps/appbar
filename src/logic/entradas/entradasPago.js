@@ -17,14 +17,30 @@ import { serverTimestamp } from 'firebase/firestore'
 // =============================================================
 export async function manejarMercadoPago({
   evento,
-  precio,
+  loteSel, // ✅ NUEVO
+  precioUnitario, // ✅ EXPLÍCITO
   cantidadSel,
   usuarioId,
   eventoId,
 }) {
-  // 🛑 DEFENSA BÁSICA
-  if (!evento || !precio || !cantidadSel || !usuarioId || !eventoId) {
-    console.warn('⚠️ manejarMercadoPago llamado con datos incompletos')
+  // 🛑 DEFENSA REAL
+  if (
+    !evento ||
+    !eventoId ||
+    !usuarioId ||
+    !loteSel ||
+    typeof precioUnitario !== 'number' ||
+    precioUnitario <= 0 ||
+    !cantidadSel
+  ) {
+    console.warn('⚠️ manejarMercadoPago llamado con datos inválidos', {
+      evento,
+      loteSel,
+      precioUnitario,
+      cantidadSel,
+      usuarioId,
+      eventoId,
+    })
     return
   }
 
@@ -32,7 +48,9 @@ export async function manejarMercadoPago({
     console.log('🔵 manejarMercadoPago()', {
       eventoId,
       usuarioId,
-      precio,
+      loteId: loteSel.id,
+      loteNombre: loteSel.nombre,
+      precioUnitario,
       cantidadSel,
     })
 
@@ -40,12 +58,17 @@ export async function manejarMercadoPago({
       usuarioId,
       eventoId,
       eventoNombre: evento.nombre,
+
+      // 🔑 CLAVES
+      loteId: loteSel.id ?? null,
+      loteNombre: loteSel.nombre,
+
       cantidad: cantidadSel,
-      precio,
-      imagenEventoUrl: evento.imagenEventoUrl || evento.imagen,
+      precioUnitario,
+
+      imagenEventoUrl: evento.imagenEventoUrl || evento.imagen || '',
     })
 
-    // ❌ URL inválida → mostrar error
     if (typeof url !== 'string' || !url.startsWith('http')) {
       console.warn('⚠️ URL inválida Mercado Pago:', url)
 
@@ -92,9 +115,21 @@ export async function manejarTransferencia({
   usuarioNombre,
   eventoId,
 }) {
-  // 🛑 DEFENSA BÁSICA
-  if (!evento || !precio || !cantidadSel || !usuarioId || !eventoId) {
-    console.warn('⚠️ manejarTransferencia llamado con datos incompletos')
+  if (
+    !evento ||
+    !eventoId ||
+    !usuarioId ||
+    typeof precio !== 'number' ||
+    precio <= 0 ||
+    !cantidadSel
+  ) {
+    console.warn('⚠️ manejarTransferencia llamado con datos inválidos', {
+      evento,
+      precio,
+      cantidadSel,
+      usuarioId,
+      eventoId,
+    })
     return
   }
 
@@ -227,22 +262,16 @@ export async function manejarTransferencia({
       horaInicio: evento.horaInicio,
       horaFin: evento.horaFin,
 
-      // 🎟️ LOTE
+      // 🎟️ LOTE — NORMALIZADO (CLAVE)
       lote: loteSel
         ? {
             id: loteSel.id ?? loteSel.index ?? null,
             nombre: loteSel.nombre,
-            descripcion: loteSel.descripcion || '',
-            precio,
-            genero: loteSel.genero || 'todos',
-            incluyeConsumicion: !!loteSel.incluyeConsumicion,
-            desdeHora: loteSel.desdeHora || '',
-            hastaHora: loteSel.hastaHora || '',
           }
         : null,
 
       // COMPRA
-      metodo: 'transferencia',
+      metodo: 'transfer', // ✅ CLAVE
       precioUnitario: precio,
       cantidad: cantidadSel,
       total: precio * cantidadSel,
@@ -252,7 +281,6 @@ export async function manejarTransferencia({
       // 🔴 CLAVE PARA EL ADMIN
       ultimaModificacionPor: 'usuario',
       ultimaModificacionEn: serverTimestamp(),
-
       creadoEn: serverTimestamp(),
     })
 

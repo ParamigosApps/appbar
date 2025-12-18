@@ -146,7 +146,7 @@ export function AuthProvider({ children }) {
       cerrarLoginGlobal()
     } catch (err) {
       console.error(err)
-      toast.error('Error al iniciar sesión con Google')
+      // toast.error('Error al iniciar sesión con Google')
     }
   }
 
