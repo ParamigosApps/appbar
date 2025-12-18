@@ -62,7 +62,9 @@ export default function MenuAcordeon() {
     catalogoVisible,
     abrirProductoDetalle,
   } = useCatalogo()
-  const { eventos, historial, misEntradas } = useEntradas()
+
+  const { eventos, historialEntradas, misEntradas } = useEntradas()
+
   const {
     user,
     loginSettings,
@@ -379,66 +381,27 @@ export default function MenuAcordeon() {
                       <h6 className="fw-bold mb-2">
                         Historial de entradas usadas
                       </h6>
-
+                      {!user && !loading && (
+                        <p className="text-center text-danger mt-3">
+                          Debés iniciar sesión para ver tu historial de
+                          entradas.
+                        </p>
+                      )}
                       {loading && (
                         <p className="text-muted text-center">
                           Verificando sesión...
                         </p>
                       )}
 
-                      {!loading && !user && (
-                        <>
-                          {loginSettings.google && (
-                            <button
-                              className="google-btn d-block mx-auto mb-2"
-                              onClick={loginGoogle}
-                            >
-                              <img src={googleIcon} alt="Google" />
-                              <span>Iniciar sesión con Google</span>
-                            </button>
-                          )}
-
-                          {loginSettings.facebook && (
-                            <button
-                              className="facebook-btn-small d-block mx-auto mb-3"
-                              onClick={loginFacebook}
-                            >
-                              <span className="facebook-icon-box">
-                                <img src={facebookIcon} alt="Facebook" />
-                              </span>
-                              Iniciar sesión con Facebook
-                            </button>
-                          )}
-                        </>
-                      )}
-
-                      {!loading && user && (
-                        <div>
-                          <p className="fw-bold fs-5">
-                            Hola,{' '}
-                            {user.displayName ||
-                              user.nombre ||
-                              user.phoneNumber}
-                          </p>
-
-                          <button
-                            className="google-btn logout mx-auto"
-                            onClick={logout}
-                          >
-                            Cerrar sesión
-                          </button>
-                        </div>
-                      )}
-
-                      {user && historial?.length === 0 && (
+                      {user && historialEntradas?.length === 0 && (
                         <p className="text-muted m-0">
                           Aún no tienes historial.
                         </p>
                       )}
 
-                      {user && historial?.length > 0 && (
+                      {user && historialEntradas?.length > 0 && (
                         <ul className="m-0 ps-3">
-                          {historial.map(h => (
+                          {historialEntradas.map(h => (
                             <li key={h.id} className="text-muted">
                               {h.nombreEvento} — {h.fechaUso}
                             </li>

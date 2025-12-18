@@ -1,37 +1,37 @@
 // --------------------------------------------------------------
-// AdminRoute.jsx — Protección REAL con loading + permisos (FIX)
+// AdminRoute.jsx — PROTECCIÓN FINAL DEFINITIVA (nivel1..nivel4)
 // --------------------------------------------------------------
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 
 export default function AdminRoute({ modulo }) {
-  const { adminUser, rolUsuario, permisos, loading } = useAuth()
+  const { adminUser, rolUsuario, permisos, loading, logout } = useAuth()
 
-  // ⏳ Mientras carga auth → no mostrar nada PERO sin romper navegación
+  // ⏳ Esperar TODO
   if (loading) {
-    return <div style={{ padding: 40, textAlign: 'center' }}>Cargando...</div>
-  }
-
-  if (!adminUser) return <Navigate to="/acceso" replace />
-
-  // 🔐 Permisos aún no disponibles
-  if (!permisos || !permisos[`nivel${rolUsuario}`]) {
     return (
-      <div style={{ padding: 40, textAlign: 'center' }}>
-        Verificando permisos...
-      </div>
+      <div style={{ padding: 40, textAlign: 'center' }}>Cargando permisos…</div>
     )
   }
 
-  const lista = permisos[`nivel${rolUsuario}`]
+  if (!adminUser) {
+    return <Navigate to="/acceso" replace />
+  }
 
-  // ✅ Acceso total
-  if (lista.includes('*')) {
+  const claveNivel = `nivel${Number(rolUsuario)}`
+  const listaPermisos = permisos?.[claveNivel]
+
+  if (!Array.isArray(listaPermisos)) {
+    console.error('❌ Permisos faltantes para', claveNivel, permisos)
+    setTimeout(() => logout(), 0)
+    return <Navigate to="/acceso" replace />
+  }
+
+  if (listaPermisos.includes('*')) {
     return <Outlet />
   }
 
-  // ❌ No tiene permiso para el módulo
-  if (modulo && !lista.includes(modulo)) {
+  if (modulo && !listaPermisos.includes(modulo)) {
     return <Navigate to="/" replace />
   }
 

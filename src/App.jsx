@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 // Estilos globales
 
 import Layout from './components/layout/Layout.jsx'
+import NotificacionesListener from './components/NotificacionesListener'
 
 // PÁGINAS PÚBLICAS
 import Home from './pages/Home.jsx'
@@ -30,6 +31,7 @@ import { ToastContainer } from 'react-toastify'
 export default function App() {
   return (
     <BrowserRouter>
+      <NotificacionesListener />
       {/* 🔔 TOASTIFY GLOBAL */}
       <ToastContainer
         position="top-center"

@@ -30,7 +30,7 @@ export async function pedirEntradaFreeConLote({
   if (maxPermitido <= 0) {
     return Swal.fire('Sin cupos', 'Este lote ya no tiene lugares.', 'info')
   }
-
+  const operacionId = crypto.randomUUID()
   const cantidad = normalizarCantidad(cantidadSel, maxPermitido)
   const generadas = []
 
@@ -54,6 +54,8 @@ export async function pedirEntradaFreeConLote({
       precioUnitario: 0,
       cantidad: 1,
       estado: 'aprobada',
+      aprobadaPor: 'sistema',
+      operacionId,
       qr: qrData,
     })
 
@@ -67,7 +69,7 @@ export async function pedirEntradaFreeConLote({
   await cargarEntradasUsuario(usuarioId)
 
   const res = await Swal.fire({
-    title: '¡Entradas generadas!',
+    title: cantidad === 1 ? '¡Entrada generada!' : '¡Entradas generadas!',
     html: `
       <p style="font-size:18px;font-weight:600;text-align:center;">
         ${cantidad} entrada(s) para <b>${evento.nombre}</b> 🎟️
@@ -110,6 +112,8 @@ export async function pedirEntradaFreeSinLote({
     return Swal.fire('Sin cupos', 'No tenés cupos disponibles.', 'info')
   }
 
+  const operacionId = crypto.randomUUID()
+
   const cantidad = normalizarCantidad(cantidadSel, maxPermitido)
   const generadas = []
 
@@ -132,6 +136,8 @@ export async function pedirEntradaFreeSinLote({
       precioUnitario: 0,
       cantidad: 1,
       estado: 'aprobada',
+      aprobadaPor: 'sistema',
+      operacionId,
       qr: qrData,
     })
 
@@ -140,8 +146,8 @@ export async function pedirEntradaFreeSinLote({
 
   await cargarEntradasUsuario(usuarioId)
 
-  Swal.fire({
-    title: '¡Entradas generadas!',
+  const fin = await Swal.fire({
+    title: cantidad === 1 ? '¡Entrada generada!' : '¡Entradas generadas!',
     html: `
       <p style="font-size:18px;font-weight:600;text-align:center;">
         ${cantidad} entrada(s) para <b>${evento.nombre}</b> 🎟️
@@ -150,7 +156,7 @@ export async function pedirEntradaFreeSinLote({
     icon: 'success',
     showCancelButton: true,
     confirmButtonText: 'Ir a Mis Entradas',
-    cancelButtonText: 'Cerrar',
+    cancelButtonText: 'Seguir en eventos',
     customClass: {
       confirmButton: 'swal-btn-confirm',
       cancelButton: 'swal-btn-cancel',
@@ -159,6 +165,8 @@ export async function pedirEntradaFreeSinLote({
     timer: 3500,
     timerProgressBar: true,
   })
-
+  if (fin.isConfirmed) {
+    document.dispatchEvent(new Event('abrir-mis-entradas'))
+  }
   return generadas
 }

@@ -242,12 +242,18 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   // SCANNER INIT
   // --------------------------------------------------------------
   useEffect(() => {
+    if (modo !== 'entradas') return
+
+    // ⛔ No iniciar scanner sin evento
+    if (!eventoSeleccionado) return
+
     if (!initialized.current) {
       initialized.current = true
       setTimeout(iniciarScanner, 300)
     }
+
     return () => detenerScanner()
-  }, [])
+  }, [modo, eventoSeleccionado])
 
   async function iniciarScanner() {
     const el = document.getElementById('qr-reader')
@@ -293,6 +299,7 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
 
       let dec = decodificarQr(text)
       let payload = analizarPayload(dec)
+
       // 🔍 Si el QR no indica tipo, lo resolvemos contra Firestore
       const idPlano =
         payload.entradaId ||
@@ -318,21 +325,62 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
       let res = null
 
       // =========================
-      // MODO ENTRADAS
+      // MODO ENTRADAS — FINAL PROD
       // =========================
       if (modo === 'entradas') {
+        // 1️⃣ Resolver tipo si el QR es mínimo
+        if (!payload.esEntrada) {
+          if (!payload.id) {
+            mostrarError('QR inválido')
+            return
+          }
+
+          const detectado = await detectarTipoPorFirestore(payload.id)
+          payload = { ...payload, ...detectado }
+        }
+
+        // 2️⃣ A esta altura, SOLO Firestore decide
         if (!payload.esEntrada) {
           mostrarError('QR no corresponde a una entrada')
           return
         }
 
-        res = await validarTicket(payload, eventoSeleccionado)
-        mostrarResultado(res)
+        // 3️⃣ Validación REAL (Firestore)
+        const resultadoValidacion = await validarTicket(
+          payload,
+          eventoSeleccionado
+        )
 
-        if (res?.ok && res.tipo === 'entrada') {
-          await marcarEntradaUsada(res.data.id)
-          cargarEstadisticasEvento(res.data.eventoId || eventoSeleccionado)
+        // 4️⃣ Fallo de validación
+        if (!resultadoValidacion?.ok) {
+          mostrarResultado(resultadoValidacion)
+          return
         }
+
+        // 5️⃣ Comparación FINAL de evento
+        if (resultadoValidacion.data.eventoId !== eventoSeleccionado) {
+          console.warn('⛔ Evento incorrecto', {
+            scanner: eventoSeleccionado,
+            entrada: resultadoValidacion.data.eventoId,
+          })
+
+          mostrarError(
+            'Esta entrada pertenece a otro evento y no puede validarse aquí.'
+          )
+          return
+        }
+
+        // 6️⃣ OK
+        console.log('🎯 EVENTO OK', {
+          evento: eventoSeleccionado,
+          entrada: resultadoValidacion.data.eventoId,
+        })
+
+        mostrarResultado(resultadoValidacion)
+
+        // 7️⃣ Marcar como usada
+        await marcarEntradaUsada(resultadoValidacion.data.id)
+        cargarEstadisticasEvento(eventoSeleccionado)
 
         return
       }

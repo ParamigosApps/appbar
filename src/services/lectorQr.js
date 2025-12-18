@@ -82,15 +82,24 @@ export function decodificarQr(rawText) {
 export function analizarPayload(info) {
   console.log('🟡 analizarPayload RAW:', info)
 
+  // ❌ QR sin payload
   if (!info?.payload) {
     return {
       tipo: 'desconocido',
+      id: null,
+      entradaId: null,
+      compraId: null,
       esEntrada: false,
       esCompra: false,
     }
   }
 
   const base = info.payload
+
+  // 🔑 ID REAL (siempre uno solo)
+  const id = base.id || base.entradaId || base.compraId || base.ticketId || null
+
+  // 🔖 Tipo declarado (si viene)
   const tipo = base.tipo || 'desconocido'
 
   const esEntrada = tipo === 'entrada'
@@ -98,15 +107,19 @@ export function analizarPayload(info) {
 
   const result = {
     ...base,
+
+    // Normalizados
+    id,
     tipo,
-    entradaId: esEntrada ? base.id || base.entradaId || null : null,
-    compraId: esCompra ? base.id || base.compraId || null : null,
-    ticketId: base.ticketId || null,
+
+    entradaId: esEntrada ? id : null,
+    compraId: esCompra ? id : null,
+
     esEntrada,
     esCompra,
   }
 
-  console.log('✅ Payload procesado:', result)
+  console.log('✅ Payload procesado FINAL:', result)
 
   return result
 }
@@ -206,9 +219,15 @@ export async function validarTicket(payload, eventoForzado = null) {
 
   const data = snap.data()
 
+  if (eventoForzado && data.eventoId !== eventoForzado) {
+    return rechazoEntrada(
+      'Entrada de otro evento',
+      'Esta entrada no corresponde al evento seleccionado.'
+    )
+  }
   // Evento seleccionado o evento real de la entrada
-  const eventoIdFinal = eventoForzado || data.eventoId
-  const evento = await obtenerEvento(eventoIdFinal)
+  const eventoIdEntrada = data.eventoId
+  const evento = await obtenerEvento(eventoIdEntrada)
 
   if (!evento)
     return rechazoEntrada('Evento no encontrado', 'Este evento ya no existe.')
@@ -233,7 +252,10 @@ export async function validarTicket(payload, eventoForzado = null) {
   // YA USADA
   if (data.usado) {
     const tiempo = tiempoTranscurrido(data.usadoEn)
-    return rechazoEntrada('Entrada ya usada', `Validada hace ${tiempo}.`)
+    return rechazoEntrada(
+      `Entrada para ${data.nombreEvento} ya usada`,
+      `Validada hace ${tiempo}.`
+    )
   }
   // FREE — validar horario del lote
   if (data.precio === 0) {
@@ -275,11 +297,22 @@ export async function validarCompra(payload) {
   const { compraId } = payload
   if (!compraId) return rechazoCompra('QR inválido', 'Sin ID de compra.')
 
-  const snap = await getDoc(doc(db, 'compras', compraId))
-  if (!snap.exists())
-    return rechazoCompra('Compra inexistente', 'No se encontró.')
-
   const data = snap.data()
+
+  // ❌ Entrada de otro evento
+  if (eventoForzado && data.eventoId !== eventoForzado) {
+    return rechazoEntrada(
+      'Entrada de otro evento',
+      'Esta entrada no corresponde al evento seleccionado.'
+    )
+  }
+
+  // 🔒 SIEMPRE usar el evento REAL de la entrada
+  const eventoIdEntrada = data.eventoId
+  const evento = await obtenerEvento(eventoIdEntrada)
+
+  if (!evento)
+    return rechazoEntrada('Evento no encontrado', 'Este evento ya no existe.')
 
   if (data.retirada) {
     const fecha = data.retiradaEn?.toDate

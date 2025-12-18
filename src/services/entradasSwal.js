@@ -115,7 +115,7 @@ ${lotes
     ${
       agotado
         ? `<div class="lote-agotado-btn">AGOTADO</div>`
-        : `<div class="lote-select-mini">COMPRAR</div>`
+        : `<div class="lote-select-mini">ADQUIRIR</div>`
     }
   </div>
 </div>
@@ -334,7 +334,7 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
 // ======================================================================
 export async function swalEntradasGeneradas({ eventoNombre, cantidad }) {
   const res = await Swal.fire({
-    title: '¡Entradas generadas!',
+    title: cantidad === 1 ? '¡Entrada generada!' : '¡Entradas generadas!',
     html: `
       <p style="font-size:18px;font-weight:600;text-align:center;">
         ${cantidad} entrada(s) para <b>${eventoNombre}</b> fueron generadas 🎟️

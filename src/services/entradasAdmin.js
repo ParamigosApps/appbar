@@ -113,6 +113,7 @@ export async function aprobarEntrada(entrada) {
       loteNombre = null,
 
       pagado,
+      operacionId: operacionIdEntrada, // 👈 CLAVE
     } = entrada
 
     if (!eventoId || !usuarioId) {
@@ -122,6 +123,9 @@ export async function aprobarEntrada(entrada) {
     const cant = Number(cantidad) || 1
     const precioNum = Number(precio) || 0
 
+    // 🔥 RESPETAR OPERACIÓN DEL LOTE
+    const operacionId = operacionIdEntrada || crypto.randomUUID()
+
     // ----------------------------------------------------------
     // 1️⃣ Crear entradas reales
     // ----------------------------------------------------------
@@ -130,7 +134,6 @@ export async function aprobarEntrada(entrada) {
         eventoId,
         usuarioId,
         usuarioNombre: usuarioNombre || 'Usuario',
-
         nombreEvento: eventoNombre || 'Evento',
 
         fechaEvento: fechaEvento || fecha || null,
@@ -139,6 +142,15 @@ export async function aprobarEntrada(entrada) {
 
         lugar: lugar || '',
         horario: horario || '',
+
+        // 🔥 CAMPOS CLAVE PARA NOTIFICACIÓN
+        aprobadaPor: 'admin',
+        operacionId,
+
+        estado: 'aprobada',
+        metodo: 'transferencia',
+        pagado: pagado ?? true,
+        usado: false,
 
         precioUnitario: precioNum,
 
@@ -152,13 +164,9 @@ export async function aprobarEntrada(entrada) {
         loteIndice,
         loteNombre,
 
-        estado: 'aprobada',
-        metodo: 'transferencia',
-
-        pagado: pagado ?? true,
-        usado: false,
-
+        // timestamps
         creadoEn: serverTimestamp(),
+        aprobadaEn: serverTimestamp(),
       })
     }
 
@@ -166,18 +174,6 @@ export async function aprobarEntrada(entrada) {
     // 2️⃣ Eliminar pendiente
     // ----------------------------------------------------------
     await deleteDoc(doc(db, 'entradasPendientes', id))
-
-    // ----------------------------------------------------------
-    // 3️⃣ Notificación
-    // ----------------------------------------------------------
-    await addDoc(collection(db, 'notificaciones'), {
-      usuarioId,
-      nombreEvento: eventoNombre,
-      cantidad: cant,
-      tipo: 'entrada_aprobada',
-      creadoEn: serverTimestamp(),
-      visto: false,
-    })
 
     return true
   } catch (err) {

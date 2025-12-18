@@ -98,8 +98,6 @@ export async function crearEvento(datos, imagenArchivo = null) {
       creadoEn: serverTimestamp(),
     }
 
-    console.log('📦 Evento a guardar:', evento)
-
     await addDoc(collection(db, 'eventos'), evento)
     return true
   } catch (err) {

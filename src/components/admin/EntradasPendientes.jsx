@@ -15,6 +15,9 @@ import {
   swalSuccess,
 } from '../../utils/swalUtils'
 
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
+import { db } from '../../Firebase'
+
 // --------------------------------------------------------------
 // UTILIDADES
 // --------------------------------------------------------------
@@ -440,6 +443,8 @@ async function handleAprobarLote(lote) {
 
   if (!confirm.isConfirmed) return
 
+  const operacionId = crypto.randomUUID()
+
   for (const entrada of lote.entradas) {
     const precioUnitario =
       Number(entrada.precioUnitario) ||
@@ -450,7 +455,13 @@ async function handleAprobarLote(lote) {
     const entradaNormalizada = {
       ...entrada,
       precioUnitario,
-      lote: entrada.lote ?? { nombre: lote.loteNombre, precio: precioUnitario },
+      lote: entrada.lote ?? {
+        nombre: lote.loteNombre,
+        precio: precioUnitario,
+      },
+
+      // 🔥 ESTE CAMPO DISPARA LA NOTIFICACIÓN
+      operacionId,
     }
 
     const ok = await aprobarEntrada(entradaNormalizada)
@@ -458,6 +469,18 @@ async function handleAprobarLote(lote) {
       return Swal.fire('Error', 'Falló la aprobación del lote.', 'error')
     }
   }
+
+  // 🔔 NOTIFICAR UNA SOLA VEZ POR LOTE
+  await addDoc(collection(db, 'notificaciones'), {
+    usuarioId: ref.usuarioId,
+    tipo: 'entrada_aprobada',
+    nombreEvento: ref.eventoNombre,
+    cantidad: lote.cantidad,
+    operacionId,
+    creadoPor: 'admin',
+    creadoEn: serverTimestamp(),
+    visto: false,
+  })
 
   Swal.fire(
     'Lote aprobado',

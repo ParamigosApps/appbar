@@ -16,8 +16,6 @@ import { db } from '../../Firebase.js'
 // CALCULAR CUPOS Y LÍMITES CORRECTOS
 // --------------------------------------------------------------
 export async function calcularCuposEvento(eventoId, usuarioId) {
-  console.log('🟦 calcularCuposEvento()', { eventoId, usuarioId })
-
   // 1) Cargar evento
   const snap = await getDoc(doc(db, 'eventos', eventoId))
   if (!snap.exists()) throw new Error('Evento no encontrado')

@@ -54,13 +54,31 @@ export function FirebaseProvider({ children }) {
   // =====================================================
   // 🔵 Verificar admin por email
   // =====================================================
-  function evaluarAdmin(usuario) {
-    if (!usuario) {
+  function evaluarAdmin(usuario, empleado) {
+    if (!usuario && !empleado) {
       setIsAdmin(false)
       return
     }
-    const esAdmin = ADMIN_EMAILS.includes(usuario.email)
-    setIsAdmin(esAdmin)
+
+    // 1️⃣ Admin manual
+    if (empleado?.manual && empleado?.nivel >= 4) {
+      setIsAdmin(true)
+      return
+    }
+
+    // 2️⃣ Empleado con nivel
+    if (empleado?.nivel >= 4) {
+      setIsAdmin(true)
+      return
+    }
+
+    // 3️⃣ Admin por email (fallback)
+    if (usuario?.email && ADMIN_EMAILS.includes(usuario.email)) {
+      setIsAdmin(true)
+      return
+    }
+
+    setIsAdmin(false)
   }
 
   // =====================================================
@@ -69,15 +87,16 @@ export function FirebaseProvider({ children }) {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async currentUser => {
       setUser(currentUser)
-      evaluarAdmin(currentUser)
+
+      let empleado = null
 
       if (currentUser) {
-        // cargar permisos desde empleados/{uid}
-        await cargarEmpleadoFirestore(currentUser.uid)
+        empleado = await cargarEmpleadoFirestore(currentUser.uid)
       } else {
         setEmpleadoData(null)
       }
 
+      evaluarAdmin(currentUser, empleado)
       setLoading(false)
     })
 
@@ -93,12 +112,17 @@ export function FirebaseProvider({ children }) {
       const snap = await getDoc(ref)
 
       if (snap.exists()) {
-        setEmpleadoData({ id: snap.id, ...snap.data() })
-      } else {
-        setEmpleadoData(null) // no es empleado
+        const data = { id: snap.id, ...snap.data() }
+        setEmpleadoData(data)
+        return data
       }
+
+      setEmpleadoData(null)
+      return null
     } catch (error) {
       console.error('Error cargando empleado:', error)
+      setEmpleadoData(null)
+      return null
     }
   }
 

@@ -12,7 +12,7 @@ import {
 } from 'firebase/firestore'
 
 import { db } from '../Firebase.js'
-import { useFirebase } from './FirebaseContext.jsx'
+
 import { useAuth } from './AuthContext.jsx'
 import { useQr } from './QrContext.jsx'
 
@@ -49,7 +49,6 @@ export const useEntradas = () => useContext(EntradasContext)
 // PROVIDER
 // --------------------------------------------------------------
 export function EntradasProvider({ children }) {
-  const { user } = useFirebase()
   const { abrirLoginGlobal } = useAuth()
   const { mostrarQrReact } = useQr()
 
@@ -57,7 +56,30 @@ export function EntradasProvider({ children }) {
   const [misEntradas, setMisEntradas] = useState([])
   const [entradasPendientes, setEntradasPendientes] = useState([])
   const [entradasUsadas, setEntradasUsadas] = useState([])
+
+  const [historialEntradas, setHistorialEntradas] = useState([])
   const [loadingEventos, setLoadingEventos] = useState(true)
+  const { user, loading } = useAuth()
+
+  // ----------------------------------------------------------
+  // CARGAR HISTORIAL DE ENTRADAS USADAS
+  // ----------------------------------------------------------
+  async function cargarHistorial(uid) {
+    try {
+      const q = query(
+        collection(db, 'entradas'),
+        where('usuarioId', '==', uid),
+        where('usado', '==', true)
+      )
+
+      const snap = await getDocs(q)
+
+      setHistorialEntradas(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    } catch (e) {
+      console.error('❌ Error cargando historial:', e)
+      setHistorialEntradas([])
+    }
+  }
 
   // ----------------------------------------------------------
   // CARGAR EVENTOS
@@ -76,6 +98,18 @@ export function EntradasProvider({ children }) {
     }
     cargar()
   }, [])
+  // ----------------------------------------------------------
+  // CARGAR HISTORIAL ENTRADAS USUARIO
+  // ----------------------------------------------------------
+
+  useEffect(() => {
+    if (!user?.uid) {
+      setHistorialEntradas([])
+      return
+    }
+
+    cargarHistorial(user.uid)
+  }, [user])
 
   // ----------------------------------------------------------
   // CARGAR ENTRADAS USUARIO
@@ -343,45 +377,6 @@ export function EntradasProvider({ children }) {
       Swal.fire('Error', 'Ocurrió un error inesperado.', 'error')
     }
   }
-  // ============================================================
-  // 🔔 NOTIFICACIÓN: ENTRADA APROBADA
-  // ============================================================
-  useEffect(() => {
-    if (!user) return
-
-    const q = query(
-      collection(db, 'entradas'),
-      where('usuarioId', '==', user.uid)
-    )
-
-    let firstLoad = true
-
-    const unsub = onSnapshot(q, snap => {
-      if (firstLoad) {
-        firstLoad = false
-        return
-      }
-
-      snap.docChanges().forEach(change => {
-        if (change.type === 'added') {
-          const e = change.doc.data()
-
-          Swal.fire({
-            icon: 'success',
-            title: '🎉 Entrada aprobada',
-            html: `
-            <b>${e.nombreEvento}</b><br/>
-            Tu entrada ya está disponible.
-          `,
-            timer: 3500,
-            showConfirmButton: false,
-          })
-        }
-      })
-    })
-
-    return () => unsub()
-  }, [user])
 
   // --------------------------------------------------------------
   // EXPORTAR
@@ -395,11 +390,13 @@ export function EntradasProvider({ children }) {
         misEntradas,
         entradasPendientes,
         entradasUsadas,
+        historialEntradas,
 
         pedirEntrada,
         cargarEntradasUsuario,
         recargarPendientes,
         cargarEntradasUsadas,
+        cargarHistorial,
       }}
     >
       {children}

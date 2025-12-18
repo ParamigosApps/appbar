@@ -115,10 +115,10 @@ export default function AdminConfiguracion() {
       setPermisos(snap.data())
     } else {
       const base = {
-        nivel1: ['dashboard'],
-        nivel2: ['dashboard', 'qr', 'caja'],
-        nivel3: ['dashboard', 'qr', 'caja', 'eventos', 'productos'],
-        nivel4: ['*'],
+        1: ['dashboard'],
+        2: ['dashboard', 'qr', 'caja'],
+        3: ['dashboard', 'qr', 'caja', 'eventos', 'productos'],
+        4: ['*'],
       }
       await setDoc(ref, base)
       setPermisos(base)

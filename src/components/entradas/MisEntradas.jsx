@@ -1,9 +1,9 @@
 // --------------------------------------------------------------
 // src/components/entradas/MisEntradas.jsx
-// MIS ENTRADAS PRO 2025 — REALTIME FINAL
+// MIS ENTRADAS PRO 2025 — FINAL DEFINITIVO
 // --------------------------------------------------------------
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef } from 'react'
 import {
   collection,
   onSnapshot,
@@ -16,6 +16,7 @@ import { db } from '../../Firebase.js'
 import { useFirebase } from '../../context/FirebaseContext.jsx'
 import { generarEntradaQr } from '../../services/generarQrService.js'
 import { formatearSoloFecha } from '../../utils/utils.js'
+import Swal from 'sweetalert2'
 
 // ============================================================
 // BADGE
@@ -33,20 +34,20 @@ function Badge({ children, color = 'secondary' }) {
 // ============================================================
 export default function MisEntradas() {
   const { user } = useFirebase()
+  const mapRef = useRef({})
 
   const [grupos, setGrupos] = useState([])
   const [loading, setLoading] = useState(true)
   const [qrModal, setQrModal] = useState(null)
 
   // ============================================================
-  // 🔥 REALTIME: ENTRADAS + PENDIENTES
+  // 🔥 ENTRADAS + PENDIENTES (SOLO UI, SIN NOTIFICAR)
   // ============================================================
   useEffect(() => {
     if (!user) return
 
     setLoading(true)
-
-    let map = {}
+    mapRef.current = {}
 
     // -----------------------------
     // ENTRADAS APROBADAS
@@ -58,8 +59,6 @@ export default function MisEntradas() {
     )
 
     const unsubAprobadas = onSnapshot(qAprobadas, snap => {
-      map = {}
-
       snap.forEach(docSnap => {
         const e = docSnap.data()
         const id = docSnap.id
@@ -67,8 +66,8 @@ export default function MisEntradas() {
         const eventoKey = e.eventoId
         const loteKey = e.lote?.nombre || 'Entrada general'
 
-        if (!map[eventoKey]) {
-          map[eventoKey] = {
+        if (!mapRef.current[eventoKey]) {
+          mapRef.current[eventoKey] = {
             eventoId: e.eventoId,
             nombreEvento: e.nombreEvento,
             lugar: e.lugar,
@@ -79,15 +78,18 @@ export default function MisEntradas() {
           }
         }
 
-        if (!map[eventoKey].lotes[loteKey]) {
-          map[eventoKey].lotes[loteKey] = {
+        if (!mapRef.current[eventoKey].lotes[loteKey]) {
+          mapRef.current[eventoKey].lotes[loteKey] = {
             lote: e.lote || null,
             ticketsAprobados: [],
             ticketsPendientes: [],
           }
         }
 
-        map[eventoKey].lotes[loteKey].ticketsAprobados.push(id)
+        mapRef.current[eventoKey].lotes[loteKey].ticketsAprobados.push({
+          id,
+          usado: e.usado === true,
+        })
       })
     })
 
@@ -107,8 +109,8 @@ export default function MisEntradas() {
         const eventoKey = p.eventoId
         const loteKey = p.lote?.nombre || p.loteNombre || 'Entrada general'
 
-        if (!map[eventoKey]) {
-          map[eventoKey] = {
+        if (!mapRef.current[eventoKey]) {
+          mapRef.current[eventoKey] = {
             eventoId: p.eventoId,
             nombreEvento: p.eventoNombre,
             lugar: p.lugar,
@@ -119,8 +121,8 @@ export default function MisEntradas() {
           }
         }
 
-        if (!map[eventoKey].lotes[loteKey]) {
-          map[eventoKey].lotes[loteKey] = {
+        if (!mapRef.current[eventoKey].lotes[loteKey]) {
+          mapRef.current[eventoKey].lotes[loteKey] = {
             lote: p.lote || null,
             ticketsAprobados: [],
             ticketsPendientes: [],
@@ -129,11 +131,13 @@ export default function MisEntradas() {
 
         const cant = Number(p.cantidad) || 1
         for (let i = 0; i < cant; i++) {
-          map[eventoKey].lotes[loteKey].ticketsPendientes.push(id + '_' + i)
+          mapRef.current[eventoKey].lotes[loteKey].ticketsPendientes.push(
+            `${id}_${i}`
+          )
         }
       })
 
-      setGrupos(Object.values(map))
+      setGrupos(Object.values(mapRef.current))
       setLoading(false)
     })
 
@@ -144,18 +148,18 @@ export default function MisEntradas() {
   }, [user])
 
   // ============================================================
-  // ABRIR MODAL QR
+  // MODAL QR
   // ============================================================
   const abrirModalQr = data => {
     setQrModal(data)
 
     setTimeout(() => {
-      data.ticketsAprobados.forEach(ticketId => {
-        const cont = document.getElementById(`qr_${ticketId}`)
+      data.ticketsAprobados.forEach(t => {
+        const cont = document.getElementById(`qr_${t.id}`)
         if (!cont) return
 
         generarEntradaQr({
-          ticketId,
+          ticketId: t.id,
           qrContainer: cont,
           eventoNombre: data.nombreEvento,
           loteNombre: data.lote?.nombre || 'Entrada general',
@@ -207,25 +211,32 @@ export default function MisEntradas() {
                 const total = aprobadas + pendientes
 
                 return (
-                  <div key={i} className="mt-2 p-2 rounded bg-light small">
-                    <div className="d-flex justify-content-between">
-                      <strong>🎟 {l.lote?.nombre || 'Entrada general'}</strong>
+                  <div
+                    key={i}
+                    className="ticket-card mt-2 p-3 rounded-4 shadow-sm"
+                  >
+                    {/* HEADER */}
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <div className="fw-bold">
+                        🎟 {l.lote?.nombre || 'Entrada general'}
+                      </div>
 
-                      {pendientes > 0 && (
-                        <Badge color="warning">PENDIENTE</Badge>
-                      )}
-                      {pendientes === 0 && aprobadas > 0 && (
-                        <Badge color="primary">APROBADA</Badge>
+                      {pendientes > 0 ? (
+                        <Badge color="warning">Pendiente</Badge>
+                      ) : (
+                        <Badge color="success">Listas para usar</Badge>
                       )}
                     </div>
 
-                    <div className="text-muted d-flex justify-content-between">
-                      <span>Cantidad: {total}</span>
+                    {/* INFO */}
+                    <div className="ticket-info text-muted mb-2">
+                      <span>Cantidad:</span> <strong>{total}</strong>
                     </div>
 
+                    {/* CTA */}
                     {aprobadas > 0 && (
                       <button
-                        className="btn btn-dark btn-sm w-100 mt-1"
+                        className="btn btn-dark btn-sm w-100 ticket-btn"
                         onClick={() =>
                           abrirModalQr({
                             ...g,
@@ -244,31 +255,59 @@ export default function MisEntradas() {
         )}
       </div>
 
-      {/* ================= MODAL QR ================= */}
+      {/* MODAL QR */}
       {qrModal && (
         <div className="qr-overlay" onClick={() => setQrModal(null)}>
           <div className="qr-card" onClick={e => e.stopPropagation()}>
             <div className="qr-header">
               <p className="qr-title fw-bold mb-1">{qrModal.nombreEvento}</p>
+
               <p className="qr-sub text-muted mb-1">
                 📅 {formatearSoloFecha(qrModal.fechaEvento)}
               </p>
+
+              {qrModal.horaInicio && qrModal.horaFin && (
+                <p className="qr-sub mb-1">
+                  ⏰ {qrModal.horaInicio} a {qrModal.horaFin}
+                </p>
+              )}
+
+              {qrModal.lugar && (
+                <p className="qr-sub mb-1">📍 {qrModal.lugar}</p>
+              )}
+
+              {qrModal.lote?.nombre && (
+                <p className="qr-sub fw-semibold">
+                  🎟 {qrModal.lote.nombre}
+                  {qrModal.lote?.incluyeConsumicion && ' 🍹'}
+                </p>
+              )}
+
+              <div className="qr-divider" />
             </div>
 
-            <div className="qr-divider"></div>
-
             <div className="qr-scroll">
-              {qrModal.ticketsAprobados.map((id, i) => (
-                <div key={id} className="qr-item">
-                  <div id={`qr_${id}`} className="qr-box"></div>
-                  <button className="btn btn-sm btn-dark mt-2">
-                    Entrada #{i + 1}
+              {qrModal.ticketsAprobados.map((t, i) => (
+                <div key={t.id} className={`qr-item ${t.usado ? 'usado' : ''}`}>
+                  {t.usado && <div className="qr-overlay-usado">QR USADO</div>}
+
+                  <div id={`qr_${t.id}`} className="qr-box"></div>
+
+                  <button
+                    className="btn swal-btn-confirm mt-1"
+                    disabled={t.usado}
+                  >
+                    Descargar QR: #{i + 1}
                   </button>
                 </div>
               ))}
             </div>
 
-            <button className="qr-btn" onClick={() => setQrModal(null)}>
+            <button
+              className="swal-btn-alt mt-3"
+              id="btn-cerrar"
+              onClick={() => setQrModal(null)}
+            >
               Cerrar
             </button>
           </div>

@@ -16,8 +16,6 @@ export async function generarEntradaQr({
   try {
     if (!ticketId) throw new Error('Falta ticketId para generar el QR')
 
-    console.log('🟦 generarEntradaQr() →', ticketId)
-
     const div = qrContainer || document.createElement('div')
     div.innerHTML = ''
     div.style.display = 'flex'
