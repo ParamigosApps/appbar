@@ -7,15 +7,15 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { to, subject, html } = req.body
-
-  if (!to || !subject || !html) {
-    return res.status(400).json({ error: 'Faltan datos' })
-  }
-
   try {
+    const { to, subject, html } = req.body
+
+    if (!to || !subject || !html) {
+      return res.status(400).json({ error: 'Missing fields' })
+    }
+
     const data = await resend.emails.send({
-      from: process.env.MAIL_FROM, // AppBar <noreply@mail.todovaper.com.ar>
+      from: process.env.MAIL_FROM,
       to,
       subject,
       html,
@@ -23,7 +23,11 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ ok: true, data })
   } catch (err) {
-    console.error('MAIL ERROR:', err)
-    return res.status(500).json({ error: 'Error enviando mail' })
+    console.error('SEND MAIL ERROR:', err)
+
+    return res.status(500).json({
+      ok: false,
+      error: err.message || 'Mail error',
+    })
   }
 }
