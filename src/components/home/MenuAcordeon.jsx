@@ -568,24 +568,8 @@ export default function MenuAcordeon() {
                       )}
                     </>
                   )}
-
-                  {user && (
-                    <div>
-                      <p className="fw-bold fs-5">
-                        Hola, {user.displayName || user.phoneNumber}
-                      </p>
-
-                      <button
-                        className="google-btn logout mx-auto"
-                        onClick={logout}
-                      >
-                        <img src={googleIcon} alt="logout" />
-                        Cerrar sesión
-                      </button>
-                    </div>
-                  )}
-
-                  {mostrarTelefono && (
+                  {/* LOGIN TELÉFONO SOLO SI NO HAY USER */}
+                  {!user && mostrarTelefono && (
                     <section className="auth-telefono-container mt-3 telefono-row mx-auto">
                       <input
                         id="phoneInput"
@@ -623,6 +607,36 @@ export default function MenuAcordeon() {
 
                       <div id="recaptcha-container"></div>
                     </section>
+                  )}
+
+                  {user && (
+                    <div>
+                      {(user?.nombre || user?.displayName) && (
+                        <p className="fw-bold fs-5 mb-0">
+                          Hola, {user.nombre || user.displayName}
+                        </p>
+                      )}
+
+                      {user.phoneNumber && (
+                        <p className="text-muted small mb-2">
+                          {user.phoneNumber}
+                        </p>
+                      )}
+
+                      <button
+                        className={`google-btn mx-auto mt-2 ${
+                          user.provider === 'google'
+                            ? 'google-btn logout'
+                            : 'btn-outline-dark'
+                        }`}
+                        onClick={logout}
+                      >
+                        {user.provider === 'google' && (
+                          <img src={googleIcon} alt="Google" />
+                        )}
+                        Cerrar sesión
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

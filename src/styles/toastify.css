@@ -1,9 +1,42 @@
-.toast-full-mobile {
-  width: 100vw !important;
-  max-width: 100vw !important;
-  left: 0 !important;
-  margin: 0 !important;
-  border-radius: 0 !important;
-  text-align: center;
+/* ==============================
+   TOASTIFY — WHITE THEME PRO
+   ============================== */
+
+.Toastify__toast {
+  background: #ffffff !important;
+  color: #111111 !important;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   font-weight: 700;
+}
+
+/* Success */
+.Toastify__toast--success {
+  border-left: 6px solid #000;
+}
+
+/* Error */
+.Toastify__toast--error {
+  border-left: 6px solid #000;
+}
+
+/* Info / Warning */
+.Toastify__toast--info,
+.Toastify__toast--warning {
+  border-left: 6px solid #000;
+}
+
+/* Close button */
+.Toastify__close-button {
+  color: #000 !important;
+  opacity: 0.8;
+}
+
+.Toastify__close-button:hover {
+  opacity: 1;
+}
+
+/* Progress bar */
+.Toastify__progress-bar {
+  background: #000 !important;
 }

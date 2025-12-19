@@ -2,6 +2,7 @@
 // src/components/qr/ModalQrCompra.jsx — FINAL
 // --------------------------------------------------------------
 import Swal from 'sweetalert2'
+import { auth } from '../../Firebase.js'
 import whatsappIcon from '../../assets/img/whatsapp.png'
 // --------------------------------------------------------------
 // 🔵 mostrarQrCompraReact — Ticket igual al original + sin QR si retirado
@@ -24,7 +25,7 @@ export async function mostrarQrCompraReact(pedido, onClose) {
       estado = 'pendiente',
       lugar = 'Tienda',
       fechaHumana = formatearFecha(new Date()),
-      usuarioNombre = 'Usuario',
+      usuarioNombre = auth.currentUser.displayName || 'Usuario',
       retiradaEn = formatearFecha(new Date()),
     } = pedido
 

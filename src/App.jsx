@@ -99,6 +99,16 @@ export default function App() {
           <Route path="/admin/config" element={<AdminConfiguracion />} />
         </Route>
       </Routes>
+      {/* Toasts GLOBAL */}
+      <ToastContainer
+        position="top-center"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        pauseOnHover
+        draggable
+      />
     </BrowserRouter>
   )
 }
