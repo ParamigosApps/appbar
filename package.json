@@ -10,7 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@sparticuz/chromium": "^143.0.0",
     "@tiptap/react": "^3.13.0",
     "@tiptap/starter-kit": "^3.13.0",
     "bootstrap": "^5.3.8",
@@ -20,7 +19,6 @@
     "html5-qrcode": "^2.3.8",
     "jspdf": "^3.0.4",
     "mercadopago": "^2.11.0",
-    "puppeteer-core": "^24.34.0",
     "qrcode": "^1.5.4",
     "qrcodejs2": "^0.0.2",
     "qrcodejs2-fix": "^0.0.1",

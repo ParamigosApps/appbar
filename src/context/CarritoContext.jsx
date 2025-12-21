@@ -246,7 +246,7 @@ export function CarritoProvider({ children }) {
         </div>
       </div>
 
-      <div class="metodos-wrapper mt-3">
+      <div class="metodos-wrapper mt-3 mb-4">
         <!-- MERCADO PAGO -->
         <button
           id="mp"
@@ -319,16 +319,6 @@ export function CarritoProvider({ children }) {
           total,
           lugar: 'Tienda',
           pagado: false,
-        })
-
-        fetch('/api/enviar-ticket', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pedidoId: pedido.id, // 👈 CLAVE
-            to: user.email,
-            nombre: user.displayName || 'Usuario',
-          }),
         })
 
         if (!pedido) {

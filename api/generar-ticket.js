@@ -2,7 +2,6 @@ import { Resend } from 'resend'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../src/Firebase.js'
 
-import { generarPdfTicket } from '../src/services/generarPdfTicket.js'
 import { mailPedido } from '../src/services/mailTemplates.js'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
@@ -42,20 +41,6 @@ export default async function handler(req, res) {
     }
 
     // -----------------------------
-    // 🧾 Generar PDF REAL (HTML → PDF)
-    // -----------------------------
-    const pdfBase64 = await generarPdfTicket({
-      numeroPedido: pedido.numeroPedido,
-      estado: pedido.estado,
-      lugar: pedido.lugar,
-      fechaHumana: pedido.creadoEn?.toDate().toLocaleString('es-AR'),
-      items: pedido.items,
-      total: pedido.total,
-      qrText: pedido.qrText,
-      usuarioNombre: pedido.usuarioNombre || nombre || 'Cliente',
-    })
-
-    // -----------------------------
     // ✉️ Enviar mail con adjunto
     // -----------------------------
     const data = await resend.emails.send({
@@ -67,14 +52,10 @@ export default async function handler(req, res) {
         numeroPedido: pedido.numeroPedido,
         total: pedido.total,
         lugar: pedido.lugar,
-        fecha: pedido.creadoEn?.toDate(),
+        fecha: pedido.creadoEn?.toDate().toLocaleString('es-AR'),
+        qrBase64: pedido.qrBase64,
+        linkPedido: 'https://tu-dominio.com/mis-compras',
       }),
-      attachments: [
-        {
-          filename: `ticket-${pedido.numeroPedido}.pdf`,
-          content: pdfBase64,
-        },
-      ],
     })
 
     return res.status(200).json({ ok: true, data })
