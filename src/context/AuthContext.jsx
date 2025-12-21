@@ -24,6 +24,10 @@ import { toast } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import Swal from 'sweetalert2'
 
+import { guardarPerfilUsuario } from '../services/usuarioService'
+import { enviarMail } from '../services/mailService'
+import { mailLogin } from '../services/mailTemplates'
+
 // ============================================================
 // CONTEXT
 // ============================================================
@@ -81,9 +85,16 @@ export function AuthProvider({ children }) {
         try {
           const ref = doc(db, 'usuarios', u.uid)
           const snap = await getDoc(ref)
-          setUser(snap.exists() ? { ...u, ...snap.data() } : u)
-        } catch {
-          setUser(u)
+
+          if (snap.exists()) {
+            setUser({ ...u, ...snap.data() })
+          } else {
+            // ⚠️ Usuario sin perfil → tratar como no logueado
+            setUser(null)
+          }
+        } catch (err) {
+          console.error('Error cargando perfil:', err)
+          setUser(null)
         }
       } else {
         setUser(null)
@@ -93,6 +104,43 @@ export function AuthProvider({ children }) {
     })
 
     return () => unsub()
+  }, [])
+
+  useEffect(() => {
+    if (recaptchaRef.current) return
+
+    try {
+      recaptchaRef.current = new RecaptchaVerifier(
+        auth,
+        'recaptcha-container',
+        {
+          size: 'invisible',
+          callback: () => {
+            console.log('✅ reCAPTCHA listo')
+          },
+        }
+      )
+
+      recaptchaRef.current.render()
+    } catch (err) {
+      console.error('❌ Error inicializando reCAPTCHA', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    const handler = async () => {
+      if (!auth.currentUser) return
+
+      const ref = doc(db, 'usuarios', auth.currentUser.uid)
+      const snap = await getDoc(ref)
+
+      if (snap.exists()) {
+        setUser(u => ({ ...u, ...snap.data() }))
+      }
+    }
+
+    window.addEventListener('perfil-actualizado', handler)
+    return () => window.removeEventListener('perfil-actualizado', handler)
   }, [])
 
   // 🔑 cerrar loading solo cuando TODO esté listo
@@ -124,6 +172,18 @@ export function AuthProvider({ children }) {
     }
   }
 
+  function puedeEditarPerfil(user) {
+    if (!user?.provider) return false
+
+    // ❌ Google y Facebook: NO pueden editar nombre/email
+    if (user.provider === 'google' || user.provider === 'facebook') {
+      return false
+    }
+
+    // ✔️ Phone u otros
+    return true
+  }
+
   // ============================================================
   // LOGIN GOOGLE
   // ============================================================
@@ -132,8 +192,12 @@ export function AuthProvider({ children }) {
       const res = await signInWithPopup(auth, new GoogleAuthProvider())
       const u = res.user
 
+      const ref = doc(db, 'usuarios', u.uid)
+      const snap = await getDoc(ref)
+      const esPrimerLogin = !snap.exists()
+
       await setDoc(
-        doc(db, 'usuarios', u.uid),
+        ref,
         {
           uid: u.uid,
           email: u.email,
@@ -149,8 +213,20 @@ export function AuthProvider({ children }) {
         nombre: u.displayName || u.email,
         provider: 'google',
       })
+
+      // 📧 MAIL SOLO PRIMER LOGIN (NO BLOQUEANTE)
+      if (esPrimerLogin && u.email) {
+        enviarMail({
+          to: u.email,
+          subject: '👋 Bienvenido a AppBar',
+          html: mailLogin({
+            nombre: u.displayName || 'Hola',
+            provider: 'Google',
+          }),
+        }).catch(err => console.warn('⚠️ Mail de bienvenida no enviado:', err))
+      }
     } catch (err) {
-      console.error(err)
+      console.error('❌ Error login Google:', err)
       // toast.error('Error al iniciar sesión con Google')
     }
   }
@@ -163,8 +239,12 @@ export function AuthProvider({ children }) {
       const res = await signInWithPopup(auth, new FacebookAuthProvider())
       const u = res.user
 
+      const ref = doc(db, 'usuarios', u.uid)
+      const snap = await getDoc(ref)
+      const esPrimerLogin = !snap.exists()
+
       await setDoc(
-        doc(db, 'usuarios', u.uid),
+        ref,
         {
           uid: u.uid,
           email: u.email,
@@ -180,11 +260,26 @@ export function AuthProvider({ children }) {
         nombre: u.displayName || u.email,
         provider: 'facebook',
       })
+
+      // 📧 MAIL SOLO PRIMER LOGIN (NO BLOQUEANTE)
+      if (esPrimerLogin && u.email) {
+        enviarMail({
+          to: u.email,
+          subject: '👋 Bienvenido a AppBar',
+          html: mailLogin({
+            nombre: u.displayName || 'Hola',
+            provider: 'Facebook',
+          }),
+        }).catch(err =>
+          console.warn('⚠️ Mail bienvenida Facebook no enviado:', err)
+        )
+      }
     } catch (err) {
-      console.error(err)
-      toast.error('Error al iniciar sesión con Facebook')
+      console.error('❌ Error login Facebook:', err)
+      toast.error('No se pudo iniciar sesión con Facebook')
     }
   }
+
   function normalizarTelefonoAR(phone) {
     let p = phone.replace(/\D/g, '')
 
@@ -199,40 +294,6 @@ export function AuthProvider({ children }) {
   // ============================================================
   // LOGIN TELÉFONO
   // ============================================================
-  async function loginTelefonoEnviarCodigo(phone) {
-    if (!phone || phone.length < 8) {
-      toast.error('Ingresá un número válido')
-      return
-    }
-
-    try {
-      if (!recaptchaRef.current) {
-        recaptchaRef.current = new RecaptchaVerifier(
-          auth,
-          'recaptcha-container',
-          {
-            size: 'invisible',
-            callback: () => {},
-          }
-        )
-      } else {
-        recaptchaRef.current.clear()
-      }
-
-      const phoneOk = normalizarTelefonoAR(phone)
-
-      confirmationRef.current = await signInWithPhoneNumber(
-        auth,
-        phoneOk,
-        recaptchaRef.current
-      )
-
-      toast.success('Código enviado ')
-    } catch (err) {
-      console.error('PHONE AUTH ERROR:', err)
-      toast.error(err.code || 'Error enviando SMS')
-    }
-  }
 
   async function loginTelefonoValidarCodigo(code) {
     if (!confirmationRef.current) {
@@ -252,59 +313,44 @@ export function AuthProvider({ children }) {
       const ref = doc(db, 'usuarios', u.uid)
       const snap = await getDoc(ref)
 
-      let nombre = snap.exists() ? snap.data().nombre : null
+      const esPrimerLogin = !snap.exists()
+
+      let nombre = snap.exists() ? snap.data().nombre : ''
       let nombreConfirmado = snap.exists()
         ? snap.data().nombreConfirmado === true
         : false
 
-      // 👉 PRIMER LOGIN CON TELÉFONO → pedir nombre
-      if (!nombreConfirmado) {
-        const { value } = await Swal.fire({
-          title: '👤 Elegí tu nombre',
-          text: 'Este nombre se usará en tus compras y entradas',
-          input: 'text',
-          inputValue: nombre || '',
-          confirmButtonText: 'Guardar',
-          allowOutsideClick: false,
-          allowEscapeKey: false,
-          inputValidator: v =>
-            !v || v.trim().length < 2 ? 'Ingresá un nombre válido' : null,
+      let datos = null
+
+      if (esPrimerLogin || !nombreConfirmado) {
+        datos = await pedirNombreYEmail({
+          nombreActual: nombre,
+          emailActual: snap.exists() ? snap.data().email : '',
         })
 
-        nombre = value.trim()
-        nombreConfirmado = true
+        if (!datos) return
+
+        nombre = datos.nombre
       }
 
-      // 💾 Guardar datos definitivos
-      await setDoc(
-        ref,
-        {
-          uid: u.uid,
-          nombre,
-          nombreConfirmado,
-          phoneNumber: u.phoneNumber,
-          provider: 'phone',
-          creadoEn: serverTimestamp(),
-        },
-        { merge: true }
-      )
-
-      // ✅ setear usuario en contexto
-      setUser({
-        ...u,
+      const perfil = await guardarPerfilUsuario({
+        uid: u.uid,
         nombre,
-        nombreConfirmado,
+        emailNuevo: datos?.email ?? null,
         phoneNumber: u.phoneNumber,
         provider: 'phone',
       })
 
-      // 🧹 limpiar flujo temporal
-      confirmationRef.current = null
-      if (recaptchaRef.current) {
-        recaptchaRef.current.clear()
-        recaptchaRef.current = null
-      }
+      setUser({
+        ...u,
+        nombre: perfil.nombre,
+        email: perfil.email,
+        phoneNumber: u.phoneNumber,
+        provider: 'phone',
+      })
 
+      confirmationRef.current = null
+      recaptchaRef.current = null
       toast.success('Sesión iniciada')
     } catch (err) {
       console.error('ERROR VALIDANDO SMS:', err)
@@ -312,12 +358,119 @@ export function AuthProvider({ children }) {
       if (err.code === 'auth/invalid-verification-code') {
         toast.error('Código incorrecto')
       } else if (err.code === 'auth/code-expired') {
-        toast.error('El código expiró')
+        toast.error('El código expiró. Volvé a solicitarlo.')
+      } else if (err.code === 'auth/too-many-requests') {
+        toast.error('Demasiados intentos. Esperá unos minutos.')
       } else {
-        if (auth.currentUser) toast.error('No se pudo validar el código')
-        else console.log(auth.currentUser)
+        toast.error('No se pudo validar el código')
       }
     }
+  }
+
+  async function loginTelefonoEnviarCodigo(phoneRaw) {
+    if (!phoneRaw) {
+      toast.error('Ingresá un teléfono')
+      return
+    }
+
+    try {
+      const phone = normalizarTelefonoAR(phoneRaw)
+
+      // 🔒 Inicializar reCAPTCHA SOLO si no existe
+      if (!recaptchaRef.current) {
+        recaptchaRef.current = new RecaptchaVerifier(
+          auth,
+          'recaptcha-container',
+          {
+            size: 'invisible',
+            callback: () => {
+              console.log('✅ reCAPTCHA resuelto')
+            },
+            'expired-callback': () => {
+              console.warn('⚠️ reCAPTCHA expirado')
+              recaptchaRef.current = null
+            },
+          }
+        )
+
+        // 🔥 Importante: render explícito
+        await recaptchaRef.current.render()
+      }
+
+      const confirmation = await signInWithPhoneNumber(
+        auth,
+        phone,
+        recaptchaRef.current
+      )
+
+      confirmationRef.current = confirmation
+
+      toast.success('Código enviado por SMS')
+    } catch (err) {
+      console.error('ERROR ENVIANDO SMS:', err)
+
+      // 🔁 Resetear reCAPTCHA ante error
+      if (recaptchaRef.current) {
+        try {
+          recaptchaRef.current.clear()
+        } catch {}
+        recaptchaRef.current = null
+      }
+
+      if (err.code === 'auth/too-many-requests') {
+        toast.error('Demasiados intentos. Esperá unos minutos.')
+      } else if (err.code === 'auth/invalid-phone-number') {
+        toast.error('Número inválido')
+      } else if (err.code === 'auth/missing-recaptcha-token') {
+        toast.error('Error de verificación. Reintentá.')
+      } else {
+        toast.error('No se pudo enviar el código')
+      }
+    }
+  }
+
+  async function pedirNombreYEmail({
+    nombreActual = '',
+    emailActual = '',
+    titulo = '👤 Datos de tu cuenta',
+  }) {
+    const { value, isConfirmed } = await Swal.fire({
+      title: titulo,
+      html: `
+      <input id="swal-nombre" class="swal2-input" placeholder="Tu nombre" value="${nombreActual}">
+      <input id="swal-email" class="swal2-input" placeholder="Email (opcional)" value="${emailActual}">
+      <p style="font-size:12px;color:#777">
+        El email es opcional, pero te permite recibir tus entradas por correo.
+      </p>
+    `,
+      focusConfirm: false,
+      confirmButtonText: 'Guardar',
+      showCancelButton: false,
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      preConfirm: () => {
+        const nombre = document.getElementById('swal-nombre').value.trim()
+        const email = document.getElementById('swal-email').value.trim()
+
+        if (!nombre || nombre.length < 2) {
+          Swal.showValidationMessage('Ingresá un nombre válido')
+          return false
+        }
+
+        if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+          Swal.showValidationMessage('Email inválido')
+          return false
+        }
+
+        return {
+          nombre,
+          email: email || null,
+        }
+      },
+    })
+
+    if (!isConfirmed) return null
+    return value
   }
 
   // ============================================================
@@ -402,6 +555,7 @@ export function AuthProvider({ children }) {
         loginTelefonoValidarCodigo,
         loginAdminManual,
         logout,
+        puedeEditarPerfil,
       }}
     >
       {children}

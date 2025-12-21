@@ -1,13 +1,27 @@
-export async function enviarMail({ to, subject, html }) {
-  const res = await fetch('/api/sendMail', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ to, subject, html }),
-  })
+// --------------------------------------------------------------
+// mailService.js — SERVICIO CENTRALIZADO DE MAILS
+// --------------------------------------------------------------
 
-  if (!res.ok) {
-    throw new Error('Error enviando mail')
+export async function enviarMail({ to, subject, html, silent = false }) {
+  try {
+    if (!silent) console.log('📧 ENVIANDO MAIL:', subject)
+
+    const res = await fetch('/api/sendMail', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, subject, html }),
+    })
+
+    if (!res.ok) {
+      const err = await res.text()
+      throw new Error(err || 'Error enviando mail')
+    }
+
+    if (!silent) console.log('✅ MAIL ENVIADO')
+
+    return await res.json()
+  } catch (e) {
+    console.error('❌ ERROR ENVIANDO MAIL', e)
+    throw e
   }
-
-  return await res.json()
 }

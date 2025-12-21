@@ -15,7 +15,8 @@ export default async function handler(req, res) {
     }
 
     const data = await resend.emails.send({
-      from: process.env.MAIL_FROM,
+      // from: process.env.MAIL_FROM,
+      from: 'AppBar <onboarding@resend.dev>',
       to,
       subject,
       html,

@@ -78,3 +78,7 @@ export function mostrarMensaje(texto) {
     },
   }).showToast()
 }
+
+export function abrirLoginGlobal() {
+  document.dispatchEvent(new Event('abrir-login'))
+}

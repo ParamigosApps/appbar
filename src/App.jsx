@@ -37,11 +37,12 @@ export default function App() {
         position="top-center"
         autoClose={3000}
         hideProgressBar
-        newestOnTop
         closeOnClick
         pauseOnHover
         draggable
-        theme="dark"
+        newestOnTop
+        toastClassName="toast-appbar"
+        bodyClassName="toast-body-appbar"
       />
       <Routes>
         {/* ACCESOS SIN LAYOUT */}
@@ -109,6 +110,8 @@ export default function App() {
         pauseOnHover
         draggable
       />
+      {/* 🔒 FIREBASE PHONE AUTH (OBLIGATORIO) */}
+      <div id="recaptcha-container"></div>
     </BrowserRouter>
   )
 }

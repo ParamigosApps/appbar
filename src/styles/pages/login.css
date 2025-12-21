@@ -20,12 +20,6 @@
   font-size: 1.6rem;
 }
 
-.login-divider {
-  margin: 22px 0;
-  color: #888;
-  font-size: 0.95rem;
-}
-
 .login-form input {
   height: 46px;
 }

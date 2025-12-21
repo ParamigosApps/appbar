@@ -54,8 +54,6 @@ export default function LoginTelefono() {
           </button>
         </>
       )}
-
-      <div id="recaptcha-container"></div>
     </div>
   )
 }

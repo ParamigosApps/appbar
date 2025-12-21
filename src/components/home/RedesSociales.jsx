@@ -18,8 +18,12 @@ export default function RedesSociales() {
     cargar()
   }, [])
 
-  if (!redes) return <p className="text-muted">Cargando redes...</p>
-
+  if (!redes)
+    return (
+      <div className="d-flex justify-content-center">
+        <p className="text-muted mb-0 ">Cargando redes...</p>
+      </div>
+    )
   const botones = []
 
   if (redes.toggleWhatsapp && redes.whatsappContacto)

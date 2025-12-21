@@ -31,23 +31,27 @@ export function CatalogoProvider({ children }) {
   const [productos, setProductos] = useState([])
   const [categoriaActiva, setCategoriaActiva] = useState('Todos')
   const [catalogoVisible, setCatalogoVisible] = useState(false)
-
+  const [totalFirestore, setTotalFirestore] = useState(0)
   const { agregarProducto, abrirCarrito } = useCarrito()
 
   // ======================================================
-  // CARGAR CATÁLOGO DESDE FIREBASE
+  // CARGAR CATÁLOGO DESDE FIREBASE SIN MOSTRAR
   // ======================================================
-  useEffect(() => {
-    async function cargar() {
-      try {
-        const snap = await getDocs(collection(db, 'productos'))
-        const lista = snap.docs.map(doc => new Producto(doc.id, doc.data()))
-        setProductos(lista)
-      } catch (err) {
-        console.error('Error cargando catálogo:', err)
-      }
+
+  async function cargarCatalogo() {
+    try {
+      const snap = await getDocs(collection(db, 'productos'))
+      const lista = snap.docs.map(doc => new Producto(doc.id, doc.data()))
+      setProductos(lista)
+      setTotalFirestore(lista.length)
+      console.log('📦 Catálogo cargado:', lista.length)
+    } catch (err) {
+      console.error('Error cargando catálogo:', err)
     }
-    cargar()
+  }
+
+  useEffect(() => {
+    cargarCatalogo()
   }, [])
 
   // ======================================================
@@ -178,7 +182,20 @@ export function CatalogoProvider({ children }) {
     }
   }
 
-  function seleccionarCategoria(cat) {
+  async function seleccionarCategoria(cat) {
+    try {
+      const snap = await getDocs(collection(db, 'productos'))
+
+      if (snap.size !== productos.length) {
+        console.warn('🔄 Catálogo desactualizado, recargando')
+        const lista = snap.docs.map(doc => new Producto(doc.id, doc.data()))
+        setProductos(lista)
+        setTotalFirestore(lista.length)
+      }
+    } catch (e) {
+      console.error('Error validando catálogo', e)
+    }
+
     setCategoriaActiva(cat)
     setCatalogoVisible(true)
   }

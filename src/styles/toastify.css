@@ -1,42 +1,45 @@
-/* ==============================
-   TOASTIFY — WHITE THEME PRO
-   ============================== */
+/* ================================
+   APPBAR TOAST STYLE
+================================ */
 
-.Toastify__toast {
-  background: #ffffff !important;
-  color: #111111 !important;
-  border-radius: 10px;
+/* Contenedor del toast */
+.toast-appbar {
+  background: rgba(255, 255, 255, 0.8) !important;
+  backdrop-filter: blur(6px);
+  color: #111 !important;
+
+  width: 90vw;
+  max-width: 560px;
+
+  margin: 0 auto;
+  border-radius: 14px;
+
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+
   font-weight: 700;
 }
 
-/* Success */
-.Toastify__toast--success {
-  border-left: 6px solid #000;
+/* Texto interno */
+.toast-body-appbar {
+  text-align: center;
+  font-size: 0.95rem;
+  padding: 14px 18px;
+  font-weight: 700;
 }
 
-/* Error */
-.Toastify__toast--error {
-  border-left: 6px solid #000;
+/* Iconos */
+.Toastify__toast-icon svg {
+  fill: #111;
 }
 
-/* Info / Warning */
-.Toastify__toast--info,
-.Toastify__toast--warning {
-  border-left: 6px solid #000;
-}
+/* ================================
+   RESPONSIVE
+================================ */
 
-/* Close button */
-.Toastify__close-button {
-  color: #000 !important;
-  opacity: 0.8;
-}
-
-.Toastify__close-button:hover {
-  opacity: 1;
-}
-
-/* Progress bar */
-.Toastify__progress-bar {
-  background: #000 !important;
+@media (max-width: 480px) {
+  .toast-appbar {
+    width: 100vw;
+    max-width: 100vw;
+    border-radius: 0;
+  }
 }

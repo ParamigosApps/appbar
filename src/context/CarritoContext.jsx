@@ -4,8 +4,8 @@
 // --------------------------------------------------------------
 import { createContext, useContext, useState } from 'react'
 import Swal from 'sweetalert2'
-import Toastify from 'toastify-js'
-import 'toastify-js/src/toastify.css'
+
+import { toastSuccess, toastInfo, toastWarning } from '../utils/toastifyUtils'
 
 import { useAuth } from './AuthContext.jsx'
 import { useFirebase } from './FirebaseContext.jsx'
@@ -18,9 +18,10 @@ import {
 import { crearPreferenciaCompra } from '../services/mercadopago.js'
 import { mostrarQrCompraReact } from '../components/qr/ModalQrCompra.jsx'
 
+import { abrirLoginGlobal } from '../utils/utils'
 const CarritoContext = createContext()
 export const useCarrito = () => useContext(CarritoContext)
-
+import { swalRequiereLogin } from '../utils/swalUtils'
 // --------------------------------------------------------------
 // HELPERS
 // --------------------------------------------------------------
@@ -40,7 +41,6 @@ const format = n => n.toLocaleString('es-AR')
 // --------------------------------------------------------------
 export function CarritoProvider({ children }) {
   const { user } = useFirebase()
-  const { abrirLoginGlobal } = useAuth()
   const { abrirPendientes } = usePedidos() || {}
 
   const [carrito, setCarrito] = useState(
@@ -102,19 +102,7 @@ export function CarritoProvider({ children }) {
     setCarrito(nuevo)
     syncLocalStorage(nuevo)
 
-    Toastify({
-      text: `Añadiste 1 unidad de ${p.nombre}`,
-      duration: 1000,
-      gravity: 'bottom',
-      position: 'center',
-      style: {
-        background: '#14a8e2',
-        width: '100%',
-        borderRadius: '12px',
-        fontWeight: '700',
-        textAlign: 'center',
-      },
-    }).showToast()
+    toastSuccess('Se agregó 1 unidad al carrito')
   }
 
   // --------------------------------------------------------------
@@ -130,19 +118,7 @@ export function CarritoProvider({ children }) {
     setCarrito(nuevo)
     syncLocalStorage(nuevo)
 
-    Toastify({
-      text: `Quitaste 1 unidad de ${p.nombre}`,
-      duration: 1200,
-      gravity: 'bottom',
-      position: 'center',
-      style: {
-        background: '#ff5959',
-        width: '100%',
-        borderRadius: '12px',
-        fontWeight: '700',
-        textAlign: 'center',
-      },
-    }).showToast()
+    toastInfo(`Se quitó 1 unidad de ${p.nombre}`)
   }
 
   // --------------------------------------------------------------
@@ -156,19 +132,7 @@ export function CarritoProvider({ children }) {
     setCarrito(nuevo)
     syncLocalStorage(nuevo)
 
-    Toastify({
-      text: `Eliminaste ${eliminado.nombre}`,
-      duration: 1300,
-      gravity: 'bottom',
-      position: 'center',
-      style: {
-        background: '#ff5959',
-        width: '100%',
-        borderRadius: '12px',
-        fontWeight: '700',
-        textAlign: 'center',
-      },
-    }).showToast()
+    toastWarning(`${eliminado.nombre} fue eliminado del carrito`)
   }
 
   // --------------------------------------------------------------
@@ -180,13 +144,12 @@ export function CarritoProvider({ children }) {
 
       // ❌ No logueado
       if (!user) {
-        await Swal.fire({
-          title: 'Debes iniciar sesión',
-          text: 'Inicia sesión para continuar.',
-          icon: 'warning',
-          confirmButtonText: 'Iniciar sesión',
-        })
-        abrirLoginGlobal()
+        const res = await swalRequiereLogin()
+
+        if (res.isConfirmed) {
+          abrirLoginGlobal()
+        }
+
         return
       }
 
@@ -283,7 +246,7 @@ export function CarritoProvider({ children }) {
         </div>
       </div>
 
-      <div class="metodos-wrapper">
+      <div class="metodos-wrapper mt-3">
         <!-- MERCADO PAGO -->
         <button
           id="mp"
@@ -358,6 +321,16 @@ export function CarritoProvider({ children }) {
           pagado: false,
         })
 
+        fetch('/api/enviar-ticket', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pedidoId: pedido.id, // 👈 CLAVE
+            to: user.email,
+            nombre: user.displayName || 'Usuario',
+          }),
+        })
+
         if (!pedido) {
           await Swal.fire({
             title: 'Límite alcanzado',
@@ -416,6 +389,16 @@ export function CarritoProvider({ children }) {
         const initPoint = await crearPreferenciaCompra({
           carrito,
           ticketId: pedido.ticketId,
+        })
+        // 📧 Generar y enviar ticket con PDF adjunto
+        fetch('/api/generar-ticket', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pedidoId: pedido.id, // 👈 SOLO el ID
+            to: user.email, // 👈 Mail destino
+            nombre: user.displayName, // 👈 Opcional
+          }),
         })
 
         setCarrito([])

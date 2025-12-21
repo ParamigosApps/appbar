@@ -104,4 +104,101 @@ export function swalConfirmWarning({
 
     buttonsStyling: false,
   })
+} // =====================================================
+// REQUIERE INICIAR SESION
+// =====================================================
+
+export async function swalRequiereLogin() {
+  return Swal.fire({
+    title: 'Debes iniciar sesión',
+    text: 'Inicia sesión para comprar.',
+    icon: 'warning',
+    confirmButtonText: 'Iniciar sesión',
+    allowOutsideClick: false,
+    allowEscapeKey: true,
+    customClass: {
+      popup: 'swal-popup-custom',
+      confirmButton: 'swal-btn-confirm',
+    },
+    buttonsStyling: false,
+  })
+}
+// =====================================================
+// ✏️ FORM PERFIL USUARIO (NOMBRE + EMAIL + TELÉFONO)
+// =====================================================
+export function swalEditarPerfil({
+  nombreActual = '',
+  emailActual = '',
+  telefono = '',
+}) {
+  return Swal.fire({
+    title: '✏️ Editar perfil',
+    html: `
+      <input
+        id="swal-nombre"
+        class="swal2-input"
+        placeholder="Nombre y apellido"
+        value="${nombreActual}"
+      />
+
+      <input
+        id="swal-email"
+        class="swal2-input"
+        placeholder="Email (opcional)"
+        value="${emailActual || ''}"
+      />
+
+      ${
+        telefono
+          ? `
+            <input
+              class="swal2-input"
+              value="${telefono}"
+              disabled
+            />
+        <p className="text-muted small fst-italic">
+          El teléfono no puede modificarse
+        </p>
+
+          `
+          : ''
+      }
+
+      <p style="font-size:12px;color:#777">
+        Tus entradas estaran disponibles en la app y en el email en caso de ingresarlo..
+      </p>
+    `,
+
+    showCancelButton: true,
+    confirmButtonText: 'Guardar',
+    cancelButtonText: 'Cancelar',
+
+    customClass: {
+      confirmButton: 'swal-btn-confirm',
+      cancelButton: 'swal-btn-dark',
+    },
+
+    buttonsStyling: false,
+    focusConfirm: false,
+
+    preConfirm: () => {
+      const nombre = document.getElementById('swal-nombre').value.trim()
+      const email = document.getElementById('swal-email').value.trim()
+
+      if (!nombre || nombre.length < 2) {
+        Swal.showValidationMessage('Ingresá un nombre válido')
+        return false
+      }
+
+      if (email && !/^\S+@\S+\.\S+$/.test(email)) {
+        Swal.showValidationMessage('Email inválido')
+        return false
+      }
+
+      return {
+        nombre,
+        email: email || null,
+      }
+    },
+  })
 }

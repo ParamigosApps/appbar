@@ -74,6 +74,7 @@ export default function MenuAcordeon() {
     loginTelefonoValidarCodigo,
     logout,
     loading,
+    puedeEditarPerfil,
   } = useAuth()
 
   const contadorMisEntradas = misEntradas?.length ?? 0
@@ -389,7 +390,7 @@ export default function MenuAcordeon() {
                       )}
                       {loading && (
                         <p className="text-muted text-center">
-                          Verificando sesión...
+                          Cargando inicio de sesión...
                         </p>
                       )}
 
@@ -526,11 +527,18 @@ export default function MenuAcordeon() {
                 👤 Login / Usuario
               </button>
             </h2>
-
             {abierto === 'usuario' && (
               <div className="accordion-collapse show">
                 <div className="accordion-body text-center">
-                  {!user && (
+                  {/* ⏳ ESPERANDO FIREBASE */}
+                  {loading && (
+                    <p className="text-muted text-center">
+                      Verificando sesión...
+                    </p>
+                  )}
+
+                  {/* 🔐 LOGIN (cuando NO hay user y terminó loading) */}
+                  {!loading && !user && (
                     <>
                       {loginSettings.google && (
                         <button
@@ -568,8 +576,9 @@ export default function MenuAcordeon() {
                       )}
                     </>
                   )}
-                  {/* LOGIN TELÉFONO SOLO SI NO HAY USER */}
-                  {!user && mostrarTelefono && (
+
+                  {/* 📞 LOGIN TELÉFONO */}
+                  {!loading && !user && mostrarTelefono && (
                     <section className="auth-telefono-container mt-3 telefono-row mx-auto">
                       <input
                         id="phoneInput"
@@ -604,40 +613,66 @@ export default function MenuAcordeon() {
                       >
                         Validar código
                       </button>
-
-                      <div id="recaptcha-container"></div>
                     </section>
                   )}
 
-                  {user && (
-                    <div>
-                      {(user?.nombre || user?.displayName) && (
-                        <p className="fw-bold fs-5 mb-0">
-                          Hola, {user.nombre || user.displayName}
-                        </p>
+                  {/* 👤 USUARIO LOGUEADO */}
+                  {(user?.nombre || user?.displayName) && (
+                    <div className="d-flex flex-column align-items-center gap-1">
+                      {/* 👋 SALUDO + EDITAR */}
+                      <p className="fw-bold fs-5 mb-0 d-flex align-items-center gap-2">
+                        Hola, {user.nombre || user.displayName}
+                        {puedeEditarPerfil(user) && (
+                          <span
+                            role="button"
+                            title="Editar nombre y email"
+                            style={{ cursor: 'pointer', fontSize: '0.9em' }}
+                            onClick={async () => {
+                              const { editarPerfilUsuario } = await import(
+                                '../../services/perfilUsuario.js'
+                              )
+
+                              const res = await editarPerfilUsuario({
+                                uid: user.uid,
+                                nombreActual: user.nombre || user.displayName,
+                                emailActual: user.email || '',
+                                telefono: user.phoneNumber || '',
+                              })
+
+                              if (res) {
+                                window.dispatchEvent(
+                                  new Event('perfil-actualizado')
+                                )
+                              }
+                            }}
+                          >
+                            ✏️
+                          </span>
+                        )}
+                      </p>
+
+                      {/* 📧 EMAIL */}
+                      {user.email && (
+                        <p className="text-muted small mb-0">{user.email}</p>
                       )}
 
+                      {/* 📞 TELÉFONO */}
                       {user.phoneNumber && (
-                        <p className="text-muted small mb-2">
+                        <p className="text-muted small mb-1">
                           {user.phoneNumber}
                         </p>
                       )}
 
+                      {/* 🚪 CERRAR SESIÓN */}
                       <button
-                        className={`google-btn mx-auto mt-2 ${
-                          user.provider === 'google'
-                            ? 'google-btn logout'
-                            : 'btn-outline-dark'
-                        }`}
+                        className="btn btn-outline-dark btn-sm mt-2"
                         onClick={logout}
                       >
-                        {user.provider === 'google' && (
-                          <img src={googleIcon} alt="Google" />
-                        )}
                         Cerrar sesión
                       </button>
                     </div>
                   )}
+                  <div id="recaptcha-container"></div>
                 </div>
               </div>
             )}

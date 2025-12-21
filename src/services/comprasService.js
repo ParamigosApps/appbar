@@ -125,13 +125,16 @@ export async function crearPedido({ carrito, total, lugar, pagado }) {
   const numeroPedido = await obtenerNumeroPedido()
   const fechaHumana = obtenerFechaCompra()
 
+  const qrText = `Compra:${ticketId}`
   // 🔥 Reservar stock si es pendiente
   if (!pagado) {
     await reservarStock(carrito)
   }
 
-  // 🔥 Expira en 15 min
-  const expiraEn = new Date(Date.now() + 15 * 60 * 1000).toISOString()
+  // 🔥 Expira en 15 min (solo relevante si pendiente)
+  const expiraEn = pagado
+    ? null
+    : new Date(Date.now() + 15 * 60 * 1000).toISOString()
 
   const ref = await addDoc(collection(db, 'compras'), {
     usuarioId,
@@ -143,13 +146,23 @@ export async function crearPedido({ carrito, total, lugar, pagado }) {
     estado: pagado ? 'pagado' : 'pendiente',
     ticketId,
     numeroPedido,
+
+    qrText, // 👈 SE GUARDA
     usado: false,
     expiraEn,
-    creadoEn: serverTimestamp(), //🔥 ÚNICA fecha oficial
+    creadoEn: serverTimestamp(),
   })
 
-  // React necesita estos datos:
-  return { id: ref.id, ticketId, numeroPedido, fechaHumana }
+  // 🔁 Retorno a React
+  return {
+    id: ref.id,
+    ticketId,
+    numeroPedido,
+    fechaHumana,
+    total,
+    lugar,
+    qrText,
+  }
 }
 
 // --------------------------------------------------------------
