@@ -145,12 +145,16 @@ export async function crearPedido({ carrito, total, lugar, pagado, evento }) {
   // --------------------------------------------------
   // 1️⃣ CREAR PEDIDO EN FIRESTORE
   // --------------------------------------------------
+  const userSnap = await getDoc(doc(db, 'usuarios', usuarioId))
+  const usuarioEmail = auth.currentUser?.email || userSnap.data()?.email || null
+
   const ref = await addDoc(collection(db, 'compras'), {
     // -----------------------------
     // 👤 USUARIO
     // -----------------------------
     usuarioId,
     usuarioNombre: auth.currentUser?.displayName || 'Usuario',
+    usuarioEmail,
 
     // -----------------------------
     // 🧾 COMPRA
@@ -231,6 +235,7 @@ export async function crearPedido({ carrito, total, lugar, pagado, evento }) {
       lugar,
       qrText,
       qrUrl,
+      usuarioEmail,
     }
   } catch (err) {
     console.error('❌ Error generando QR del pedido:', err)
@@ -244,6 +249,7 @@ export async function crearPedido({ carrito, total, lugar, pagado, evento }) {
       lugar,
       qrText,
       qrUrl: null,
+      usuarioEmail,
     }
   }
 }

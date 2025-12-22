@@ -306,10 +306,7 @@ export function CarritoProvider({ children }) {
         },
       })
 
-      // ⛔ Cancelado (esc / botón cancelar / click afuera)
-      // ⛔ Si cerró sin elegir método
       if (!metodoSeleccionado) return
-
       cerrarCarrito()
 
       // 🟡 PAGO EN CAJA
@@ -320,7 +317,7 @@ export function CarritoProvider({ children }) {
           lugar: 'Tienda',
           pagado: false,
         })
-
+        console.log(pedido.usuarioEmail)
         if (!pedido) {
           await Swal.fire({
             title: 'Límite alcanzado',
@@ -380,15 +377,24 @@ export function CarritoProvider({ children }) {
 
         // 📧 Generar y enviar ticket con PDF adjunto
         try {
-          await fetch('/api/confirmar-pedido', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              pedidoId: pedido.id,
-              to: user.email,
-              nombre: user.displayName,
-            }),
+          console.log('MAIL DEBUG →', {
+            pedidoId: pedido.id,
+            usuarioEmail: pedido.usuarioEmail,
+            userEmail: user?.email,
           })
+          if (pedido.usuarioEmail) {
+            await fetch('/api/confirmar-pedido', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                pedidoId: pedido.id,
+                to: pedido.usuarioEmail,
+                nombre: pedido.usuarioNombre,
+              }),
+            })
+          } else {
+            console.warn('⚠️ Pedido sin email, no se envía comprobante')
+          }
         } catch (err) {
           console.warn('⚠️ No se pudo enviar el mail:', err)
         }

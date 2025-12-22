@@ -72,6 +72,8 @@ export function mailPedido(payload = {}) {
   const qrUrl = payload.qrUrl ?? pedido.qrUrl
   const eventoNombre = payload.eventoNombre ?? pedido.eventoNombre ?? null
 
+  const ticketId = payload.ticketId ?? pedido.ticketId ?? pedido.id ?? '—'
+
   const fechaStr =
     fecha instanceof Date ? fecha.toLocaleString('es-AR') : String(fecha)
 
@@ -91,6 +93,17 @@ export function mailPedido(payload = {}) {
       <p><b>Total:</b> $${total}</p>
       <p><b>Lugar:</b> ${lugar}</p>
       <p><b>Fecha:</b> ${fechaStr}</p>
+      <p style="font-size:14px;">
+      <p style="font-size:14px;">
+        <b>Código de retiro: </b>
+        <span style="
+          font-size:18px;
+          font-weight:bold;
+          letter-spacing:0.5px;
+        ">
+          ${ticketId}
+        </span>
+      </p>
 
       <hr/>
 
@@ -110,8 +123,8 @@ export function mailPedido(payload = {}) {
         `
           : `
           <p style="color:#c00;text-align:center">
-            El código QR no está disponible en este momento.
-            Podés presentar este correo como comprobante.
+            El código QR no está disponible en este momento. 
+            Presentá el código en caja.
           </p>
         `
       }
@@ -121,8 +134,7 @@ export function mailPedido(payload = {}) {
       <p style="font-size:13px;color:#555;line-height:1.4">
         <b>Importante:</b> este ticket es válido <b>únicamente para el evento
         o compra correspondiente a este pedido</b>.
-        No es reutilizable, no es transferible y no puede utilizarse
-        en otros eventos, fechas o locales.
+        No puede utilizarse en otros eventos, fechas o locales.
       </p>
 
       <p style="font-size:12px;color:#999;margin-top:24px;text-align:center">

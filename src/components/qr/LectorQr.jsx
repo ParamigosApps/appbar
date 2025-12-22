@@ -193,7 +193,6 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   // SELECCIÓN DE EVENTO (ENTRADAS)
   // --------------------------------------------------------------
   useEffect(() => {
-    if (modo !== 'entradas') return
     if (selectorMostrado.current) return
 
     selectorMostrado.current = true
@@ -310,8 +309,8 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
     // ⛔ no iniciar sin modo válido
     if (!['entradas', 'caja'].includes(modo)) return
 
-    // ⛔ entradas requiere evento
-    if (modo === 'entradas' && !eventoSeleccionado) return
+    // ⛔ NUNCA iniciar sin evento (entradas y caja)
+    if (!eventoSeleccionado) return
 
     if (!initialized.current) {
       initialized.current = true
@@ -322,24 +321,50 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   }, [modo, eventoSeleccionado])
 
   async function iniciarScanner() {
-    const el = document.getElementById('qr-reader')
-    if (!el || running.current) return
+    let el = null
 
-    if (!html5Qr.current) html5Qr.current = new Html5Qrcode('qr-reader')
-
-    const cams = await Html5Qrcode.getCameras()
-    if (!cams.length) {
-      Swal.fire('Sin cámara', 'No se detectó cámara.', 'error')
-      return
+    for (let i = 0; i < 10; i++) {
+      el = document.getElementById('qr-reader')
+      if (el) break
+      await new Promise(r => setTimeout(r, 100))
     }
 
-    await html5Qr.current.start(
-      cams[cams.length - 1].id,
-      { fps: 10, qrbox: 250 },
-      onScanSuccess
-    )
+    if (!el || running.current) return
 
-    running.current = true
+    if (!html5Qr.current) {
+      html5Qr.current = new Html5Qrcode('qr-reader')
+    }
+
+    try {
+      await html5Qr.current.start(
+        { facingMode: 'environment' },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1,
+        },
+        onScanSuccess
+      )
+
+      running.current = true
+
+      // iOS fix
+      setTimeout(() => {
+        const video = document.querySelector('#qr-reader video')
+        if (video) {
+          video.setAttribute('playsinline', true)
+          video.setAttribute('webkit-playsinline', true)
+          video.muted = true
+        }
+      }, 200)
+    } catch (err) {
+      console.error('❌ Error iniciando cámara:', err)
+      Swal.fire(
+        'Cámara bloqueada',
+        'No se pudo acceder a la cámara. Verificá permisos del navegador.',
+        'error'
+      )
+    }
   }
 
   async function detenerScanner() {
@@ -485,6 +510,12 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
       console.log('EXPIRA EN:', res.data?.expiraEn)
       const estado = res.data?.estado
 
+      if (modo === 'caja') {
+        if (res.data.eventoId !== eventoSeleccionado) {
+          mostrarError('Este pedido pertenece a otro evento')
+          return
+        }
+      }
       // ❌ Estados NO permitidos
       if (estado === 'expirado') {
         mostrarError('Pedido expirado')
@@ -811,7 +842,131 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
           </div>
         )}
 
-        <div id="qr-reader" />
+        <div
+          id="qr-reader"
+          style={{
+            width: '100%',
+            minHeight: 280,
+            borderRadius: 8,
+            overflow: 'hidden',
+            background: '#000',
+          }}
+        />
+        {modo === 'caja' && !pedidoCaja && (
+          <div className="text-center mt-3">
+            <button
+              className="btn swalt-btn-alt btn-sm"
+              onClick={async () => {
+                const { value } = await Swal.fire({
+                  title: 'Ingresar código manual',
+                  input: 'text',
+                  inputPlaceholder: 'Ej: 169997012345-4821',
+                  confirmButtonText: 'Buscar pedido',
+                  showCancelButton: true,
+                  cancelButtonText: 'Cancelar',
+                  customClass: {
+                    confirmButton: 'swal-btn-confirm',
+                    cancelButton: 'swal-btn-alt',
+                  },
+                })
+
+                if (!value) return
+
+                try {
+                  const q = query(
+                    collection(db, 'compras'),
+                    where('ticketId', '==', value.trim())
+                  )
+
+                  const snap = await getDocs(q)
+
+                  if (snap.empty) {
+                    Swal.fire('No encontrado', 'Código inválido', 'error')
+                    return
+                  }
+
+                  const docSnap = snap.docs[0]
+                  setPedidoCaja({ id: docSnap.id, ...docSnap.data() })
+                  beepOk()
+                } catch (err) {
+                  Swal.fire('Error', 'No se pudo buscar el pedido', 'error')
+                }
+              }}
+            >
+              Ingresar código manual
+            </button>
+
+            <div style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>
+              Usar solo si el QR no puede escanearse
+            </div>
+          </div>
+        )}
+        {modo === 'entradas' && eventoSeleccionado && !pedidoCaja && (
+          <div className="text-center mt-3">
+            <button
+              className="btn btn-outline-warning btn-sm"
+              onClick={async () => {
+                const { value } = await Swal.fire({
+                  title: 'Validación manual de entrada',
+                  html: `
+            <p style="font-size:14px;color:#6b7280">
+              Usar solo si el QR no puede escanearse.<br>
+              Verificá identidad y evento antes de continuar.
+            </p>
+            <input
+              id="codigo"
+              class="swal2-input"
+              placeholder="ID de entrada"
+            />
+          `,
+                  confirmButtonText: 'Validar',
+                  showCancelButton: true,
+                  cancelButtonText: 'Cancelar',
+                  preConfirm: () => {
+                    const v = document.getElementById('codigo')?.value?.trim()
+                    if (!v) {
+                      Swal.showValidationMessage('Ingresá un código válido')
+                      return false
+                    }
+                    return v
+                  },
+                  customClass: {
+                    confirmButton: 'swal-btn-confirm',
+                    cancelButton: 'swal-btn-alt',
+                  },
+                })
+
+                if (!value) return
+
+                try {
+                  const res = await validarTicket(
+                    { id: value, esEntrada: true },
+                    eventoSeleccionado
+                  )
+
+                  if (!res?.ok) {
+                    mostrarResultado(res)
+                    return
+                  }
+
+                  mostrarResultado(res)
+                  await marcarEntradaUsada(res.data.id)
+                  cargarEstadisticasEvento(eventoSeleccionado)
+                  beepOk()
+                } catch (err) {
+                  Swal.fire('Error', 'No se pudo validar la entrada', 'error')
+                }
+              }}
+            >
+              ⚠️ Validar entrada manualmente
+            </button>
+
+            <div style={{ fontSize: 12, color: '#92400e', marginTop: 6 }}>
+              Usar solo si el QR no funciona
+            </div>
+          </div>
+        )}
+
         {pedidoCaja && (
           <div className="card mt-3 p-3">
             <h5>Pedido #{pedidoCaja.numeroPedido}</h5>

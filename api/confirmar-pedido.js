@@ -56,6 +56,7 @@ export default async function handler(req, res) {
           ? pedido.creadoEn.toDate().toLocaleString('es-AR')
           : new Date().toLocaleString('es-AR'),
         qrUrl: pedido.qrUrl,
+        ticketId: pedido.ticketId,
       }),
     })
 
