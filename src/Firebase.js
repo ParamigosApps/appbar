@@ -12,7 +12,7 @@ const firebaseConfig = {
   apiKey: 'AIzaSyDkQEN7UMAVQQvOmWZjABmVYgVMMC4g9g0',
   authDomain: 'appbar-24e02.firebaseapp.com',
   projectId: 'appbar-24e02',
-  storageBucket: 'appbar-24e02.firebasestorage.app', // 🔥 CORREGIDO!
+  storageBucket: 'appbar-24e02.firebasestorage.app',
   messagingSenderId: '339569084886',
   appId: '1:339569084886:web:xxxxxxxxxxxxxxxxxxxxxx',
 }

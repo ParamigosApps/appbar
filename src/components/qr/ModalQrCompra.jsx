@@ -1,22 +1,13 @@
 // --------------------------------------------------------------
-// src/components/qr/ModalQrCompra.jsx — FINAL
+// src/components/qr/ModalQrCompra.jsx — FINAL DEFINITIVO
 // --------------------------------------------------------------
 import Swal from 'sweetalert2'
 import { auth } from '../../Firebase.js'
 import whatsappIcon from '../../assets/img/whatsapp.png'
-// --------------------------------------------------------------
-// 🔵 mostrarQrCompraReact — Ticket igual al original + sin QR si retirado
-// --------------------------------------------------------------
-
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
 import { formatearFecha } from '../../utils/utils.js'
-import { generarCompraQr } from '../../services/generarQrService.js'
 
 export async function mostrarQrCompraReact(pedido, onClose) {
   try {
-    console.log('🧾 mostrarQrCompraReact() →', pedido)
-
     const {
       carrito = [],
       total = 0,
@@ -25,206 +16,112 @@ export async function mostrarQrCompraReact(pedido, onClose) {
       estado = 'pendiente',
       lugar = 'Tienda',
       fechaHumana = formatearFecha(new Date()),
-      usuarioNombre = auth.currentUser.displayName || 'Usuario',
-      retiradaEn = formatearFecha(new Date()),
+      usuarioNombre = auth.currentUser?.displayName || 'Usuario',
+      qrUrl,
     } = pedido
 
-    // -------------------- ESTILOS DE ESTADO (IGUAL QUE EL ORIGINAL) --------------------
     const estadosPretty = {
-      pagado: `<span style="
-        background:#42b14d;
-        color:#fff;
-        padding:3px 8px;
-        border-radius:6px;
-        font-weight:700;
-        font-size:14px;">
-        PAGADO
-      </span>`,
-
-      pendiente: `<span style="
-        background:#f7d774;
-        color:#000;
-        padding:3px 8px;
-        border-radius:6px;
-        font-weight:700;
-        font-size:14px;">
-        PENDIENTE
-      </span>`,
-
-      retirado: `<span style="
-        background:#bbb;
-        color:#000;
-        padding:3px 8px;
-        border-radius:6px;
-        font-weight:700;
-        font-size:14px;">
-        RETIRADO
-      </span>`,
+      pagado: '🟢 PAGADO',
+      pendiente: '🟡 PENDIENTE',
+      retirado: '⚪ RETIRADO',
     }
 
-    const fechaRetiroBadge = retiradaEn
-      ? `<span style="
-      background:#bbb;
-      color:#000;
-      padding:3px 8px;
-      border-radius:6px;
-      font-weight:700;
-      font-size:15px;
-      white-space:nowrap;
-    ">
-      ${retiradaEn}
-    </span>`
-      : ''
-
-    // -------------------- ALERTA SWEETALERT2 --------------------
     await Swal.fire({
       title: '🧾 Ticket de Compra',
       width: '430px',
       confirmButtonText: 'Cerrar',
-      showConfirmButton: true,
       buttonsStyling: false,
-      customClass: { confirmButton: 'btn btn-dark' },
+      customClass: { confirmButton: 'btn swal-btn-confirm' },
 
       html: `
-        <div id="ticketGenerado"
-             style="text-align:left; font-size:15px; line-height:1.35; padding:10px;">
+        <div style="text-align:left;font-size:15px;line-height:1.4;padding:10px">
 
-          <p style="margin:0 0 8px 0;">
-            <strong style="font-size:18px;">
-              Pedido #${numeroPedido ?? ticketId} 
+          <p style="margin-bottom:6px">
+            <strong style="font-size:18px">
+              Pedido #${numeroPedido ?? ticketId}
             </strong>
           </p>
 
-        <p style="
-          margin:0 0 8px 0;
-          display:flex;
-          justify-content:space-between;
-          align-items:center;
-        ">
-          <span>
-            <strong>Estado:</strong> ${
-              estadosPretty[estado] || estado.toUpperCase()
-            }
-          </span>
-
-          <span>
-            
-            ${
-              estado === 'retirado'
-                ? '<strong>Fecha: </strong>' + fechaRetiroBadge
-                : ' '
-            }
-          </span>
-        </p>
-
-
-          <hr style="margin:10px 0;">
-
+          <p><strong>Estado:</strong> ${estadosPretty[estado]}</p>
           <p><strong>Cliente:</strong> ${usuarioNombre}</p>
           <p><strong>Lugar:</strong> ${lugar}</p>
-          <p><strong>Fecha de creación:</strong> ${fechaHumana}</p>
+          <p><strong>Fecha:</strong> ${fechaHumana}</p>
 
-          <hr style="margin:10px 0;">
+          <hr style="margin:10px 0">
 
-          <p><strong>Su pedido:</strong></p>
-
-          <div style="margin-left:10px; margin-bottom:6px;">
-            ${carrito
-              .map(
-                p => `
-              <p style="margin:0 0 4px 0;">
+          <p><strong>Detalle:</strong></p>
+          ${carrito
+            .map(
+              p => `
+              <p style="margin:0">
                 - ${p.nombre} ×${p.enCarrito} → $${p.precio * p.enCarrito}
               </p>
             `
-              )
-              .join('')}
-          </div>
+            )
+            .join('')}
 
-          <hr style="margin:10px 0;">
+          <hr style="margin:10px 0">
 
-          <p style="font-size:19px;">
+          <p style="font-size:18px">
             <strong>Total: $${total}</strong>
           </p>
 
-          <div id="qrCompraContainer"
-               style="display:flex; justify-content:center; margin-top:12px;"></div>
+          ${
+            estado !== 'retirado' && qrUrl
+              ? `
+                <div style="text-align:center;margin-top:14px">
+                  <img
+                    src="${qrUrl}"
+                    alt="QR del pedido"
+                    style="width:200px;height:auto;display:block;margin:auto"
+                  />
+                  <p style="font-size:13px;color:#555;margin-top:6px">
+                    Presentá este QR para retirar tu pedido
+                  </p>
+                </div>
+              `
+              : `
+                <p style="text-align:center;color:#999;margin-top:12px">
+                  QR no disponible
+                </p>
+              `
+          }
+
+          ${
+            estado !== 'retirado'
+              ? `
+                <div style="margin-top:16px;text-align:center">
+                  <button id="btnWsp" class="btn-ticket btn-wsp mx-auto d-block">
+                    <img src="${whatsappIcon}" alt="WhatsApp" />
+                    Enviar por WhatsApp
+                  </button>
+                </div>
+              `
+              : ''
+          }
+
         </div>
-
-        ${
-          estado === 'retirado'
-            ? ''
-            : `
-<div class="botones-ticket">
-  <button id="btnPdf" class="btn-ticket btn-pdf">
-    <img
-      src="https://cdn-icons-png.flaticon.com/512/337/337946.png"
-      alt="PDF"
-    />
-    Descargar PDF
-  </button>
-
-  <button id="btnWsp" class="btn-ticket btn-wsp">
-    <img
-      src=${whatsappIcon}
-      alt="WhatsApp"
-    />
-    Enviar por WhatsApp
-  </button>
-</div>
-
-
-        `
-        }
       `,
 
-      // -------------------- DID OPEN --------------------
-      didOpen: async () => {
-        const ticket = document.getElementById('ticketGenerado')
+      didOpen: () => {
+        document.getElementById('btnWsp')?.addEventListener('click', () => {
+          let msg = `🧾 *Ticket de compra*\\n`
+          msg += `Pedido #${numeroPedido ?? ticketId}\\n`
+          msg += `Estado: ${estado.toUpperCase()}\\n`
+          msg += `Total: $${total}\\n`
+          msg += `Fecha: ${fechaHumana}\\n`
 
-        // 👉 No generar QR si está retirado
-        if (estado !== 'retirado') {
-          const cont = document.getElementById('qrCompraContainer')
-          if (cont) {
-            await generarCompraQr({
-              compraId: ticketId,
-              contenido: `Compra:${ticketId}`,
-              qrContainer: cont,
-              tamaño: 200,
-            })
-          }
-        } else {
-          console.log('🎫 Pedido RETIRADO → no se genera QR')
-        }
-        // -------------------- 📄 Descargar PDF --------------------
-        if (estado !== 'retirado') {
-          document
-            .getElementById('btnPdf')
-            ?.addEventListener('click', async () => {
-              const canvas = await html2canvas(ticket)
-              const img = canvas.toDataURL('image/png')
-              const pdf = new jsPDF()
-              pdf.addImage(img, 'PNG', 10, 10, 190, 0)
-              pdf.save(`ticket-${numeroPedido ?? ticketId}.pdf`)
-            })
-
-          // -------------------- 📲 WhatsApp --------------------
-          document.getElementById('btnWsp')?.addEventListener('click', () => {
-            let msg = `🧾 *Ticket de compra*\n`
-            msg += `Pedido #${numeroPedido ?? ticketId}\n`
-            msg += `Estado: ${estado.toUpperCase()}\n`
-            msg += `Total: $${total}\n`
-            msg += `Fecha: ${fechaHumana}\n\n`
-
-            const url = `https://wa.me/?text=${encodeURIComponent(msg)}`
-            window.open(url, '_blank')
-          })
-        }
+          window.open(
+            `https://wa.me/?text=${encodeURIComponent(msg)}`,
+            '_blank'
+          )
+        })
       },
 
       willClose: () => onClose && onClose(),
     })
   } catch (err) {
     console.error('❌ Error Ticket React:', err)
-    Swal.fire('Error', 'No se pudo generar el ticket.', 'error')
+    Swal.fire('Error', 'No se pudo mostrar el ticket.', 'error')
   }
 }

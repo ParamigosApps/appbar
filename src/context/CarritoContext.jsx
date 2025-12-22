@@ -246,7 +246,7 @@ export function CarritoProvider({ children }) {
         </div>
       </div>
 
-      <div class="metodos-wrapper mt-3 mb-4">
+      <div class="metodos-wrapper mt-3 mb-5">
         <!-- MERCADO PAGO -->
         <button
           id="mp"
@@ -333,6 +333,7 @@ export function CarritoProvider({ children }) {
             },
             buttonsStyling: false,
           })
+
           return
         }
 
@@ -345,6 +346,7 @@ export function CarritoProvider({ children }) {
           estado: 'pendiente',
           lugar: 'Tienda',
           qrText: `Compra:${pedido.ticketId}`,
+          qrUrl: pedido.qrUrl,
         })
 
         setCarrito([])
@@ -376,19 +378,23 @@ export function CarritoProvider({ children }) {
           return
         }
 
+        // 📧 Generar y enviar ticket con PDF adjunto
+        try {
+          await fetch('/api/confirmar-pedido', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              pedidoId: pedido.id,
+              to: user.email,
+              nombre: user.displayName,
+            }),
+          })
+        } catch (err) {
+          console.warn('⚠️ No se pudo enviar el mail:', err)
+        }
         const initPoint = await crearPreferenciaCompra({
           carrito,
           ticketId: pedido.ticketId,
-        })
-        // 📧 Generar y enviar ticket con PDF adjunto
-        fetch('/api/generar-ticket', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            pedidoId: pedido.id, // 👈 SOLO el ID
-            to: user.email, // 👈 Mail destino
-            nombre: user.displayName, // 👈 Opcional
-          }),
         })
 
         setCarrito([])

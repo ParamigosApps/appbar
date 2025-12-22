@@ -29,17 +29,11 @@ import {
   query,
   getDocs,
   where,
+  updateDoc,
+  serverTimestamp,
 } from 'firebase/firestore'
 
-// --------------------------------------------------------------
-// FECHA dd/mm/aaaa
-// --------------------------------------------------------------
-function fechaLarga(fecha) {
-  if (!fecha || !fecha.includes('-')) return 'No definida'
-  const [a, m, d] = fecha.split('-')
-  return `${d}/${m}/${a}`
-}
-
+import { logTicket } from '../../services/logsService'
 // --------------------------------------------------------------
 // Determinar si un evento está vigente HOY
 // --------------------------------------------------------------
@@ -97,6 +91,31 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   const initialized = useRef(false)
   const leyendo = useRef(false)
 
+  const [, setTick] = useState(0)
+
+  useEffect(() => {
+    const i = setInterval(() => {
+      setTick(t => t + 1)
+    }, 1000)
+
+    return () => clearInterval(i)
+  }, [])
+
+  function tiempoRestante(expiraEn) {
+    if (!expiraEn?.seconds) return null
+
+    const ahora = Date.now()
+    const expiraMs = expiraEn.seconds * 1000
+    const diff = expiraMs - ahora
+
+    if (diff <= 0) return null
+
+    const m = Math.floor(diff / 60000)
+    const s = Math.floor((diff % 60000) / 1000)
+
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+  }
+
   // --------------------------------------------------------------
   // BEEP OK
   // --------------------------------------------------------------
@@ -128,7 +147,7 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   // SELECCIÓN DE EVENTO (ENTRADAS)
   // --------------------------------------------------------------
   useEffect(() => {
-    if (!['entradas', 'caja'].includes(modo)) return
+    if (modo !== 'entradas') return
     if (selectorMostrado.current) return
 
     selectorMostrado.current = true
@@ -242,10 +261,11 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   // SCANNER INIT
   // --------------------------------------------------------------
   useEffect(() => {
-    if (modo !== 'entradas') return
+    // ⛔ no iniciar sin modo válido
+    if (!['entradas', 'caja'].includes(modo)) return
 
-    // ⛔ No iniciar scanner sin evento
-    if (!eventoSeleccionado) return
+    // ⛔ entradas requiere evento
+    if (modo === 'entradas' && !eventoSeleccionado) return
 
     if (!initialized.current) {
       initialized.current = true
@@ -338,7 +358,9 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
           const detectado = await detectarTipoPorFirestore(payload.id)
           payload = { ...payload, ...detectado }
         }
-
+        const detectado = await detectarTipoPorFirestore(payload.id)
+        console.log('🧪 detectado:', detectado)
+        payload = { ...payload, ...detectado }
         // 2️⃣ A esta altura, SOLO Firestore decide
         if (!payload.esEntrada) {
           mostrarError('QR no corresponde a una entrada')
@@ -414,9 +436,35 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
       }
 
       res = await validarCompra({ compraId: compraIdFinal })
+      // 🔒 PASO 5 — VALIDACIÓN DE ESTADO DE COMPRA
+      if (!res?.ok || res.tipo !== 'compra') {
+        mostrarError('Compra inválida')
+        return
+      }
+
+      const estado = res.data?.estado
+
+      // ❌ Estados NO permitidos
+      if (estado === 'expirado') {
+        mostrarError('Pedido expirado')
+        return
+      }
+
+      if (estado === 'retirado') {
+        mostrarError('Pedido ya retirado')
+        return
+      }
+
+      // ❌ Cualquier otro estado raro
+      if (!['pendiente', 'pagado'].includes(estado)) {
+        mostrarError('Estado de pedido no válido')
+        return
+      }
+
       mostrarResultado(res)
 
       if (res?.ok && res.tipo === 'compra') {
+        console.log('🧾 pedidoCaja recibido:', res.data)
         setPedidoCaja(res.data)
       }
     } catch (err) {
@@ -455,6 +503,11 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
       icon: 'question',
       showCancelButton: true,
       confirmButtonText: 'Sí, cobrar',
+      cancelButtonText: 'Volver',
+      customClass: {
+        confirmButton: 'swal-btn-confirm',
+        cancelButton: 'swal-btn-alt',
+      },
     })
 
     if (!r.isConfirmed) return
@@ -485,20 +538,131 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   }
 
   async function confirmarEntrega() {
+    const u = auth.currentUser
+
+    // 1️⃣ Confirmar intención de imprimir
     const r = await Swal.fire({
       title: 'Confirmar entrega',
+      html: `
+      Avanza para imprimir el ticket para el cliente.<br>
+      <span style="font-size:13px;color:#6b7280">
+        El pedido todavía no será marcado como retirado.
+      </span>
+    `,
       icon: 'question',
       showCancelButton: true,
-      confirmButtonText: 'Sí, entregar',
+      confirmButtonText: 'Continuar',
+      cancelButtonText: 'Cancelar',
+      customClass: {
+        confirmButton: 'swal-btn-confirm',
+        cancelButton: 'swal-btn-alt',
+      },
     })
 
     if (!r.isConfirmed) return
 
-    const u = auth.currentUser
+    if (pedidoCaja.retirada) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'Ticket ya entregado',
+        text: 'Este pedido ya fue retirado y no puede reimprimirse.',
+      })
+      return
+    }
+    // 2️⃣ Detectar si YA fue impreso antes (reimpresión real)
+    const esReimpresion = pedidoCaja.ticketImpreso === true
 
+    if (esReimpresion) {
+      const r2 = await Swal.fire({
+        icon: 'warning',
+        title: 'Reimpresión',
+        html: `
+        Este ticket ya fue impreso anteriormente. Solo imprimir en caso de error.<br>
+      <span style="
+        display:block;
+        margin-top:6px;
+        font-size:13px;
+        color:#b91c1c;
+        font-weight:600;
+      ">
+        ⚠️ Esta acción generará un registro en el sistema y notificará al administrador.
+      </span>
+      `,
+        showCancelButton: true,
+        confirmButtonText: 'Imprimir nuevamente',
+        cancelButtonText: 'Cancelar',
+        customClass: {
+          confirmButton: 'swal-btn-confirm',
+          cancelButton: 'swal-btn-alt',
+        },
+      })
+
+      if (!r2.isConfirmed) return
+    }
+
+    // 3️⃣ Mostrar ticket y esperar ACCIÓN REAL
+    const resultado = await mostrarComprobanteCaja({
+      ...pedidoCaja,
+      nombreEvento: pedidoCaja.nombreEvento,
+      fechaEvento: pedidoCaja.fechaEvento,
+    })
+
+    // ❌ Si NO imprimió, no hacemos absolutamente nada
+    if (!resultado?.impreso) return
+
+    // 4️⃣ AHORA SÍ: log + marcar como impreso
+    await logTicket({
+      tipo: esReimpresion ? 'ticket_reimpreso' : 'ticket_impreso',
+      compraData: pedidoCaja,
+      empleado: {
+        uid: u?.uid || null,
+        nombre: u?.displayName || 'Caja',
+        rol: 'caja',
+      },
+    })
+
+    if (!pedidoCaja.ticketImpreso) {
+      await updateDoc(doc(db, 'compras', pedidoCaja.id), {
+        ticketImpreso: true,
+        ticketImpresoEn: serverTimestamp(),
+      })
+
+      // actualizar estado local
+      setPedidoCaja(p => ({
+        ...p,
+        ticketImpreso: true,
+      }))
+    }
+
+    // 5️⃣ Confirmación FINAL de entrega física
+    const confirmRetiro = await Swal.fire({
+      title: 'Confirmar entrega',
+      html: `
+      <b>¿El ticket fue entregado al cliente?</b><br>
+      <span style="font-size:13px;color:#6b7280">
+        Esta acción no se puede deshacer.
+      </span>
+    `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, ticket entregado',
+      cancelButtonText: 'No',
+      customClass: {
+        confirmButton: 'swal-btn-confirm',
+        cancelButton: 'swal-btn-alt',
+      },
+    })
+
+    if (!confirmRetiro.isConfirmed) return
+
+    // 6️⃣ Marcar retiro (irreversible)
     await registrarRetiroCompra({
       compraId: pedidoCaja.id,
-      compraData: { ...pedidoCaja, estado: 'pagado' },
+      compraData: {
+        ...pedidoCaja,
+        estado: 'pagado', // requisito del service
+        nombreEvento: pedidoCaja.nombreEvento,
+      },
       empleado: {
         uid: u?.uid || null,
         nombre: u?.displayName || 'Caja',
@@ -507,10 +671,11 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
       origen: 'qr-caja',
     })
 
-    await mostrarComprobanteCaja({ ...pedidoCaja, estado: 'retirado' })
+    // 7️⃣ Limpiar UI
     setPedidoCaja(null)
     setResultado(null)
   }
+
   async function cancelarPago() {
     if (!pedidoCaja) return
 
@@ -630,6 +795,12 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
               {pedidoCaja.estado === 'pendiente' && (
                 <>
                   PEDIDO VÁLIDO. ⚠️ <strong>FALTA ABONAR</strong>
+                  <div style={{ marginTop: 6, fontSize: 14 }}>
+                    ⏳ Vence en:{' '}
+                    <strong>
+                      {tiempoRestante(pedidoCaja.expiraEn) || 'EXPIRADO'}
+                    </strong>
+                  </div>
                 </>
               )}
 
@@ -673,7 +844,7 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
                 className="btn swal-btn-confirm w-75 mx-auto mt-4"
                 onClick={confirmarEntrega}
               >
-                Confirmar entrega
+                Generar ticket
               </button>
             )}
 
@@ -681,11 +852,16 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
               className="btn swal-btn-alt w-50 mx-auto mt-2"
               onClick={() => {
                 Swal.fire({
-                  title: 'Cerrar pedido',
-                  text: '¿Querés cerrar este pedido sin continuar?',
+                  title: '¿Desea cerrar el pedido?',
+                  text: 'Podrás escanear el QR nuevamente.',
                   icon: 'question',
                   showCancelButton: true,
                   confirmButtonText: 'Sí, cerrar',
+                  cancelButtonText: 'Volver',
+                  customClass: {
+                    confirmButton: 'swal-btn-confirm',
+                    cancelButton: 'swal-btn-alt',
+                  },
                 }).then(r => {
                   if (r.isConfirmed) {
                     setPedidoCaja(null)

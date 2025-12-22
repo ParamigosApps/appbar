@@ -10,12 +10,8 @@ import { useFirebase } from '../../context/FirebaseContext.jsx'
 import {
   traerPedidos,
   traerPedidosPendientes,
-  eliminarPedidoPendiente,
 } from '../../services/pedidosService.js'
-
-import { iniciarExpiracionReact } from '../../services/pedidosExpiracion.js'
-import { generarCompraQr } from '../../services/generarQrService'
-
+import { expirarPedidosVencidos } from '../../services/expiracionPedidos.js'
 // 👀 UI opcional
 import './MisPedidos.css'
 
@@ -23,9 +19,13 @@ import './MisPedidos.css'
 
 export default function MisPedidos() {
   const { user } = useFirebase()
+
   const [pendientes, setPendientes] = useState([])
   const [pagados, setPagados] = useState([])
   const [retirados, setRetirados] = useState([])
+
+  const expirados = pedidos.filter(p => p.estado === 'expirado')
+  const [, setTick] = useState(0)
 
   // ==========================================
   // 🔥 Cargar pedidos del usuario
@@ -33,50 +33,82 @@ export default function MisPedidos() {
   async function cargarPedidos() {
     if (!user) return
 
-    const p = await traerPedidos(user.uid)
-    const pp = await traerPedidosPendientes(user.uid)
+    const pedidos = await traerPedidos(user.uid)
+    const pendientesDb = await traerPedidosPendientes(user.uid)
 
-    setPagados(p.filter(x => x.estado === 'pagado'))
-    setRetirados(p.filter(x => x.estado === 'retirado'))
-    setPendientes(pp.filter(x => x.estado === 'pendiente'))
+    setPagados(pedidos.filter(p => p.estado === 'pagado'))
+    setRetirados(pedidos.filter(p => p.estado === 'retirado'))
+    setPendientes(pendientesDb.filter(p => p.estado === 'pendiente'))
   }
-
   useEffect(() => {
-    if (user) cargarPedidos()
+    const i = setInterval(() => {
+      setTick(t => t + 1)
+    }, 1000)
+
+    return () => clearInterval(i)
+  }, [])
+  useEffect(() => {
+    if (!user) return
+
+    async function init() {
+      // 🔥 PASO 4: expirar pedidos vencidos
+      await expirarPedidosVencidos()
+
+      // 🔄 luego cargar pedidos actualizados
+      await cargarPedidos()
+    }
+
+    init()
   }, [user])
 
-  // ==========================================
-  // 🔥 Iniciar expiración automática
-  // ==========================================
-  useEffect(() => {
-    pendientes.forEach(pedido => {
-      iniciarExpiracionReact(pedido, () => cargarPedidos())
-    })
-  }, [pendientes])
+  function calcularTiempoRestante(expiraEn) {
+    if (!expiraEn?.seconds) return null
+
+    const ahora = Date.now()
+    const expiraMs = expiraEn.seconds * 1000
+    const diff = expiraMs - ahora
+
+    if (diff <= 0) return null
+
+    const minutos = Math.floor(diff / 60000)
+    const segundos = Math.floor((diff % 60000) / 1000)
+
+    return `${String(minutos).padStart(2, '0')}:${String(segundos).padStart(
+      2,
+      '0'
+    )}`
+  }
 
   // ==========================================
   // 🧾 Ver QR / Ticket
   // ==========================================
   async function verQr(pedido) {
-    const container = document.createElement('div')
+    if (!pedido.qrUrl) {
+      await Swal.fire({
+        icon: 'error',
+        title: 'QR no disponible',
+        text: 'Este pedido no tiene QR asociado.',
+        confirmButtonText: 'Cerrar',
+        customClass: { confirmButton: 'btn btn-dark' },
+        buttonsStyling: false,
+      })
+      return
+    }
 
     await Swal.fire({
-      title: `Pedido #${pedido.ticketId || pedido.id}`,
+      title: `Pedido #${pedido.numeroPedido || pedido.ticketId || pedido.id}`,
       html: `
         <p><strong>Total:</strong> $${pedido.total}</p>
         <p><strong>Estado:</strong> ${pedido.estado.toUpperCase()}</p>
-        <div id="qrContainer" style="margin-top:10px;"></div>
+
+        <div style="margin-top:15px; text-align:center">
+          <img 
+            src="${pedido.qrUrl}" 
+            alt="QR Pedido"
+            style="width:200px;height:200px"
+          />
+        </div>
       `,
-      didOpen: async () => {
-        const qrDiv = document.getElementById('qrContainer')
-        await generarCompraQr({
-          compraId: pedido.id,
-          numeroPedido: pedido.numero, // ⚡ nuevo
-          usuarioId: pedido.usuarioId, // ⚡ recomendado
-          qrContainer: qrDiv,
-          tamaño: 200,
-        })
-      },
       width: '420px',
       confirmButtonText: 'Cerrar',
       customClass: { confirmButton: 'btn btn-dark' },
@@ -85,12 +117,12 @@ export default function MisPedidos() {
   }
 
   // ==========================================
-  // ❌ Eliminar pendiente
+  // ❌ Eliminar pedido pendiente
   // ==========================================
   async function eliminarPendiente(id) {
-    const ok = await Swal.fire({
+    const res = await Swal.fire({
       title: '¿Eliminar pedido?',
-      html: `<p>Esta acción no se puede deshacer.</p>`,
+      html: '<p>Esta acción no se puede deshacer.</p>',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonText: 'Eliminar',
@@ -102,14 +134,13 @@ export default function MisPedidos() {
       buttonsStyling: false,
     })
 
-    if (!ok.isConfirmed) return
+    if (!res.isConfirmed) return
 
-    await eliminarPedidoPendiente(id)
     cargarPedidos()
   }
 
   // ==========================================
-  // LIST ITEM UI
+  // 🧱 Render pedido
   // ==========================================
   const renderPedido = pedido => (
     <div
@@ -152,11 +183,10 @@ export default function MisPedidos() {
         </p>
       </div>
 
-      {/* FOOTER */}
       <div className="pedido-bottom">
         {pedido.estado === 'pendiente' ? (
-          <span id={`exp-${pedido.id}`} className="contador">
-            ⏳ Expirando...
+          <span className="contador">
+            ⏳ {calcularTiempoRestante(pedido.expiraEn) || 'Expirando...'}
           </span>
         ) : (
           <span className="contador invisible">.</span>
@@ -170,13 +200,10 @@ export default function MisPedidos() {
   )
 
   // ==========================================
-  // RENDER FINAL
+  // 🖥 Render final
   // ==========================================
   return (
     <div className="mis-pedidos">
-      {/* =========================== */}
-      {/* CONTADORES */}
-      {/* =========================== */}
       <div className="contadores">
         <div className="contador-box pendiente">
           Pendientes: {pendientes.length}
@@ -187,9 +214,6 @@ export default function MisPedidos() {
         </div>
       </div>
 
-      {/* =========================== */}
-      {/* LISTAS */}
-      {/* =========================== */}
       <h4 className="titulo-seccion">Pendientes</h4>
       {pendientes.length === 0 ? (
         <p className="vacio">No tienes pedidos pendientes.</p>

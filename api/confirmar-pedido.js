@@ -48,13 +48,14 @@ export default async function handler(req, res) {
       to,
       subject: `🧾 Pedido #${pedido.numeroPedido}`,
       html: mailPedido({
-        nombre: pedido.usuarioNombre || nombre || 'Cliente',
+        nombre: pedido.usuarioNombre,
         numeroPedido: pedido.numeroPedido,
         total: pedido.total,
         lugar: pedido.lugar,
-        fecha: pedido.creadoEn?.toDate().toLocaleString('es-AR'),
-        qrBase64: pedido.qrBase64,
-        linkPedido: 'https://tu-dominio.com/mis-compras',
+        fecha: pedido.creadoEn?.toDate
+          ? pedido.creadoEn.toDate().toLocaleString('es-AR')
+          : new Date().toLocaleString('es-AR'),
+        qrUrl: pedido.qrUrl,
       }),
     })
 

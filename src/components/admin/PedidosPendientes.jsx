@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import {
   escucharComprasPendientes,
-  aprobarCompra,
   rechazarCompra,
   marcarCompraPagada,
 } from '../../services/pedidosAdmin.js'

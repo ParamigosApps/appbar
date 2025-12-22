@@ -1,40 +1,36 @@
 import Swal from 'sweetalert2'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
-import { generarCompraQr } from './generarQrService.js'
 
 // ======================================================
-// COMPROBANTE — TICKET PARA RETIRAR EN BARRA
+// COMPROBANTE — TICKET PARA RETIRAR EN BARRA (FINAL)
 // ======================================================
 export async function mostrarComprobanteCaja(compra) {
   const {
     numeroPedido,
     usuarioNombre,
     lugar,
-    carrito,
-    items,
+    items = [],
     total,
-    ticketId,
     creadoEn,
+    nombreEvento,
+    fechaEvento,
   } = compra
 
-  const lista = items || carrito || []
-
   const fechaHumana = creadoEn?.toDate
-    ? creadoEn.toDate().toLocaleString()
-    : new Date().toLocaleString()
+    ? creadoEn.toDate().toLocaleString('es-AR')
+    : new Date().toLocaleString('es-AR')
 
-  await Swal.fire({
+  const res = await Swal.fire({
     title: '🎫 Ticket de Retiro',
     width: '420px',
     html: `
-      <div id="ticketGenerado" style="
-        font-size:14px;
-        font-family: monospace;
-        border:2px dashed #000;
-        padding:12px;
-        background:#ffffff;
-      ">
+        <div id="ticket-print" style="
+    font-size:14px;
+    font-family: monospace;
+    border:2px dashed #000;
+    padding:12px;
+    background:#ffffff;
+  ">
+
         <div style="text-align:center;margin-bottom:8px;">
           <strong style="font-size:18px">PEDIDO #${numeroPedido}</strong><br>
           <span style="font-size:12px">${fechaHumana}</span>
@@ -42,33 +38,20 @@ export async function mostrarComprobanteCaja(compra) {
 
         <hr>
 
-        <div style="margin-bottom:4px">
-          <strong>Cliente:</strong> ${usuarioNombre}
-        </div>
+        <p><strong>Cliente:</strong> ${usuarioNombre}</p>
+        <p><strong>Lugar:</strong> ${lugar}</p>
 
-        <div style="margin-bottom:4px">
-          <strong>Lugar:</strong> ${lugar}
-        </div>
-
-        <div style="
-          display:flex;
-          align-items:center;
-          gap:6px;
-          margin-top:4px;
+        <p style="
+          margin-top:6px;
+          padding:6px;
+          background:#dcfce7;
+          color:#166534;
+          font-weight:bold;
+          text-align:center;
+          border-radius:6px;
         ">
-          <strong>Estado:</strong>
-          <span style="
-            padding:4px 10px;
-            background:#16a34a;
-            color:#ffffff;
-            font-weight:bold;
-            border-radius:999px;
-            font-size:13px;
-          ">
-            PEDIDO PAGO
-          </span>
-        </div>
-
+          PEDIDO PAGO
+        </p>
 
         <p style="
           margin-top:6px;
@@ -79,20 +62,19 @@ export async function mostrarComprobanteCaja(compra) {
           text-align:center;
           border-radius:6px;
         ">
-          Presentar ticket en la barra para retirar su pedido.
+          Presentar este QR en la barra para retirar su pedido.
         </p>
-
 
         <hr>
 
-        ${lista
+        ${items
           .map(
             p => `
-            <div style="display:flex;justify-content:space-between">
-              <span>${p.nombre} ×${p.enCarrito}</span>
-              <span>$${p.precio * p.enCarrito}</span>
-            </div>
-          `
+              <div style="display:flex;justify-content:space-between">
+                <span>${p.nombre} ×${p.enCarrito}</span>
+                <span>$${p.precio * p.enCarrito}</span>
+              </div>
+            `
           )
           .join('')}
 
@@ -103,32 +85,118 @@ export async function mostrarComprobanteCaja(compra) {
           <strong>$${total}</strong>
         </div>
 
-        <div id="qrCompraContainer" style="margin-top:12px;display:flex;justify-content:center"></div>
-      </div>
+<p style="
+  margin-top:10px;
+  font-size:12px;
+  text-align:center;
+  color:#374151;
+  font-weight:600;
+">
+  Ticket válido únicamente para el evento: 
 
-      <div style="margin-top:15px">
-        <button id="btnPdf" class="btn btn-dark w-100">Descargar PDF</button>
+  <span style="font-weight:800">
+    ${compra.nombreEvento || 'Nombre no disponible'}
+  </span><br>
+  <span style="font-weight:800">
+     ${compra.fechaEvento || 'Fecha no disponible'}
+  </span>
+
+  <span style="font-size:11px;color:#6b7280">
+    ${
+      compra.fechaEvento
+        ? new Date(
+            compra.fechaEvento.seconds
+              ? compra.fechaEvento.seconds * 1000
+              : compra.fechaEvento
+          ).toLocaleDateString('es-AR')
+        : ''
+    }
+  </span>
+</p>
+
+
+
+
       </div>
     `,
-    didOpen: async () => {
-      await generarCompraQr({
-        ticketId,
-        contenido: ticketId,
-        qrContainer: document.getElementById('qrCompraContainer'),
-        tamaño: 160,
-      })
-
-      document.getElementById('btnPdf').onclick = async () => {
-        const canvas = await html2canvas(
-          document.getElementById('ticketGenerado'),
-          { scale: 2 }
-        )
-        const pdf = new jsPDF()
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 15, 15, 180, 0)
-        pdf.save(`ticket-pedido-${numeroPedido}.pdf`)
-      }
-    },
-    confirmButtonText: 'Cerrar',
+    showCancelButton: true,
+    confirmButtonText: 'Imprimir',
+    cancelButtonText: 'Cerrar',
+    allowOutsideClick: false,
+    allowEscapeKey: false,
     buttonsStyling: false,
+    customClass: {
+      confirmButton: 'swal-btn-confirm',
+      cancelButton: 'swal-btn-alt',
+    },
+    didOpen: () => {
+      const style = document.createElement('style')
+      style.innerHTML = `
+      @media print {
+        body * {
+          visibility: hidden;
+        }
+        .swal2-popup, .swal2-popup * {
+          visibility: visible;
+        }
+        .swal2-popup {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+        }
+      }
+    `
+      document.head.appendChild(style)
+    },
   })
+  if (!res.isConfirmed) {
+    // ❌ El usuario NO imprimió
+    return { impreso: false }
+  }
+
+  const content = document.getElementById('ticket-print')
+  if (!content) {
+    return { impreso: false }
+  }
+
+  // 🖨️ Abrir ventana de impresión
+  const printWindow = window.open('', '', 'width=400,height=600')
+  if (!printWindow) {
+    return { impreso: false }
+  }
+
+  printWindow.document.write(`
+  <html>
+    <head>
+      <title>Ticket #${numeroPedido}</title>
+      <style>
+        body {
+          font-family: monospace;
+          margin: 0;
+          padding: 10px;
+        }
+        hr {
+          border: none;
+          border-top: 1px dashed #000;
+          margin: 8px 0;
+        }
+      </style>
+    </head>
+    <body>
+      ${content.innerHTML}
+    </body>
+  </html>
+`)
+
+  printWindow.document.close()
+  printWindow.focus()
+
+  setTimeout(() => {
+    printWindow.print()
+    printWindow.close()
+  }, 300)
+
+  // ✅ AHORA SÍ: se considera impreso
+  return { impreso: true }
 }

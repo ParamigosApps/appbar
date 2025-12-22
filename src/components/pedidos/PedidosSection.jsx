@@ -127,6 +127,7 @@ function PedidoCard({ pedido, onEliminar, onExpirar }) {
           ? formatearFecha(pedido.creadoEn.toDate())
           : formatearFecha(pedido.fecha),
         usuarioNombre: pedido.usuarioNombre || 'Usuario',
+        qrUrl: pedido.qrUrl,
       },
       () => abrirCarrito() // ← SE REABRE AL CERRAR EL MODAL
     )

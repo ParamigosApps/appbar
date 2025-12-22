@@ -291,39 +291,37 @@ export async function validarTicket(payload, eventoForzado = null) {
 }
 
 /* ============================================================
-   VALIDAR COMPRA
+   VALIDAR COMPRA — VERSIÓN FINAL CORREGIDA
    ============================================================ */
-export async function validarCompra(payload) {
-  const { compraId } = payload
-  if (!compraId) return rechazoCompra('QR inválido', 'Sin ID de compra.')
+export async function validarCompra({ compraId }) {
+  if (!compraId) {
+    return rechazoCompra('QR inválido', 'No se pudo identificar la compra.')
+  }
 
-  const data = snap.data()
+  // 🔎 Buscar compra en Firestore
+  const ref = doc(db, 'compras', compraId)
+  const snap = await getDoc(ref)
 
-  // ❌ Entrada de otro evento
-  if (eventoForzado && data.eventoId !== eventoForzado) {
-    return rechazoEntrada(
-      'Entrada de otro evento',
-      'Esta entrada no corresponde al evento seleccionado.'
+  if (!snap.exists()) {
+    return rechazoCompra(
+      'Compra inexistente',
+      'La compra no existe o fue eliminada.'
     )
   }
 
-  // 🔒 SIEMPRE usar el evento REAL de la entrada
-  const eventoIdEntrada = data.eventoId
-  const evento = await obtenerEvento(eventoIdEntrada)
+  const data = snap.data()
 
-  if (!evento)
-    return rechazoEntrada('Evento no encontrado', 'Este evento ya no existe.')
-
+  // ⛔ Ya retirada
   if (data.retirada) {
     const fecha = data.retiradaEn?.toDate
-      ? data.retiradaEn.toDate().toLocaleString()
+      ? data.retiradaEn.toDate().toLocaleString('es-AR')
       : 'Fecha desconocida'
 
     const por = data.retiradaPor?.nombre || 'Caja'
     const lugar = data.lugar || 'No especificado'
 
     return rechazoCompra(
-      ' ',
+      'Ticket ya utilizado',
       `
       <div style="
         background:#dc2626;
@@ -333,9 +331,8 @@ export async function validarCompra(payload) {
         text-align:center;
         font-weight:700;
         font-size:15px;
-        letter-spacing:0.3px;
         margin-bottom:10px;
-        border:2px solid #d90f0fff;
+        border:2px solid #b91c1c;
       ">
         🎫 ESTE TICKET YA FUE UTILIZADO
       </div>
@@ -343,40 +340,49 @@ export async function validarCompra(payload) {
       <div style="
         font-size:14px;
         line-height:1.6;
-        color:#111827;
         background:#f9fafb;
         border:1px solid #e5e7eb;
         border-radius:6px;
         padding:10px;
-        font-weight:700;
+        font-weight:600;
       ">
         <div>🧾 Pedido: <b>#${data.numeroPedido}</b></div>
         <div>📅 Fecha: <b>${fecha}</b></div>
         <div>👤 Empleado: <b>${por}</b></div>
         <div>📍 Lugar: <b>${lugar}</b></div>
       </div>
-    `
+      `
     )
   }
 
+  // ⚠️ No pagado → caja debe cobrar
   if (!data.pagado) {
     return {
       ok: true,
       tipo: 'compra',
       color: 'orange',
       titulo: 'Pedido pendiente de pago',
-      mensaje: 'Cobrar antes de marcar pedido como abonado.',
-      data: { id: compraId, ...data },
+      mensaje: 'Cobrar antes de marcar el pedido como abonado.',
+      data: {
+        id: compraId,
+        ...data,
+        nombreEvento: data.eventoNombre || data.nombreEvento || null,
+        fechaEvento: data.fechaEvento || data.eventoFecha || null,
+      },
+      nombreEvento: data.eventoNombre || data.nombreEvento || null,
     }
   }
 
+  // ✅ Pagado y no retirado
   return {
     ok: true,
     tipo: 'compra',
-    color: 'blue',
+    color: 'green',
     titulo: 'Compra válida',
-    mensaje: 'Pedido abonado. Entregar ticket.',
+    mensaje: 'Pedido abonado. Listo para entregar.',
     data: { id: compraId, ...data },
+    nombreEvento: data.eventoNombre || data.nombreEvento || null,
+    fechaEvento: data.fechaEvento || data.eventoFecha || data.fecha || null,
   }
 }
 

@@ -3,8 +3,6 @@
 // --------------------------------------------------------------
 
 import Swal from 'sweetalert2'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
 
 import { db, auth } from '../Firebase.js'
 import {
@@ -15,12 +13,16 @@ import {
   doc,
   collection,
   serverTimestamp,
+  Timestamp,
   query,
   where,
   setDoc,
 } from 'firebase/firestore'
 
-import { generarCompraQr } from '../services/generarQrService.js'
+import {
+  generarCompraQr,
+  subirQrGeneradoAFirebase,
+} from './generarQrService.js'
 
 // --------------------------------------------------------------
 // 📌 FECHA EXACTA (idéntica al proyecto original)
@@ -105,9 +107,9 @@ export async function devolverStock(items) {
 }
 
 // --------------------------------------------------------------
-// 📌 CREAR PEDIDO (flujo central)
+// 🧾 CREAR PEDIDO (QR SIEMPRE)
 // --------------------------------------------------------------
-export async function crearPedido({ carrito, total, lugar, pagado }) {
+export async function crearPedido({ carrito, total, lugar, pagado, evento }) {
   if (!auth.currentUser) {
     throw new Error('Usuario no autenticado')
   }
@@ -125,125 +127,123 @@ export async function crearPedido({ carrito, total, lugar, pagado }) {
   const numeroPedido = await obtenerNumeroPedido()
   const fechaHumana = obtenerFechaCompra()
 
-  const qrText = `Compra:${ticketId}`
+  // 🔑 Texto lógico del QR
+
+  const qrText = JSON.stringify({
+    tipo: 'compra',
+    ticketId,
+  })
+
   // 🔥 Reservar stock si es pendiente
   if (!pagado) {
     await reservarStock(carrito)
   }
 
-  // 🔥 Expira en 15 min (solo relevante si pendiente)
   const expiraEn = pagado
     ? null
-    : new Date(Date.now() + 15 * 60 * 1000).toISOString()
-
+    : Timestamp.fromDate(new Date(Date.now() + 15 * 60 * 1000))
+  // --------------------------------------------------
+  // 1️⃣ CREAR PEDIDO EN FIRESTORE
+  // --------------------------------------------------
   const ref = await addDoc(collection(db, 'compras'), {
+    // -----------------------------
+    // 👤 USUARIO
+    // -----------------------------
     usuarioId,
-    usuarioNombre: auth.currentUser.displayName || 'Usuario',
+    usuarioNombre: auth.currentUser?.displayName || 'Usuario',
+
+    // -----------------------------
+    // 🧾 COMPRA
+    // -----------------------------
     items: carrito,
     total,
     lugar,
-    pagado,
+
+    numeroPedido,
+    ticketId,
+
+    // -----------------------------
+    // 🔒 SNAPSHOT INMUTABLE DEL EVENTO
+    // -----------------------------
+    eventoId: evento?.id || null,
+    nombreEvento: evento?.nombre || null,
+    fechaEvento: evento?.fechaInicio || null,
+    horaEvento: evento?.horaInicio || null,
+
+    // -----------------------------
+    // 💰 ESTADO
+    // -----------------------------
+    pagado: Boolean(pagado),
     estado: pagado ? 'pagado' : 'pendiente',
-    ticketId,
-    numeroPedido,
 
-    qrText, // 👈 SE GUARDA
-    usado: false,
-    expiraEn,
-    creadoEn: serverTimestamp(),
-  })
+    origenPago: pagado ? 'online' : 'caja',
+    // -----------------------------
+    // 🎫 TICKET / CAJA
+    // -----------------------------
+    ticketImpreso: false,
+    ticketImpresoEn: null,
 
-  // 🔁 Retorno a React
-  return {
-    id: ref.id,
-    ticketId,
-    numeroPedido,
-    fechaHumana,
-    total,
-    lugar,
+    retirada: false,
+    retiradaEn: null,
+    retiradaPor: null,
+
+    // -----------------------------
+    // 🔗 QR
+    // -----------------------------
     qrText,
-  }
-}
+    qrUrl: null,
 
-// --------------------------------------------------------------
-// 📌 MOSTRAR TICKET + QR + PDF + WhatsApp
-// --------------------------------------------------------------
-export async function mostrarQrCompra({
-  carrito,
-  total,
-  ticketId,
-  numeroPedido,
-  lugar,
-  estado,
-}) {
-  const fechaHumana = obtenerFechaCompra()
-  const usuarioNombre = auth.currentUser.displayName || 'Usuario'
-
-  await Swal.fire({
-    title: '🧾 Ticket de compra',
-    width: '420px',
-    html: `
-      <div id="ticketGenerado" style="font-size:15px;text-align:left;">
-        <p><strong style="font-size:18px">Pedido #${numeroPedido}</strong></p>
-        <p><strong>Estado:</strong> ${estado.toUpperCase()}</p>
-        <p><strong>Cliente:</strong> ${usuarioNombre}</p>
-        <p><strong>Fecha:</strong> ${fechaHumana}</p>
-        <p><strong>Lugar:</strong> ${lugar}</p>
-
-        <hr>
-
-        ${carrito
-          .map(
-            p =>
-              `<p>- ${p.nombre} ×${p.enCarrito} → $${
-                p.precio * p.enCarrito
-              }</p>`
-          )
-          .join('')}
-
-        <hr>
-        <p style="font-size:20px;"><strong>Total: $${total}</strong></p>
-
-        <div id="qrCompraContainer"
-             style="display:flex; justify-content:center; margin-top:12px;">
-        </div>
-      </div>
-
-      <div style="display:flex; gap:10px; margin-top:15px;">
-        <button id="btnPdf" class="btn btn-dark" style="flex:1;">PDF</button>
-        <button id="btnWsp" class="btn btn-success" style="flex:1;">WhatsApp</button>
-      </div>
-    `,
-    didOpen: async () => {
-      const qrContainer = document.getElementById('qrCompraContainer')
-
-      await generarCompraQr({
-        ticketId,
-        contenido: `Compra:${ticketId}`,
-        qrContainer,
-        tamaño: 200,
-      })
-
-      document.getElementById('btnPdf')?.addEventListener('click', async () => {
-        const ticket = document.getElementById('ticketGenerado')
-        const canvas = await html2canvas(ticket)
-        const imgData = canvas.toDataURL('image/png')
-        const pdf = new jsPDF()
-        pdf.addImage(imgData, 'PNG', 10, 10, 190, 0)
-        pdf.save(`ticket-${numeroPedido}.pdf`)
-      })
-
-      document.getElementById('btnWsp')?.addEventListener('click', () => {
-        let msg = `🧾 *Ticket de compra*%0A`
-        msg += `Pedido #${numeroPedido}%0A`
-        msg += `Total: $${total}%0A`
-        msg += `Fecha: ${fechaHumana}%0A`
-        msg += `Estado: ${estado.toUpperCase()}%0A`
-        window.open(`https://wa.me/?text=${msg}`, '_blank')
-      })
-    },
-    confirmButtonText: 'Cerrar',
-    customClass: { confirmButton: 'btn btn-dark' },
-    buttonsStyling: false,
+    // -----------------------------
+    // ⏱️ METADATA
+    // -----------------------------
+    creadoEn: serverTimestamp(),
+    expiraEn: expiraEn || null,
   })
+
+  // --------------------------------------------------
+  // 2️⃣ GENERAR QR VISUAL (SIEMPRE)
+  // --------------------------------------------------
+  try {
+    const qrDiv = await generarCompraQr({
+      compraId: ref.id,
+      numeroPedido,
+      usuarioId,
+    })
+
+    const qrUrl = await subirQrGeneradoAFirebase({
+      qrDiv,
+      path: `qr/compras/${ref.id}.png`,
+    })
+
+    // --------------------------------------------------
+    // 3️⃣ GUARDAR QR EN FIRESTORE
+    // --------------------------------------------------
+    await updateDoc(doc(db, 'compras', ref.id), {
+      qrUrl,
+    })
+
+    return {
+      id: ref.id,
+      ticketId,
+      numeroPedido,
+      fechaHumana,
+      total,
+      lugar,
+      qrText,
+      qrUrl,
+    }
+  } catch (err) {
+    console.error('❌ Error generando QR del pedido:', err)
+
+    return {
+      id: ref.id,
+      ticketId,
+      numeroPedido,
+      fechaHumana,
+      total,
+      lugar,
+      qrText,
+      qrUrl: null,
+    }
+  }
 }

@@ -17,12 +17,13 @@ export function mailLogin({
 
   const metodo = metodoMap[provider] || provider || 'Desconocido'
 
-  return `
-    <div style="font-family:Arial,sans-serif;max-width:520px;color:#333">
+  const fechaStr =
+    fecha instanceof Date ? fecha.toLocaleString('es-AR') : String(fecha)
 
-      <h2 style="margin-bottom:6px">
-        👋 Registro exitoso en AppBar
-      </h2>
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#333">
+
+      <h2 style="margin-bottom:6px">👋 Registro exitoso en AppBar</h2>
 
       <p style="margin-top:0;color:#555">
         Tu cuenta fue creada correctamente. Ya podés ingresar y operar en AppBar.
@@ -36,14 +37,12 @@ export function mailLogin({
       ${email ? `<p><b>Email:</b> ${email}</p>` : ''}
       ${telefono ? `<p><b>Teléfono:</b> ${telefono}</p>` : ''}
 
-      <p><b>Fecha de alta:</b> ${
-        fecha instanceof Date ? fecha.toLocaleString() : fecha
-      }</p>
+      <p><b>Fecha de alta:</b> ${fechaStr}</p>
 
       <hr/>
 
       <p style="font-size:13px;color:#555">
-        ⚠️ Este correo se envía solo la primera vez que se crea tu cuenta.
+        Este correo se envía únicamente al momento de crear tu cuenta.
         Si no realizaste este registro, podés ignorar este mensaje.
       </p>
 
@@ -51,7 +50,7 @@ export function mailLogin({
         ID de usuario: ${uid || '—'}
       </p>
 
-      <p style="font-size:12px;color:#999;margin-top:16px">
+      <p style="font-size:12px;color:#999;margin-top:16px;text-align:center">
         AppBar 🍻 — Plataforma de eventos y compras
       </p>
 
@@ -65,18 +64,21 @@ export function mailLogin({
 export function mailPedido(payload = {}) {
   const pedido = payload.pedido ?? payload
 
-  const nombre = payload.nombre ?? pedido.nombre ?? 'Cliente'
+  const nombre = payload.nombre ?? pedido.usuarioNombre ?? 'Cliente'
   const numeroPedido = pedido.numeroPedido ?? pedido.id ?? '—'
   const total = pedido.total ?? '—'
   const lugar = pedido.lugar ?? '—'
-  const fecha = pedido.fecha ?? new Date()
+  const fecha = payload.fecha ?? new Date()
+  const qrUrl = payload.qrUrl ?? pedido.qrUrl
+  const eventoNombre = payload.eventoNombre ?? pedido.eventoNombre ?? null
 
   const fechaStr =
     fecha instanceof Date ? fecha.toLocaleString('es-AR') : String(fecha)
 
   return `
-    <div style="font-family:Arial,sans-serif;max-width:520px;color:#333">
-      <h2>🧾 Pedido confirmado</h2>
+    <div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#333">
+
+      <h2 style="margin-bottom:6px">🧾 Pedido confirmado</h2>
 
       <p>
         Hola <b>${nombre}</b>, tu pedido fue confirmado correctamente.
@@ -85,19 +87,48 @@ export function mailPedido(payload = {}) {
       <hr/>
 
       <p><b>Pedido:</b> #${numeroPedido}</p>
+      ${eventoNombre ? `<p><b>Evento:</b> ${eventoNombre}</p>` : ''}
       <p><b>Total:</b> $${total}</p>
       <p><b>Lugar:</b> ${lugar}</p>
       <p><b>Fecha:</b> ${fechaStr}</p>
 
       <hr/>
 
-      <p style="font-size:13px;color:#555">
-        Presentá este comprobante en caja o al retirar tu compra.
+      ${
+        qrUrl
+          ? `
+          <div style="text-align:center;margin:15px 0">
+            <img
+              src="${qrUrl}"
+              alt="Código QR del pedido"
+              style="width:220px;height:auto;display:block;margin:auto"
+            />
+            <p style="font-size:13px;color:#555;margin-top:8px">
+              Presentá este QR en caja para retirar tu compra.
+            </p>
+          </div>
+        `
+          : `
+          <p style="color:#c00;text-align:center">
+            El código QR no está disponible en este momento.
+            Podés presentar este correo como comprobante.
+          </p>
+        `
+      }
+
+      <hr/>
+
+      <p style="font-size:13px;color:#555;line-height:1.4">
+        <b>Importante:</b> este ticket es válido <b>únicamente para el evento
+        o compra correspondiente a este pedido</b>.
+        No es reutilizable, no es transferible y no puede utilizarse
+        en otros eventos, fechas o locales.
       </p>
 
-      <p style="font-size:12px;color:#999;margin-top:16px">
+      <p style="font-size:12px;color:#999;margin-top:24px;text-align:center">
         AppBar 🍻 — Sistema de pedidos
       </p>
+
     </div>
   `
 }
