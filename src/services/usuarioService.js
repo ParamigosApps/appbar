@@ -13,38 +13,48 @@ export async function guardarPerfilUsuario({
   const ref = doc(db, 'usuarios', uid)
   const snap = await getDoc(ref)
 
-  const emailAnterior = snap.exists() ? snap.data().email : null
+  const emailAnterior = snap.exists() ? snap.data().email || null : null
 
-  const emailFinal = emailNuevo ?? emailAnterior ?? null
+  // 🔑 Email final: prioridad al nuevo, si no conservar el anterior
+  const emailFinal =
+    emailNuevo && emailNuevo.trim() !== ''
+      ? emailNuevo.trim().toLowerCase()
+      : emailAnterior
 
-  // 💾 Guardar perfil
+  // 💾 Guardar / actualizar perfil
   await setDoc(
     ref,
     {
       uid,
       nombre,
       nombreConfirmado: true,
-      email: emailFinal,
+      email: emailFinal || null,
       emailConfirmado: Boolean(emailFinal),
-      phoneNumber,
+      phoneNumber: phoneNumber || null,
       provider,
-      creadoEn: serverTimestamp(),
+      actualizadoEn: serverTimestamp(), // ⬅️ no sobrescribimos creadoEn
     },
     { merge: true }
   )
 
-  // 📩 Enviar mail SOLO si se agregó o cambió
+  // 📩 Enviar mail SOLO si:
+  // - hay email
+  // - y es nuevo o cambió
   if (emailFinal && emailFinal !== emailAnterior) {
-    await enviarMail({
-      to: emailFinal,
-      subject: '📩 Email registrado correctamente | AppBar',
-      html: mailLogin({
-        nombre,
-        provider,
-        telefono: phoneNumber || null,
-        uid,
-      }),
-    })
+    try {
+      await enviarMail({
+        to: emailFinal,
+        subject: '📩 Email registrado correctamente | AppBar',
+        html: mailLogin({
+          nombre,
+          provider,
+          telefono: phoneNumber || null,
+          uid,
+        }),
+      })
+    } catch (err) {
+      console.warn('⚠️ No se pudo enviar mail de confirmación:', err)
+    }
   }
 
   return {

@@ -31,9 +31,32 @@ import {
   where,
   updateDoc,
   serverTimestamp,
+  Timestamp,
 } from 'firebase/firestore'
 
 import { logTicket } from '../../services/logsService'
+
+async function extenderExpiracionCompraSimple(pedido) {
+  if (!pedido?.id || !pedido.expiraEn?.seconds) {
+    throw new Error('Pedido sin expiración válida')
+  }
+
+  const ahora = Date.now()
+  const expiraActual = pedido.expiraEn.seconds * 1000
+
+  if (expiraActual <= ahora) {
+    throw new Error('El pedido ya expiró')
+  }
+
+  const nuevaFecha = new Date(expiraActual + 5 * 60 * 1000)
+
+  await updateDoc(doc(db, 'compras', pedido.id), {
+    expiraEn: Timestamp.fromDate(nuevaFecha),
+  })
+
+  return nuevaFecha
+}
+
 // --------------------------------------------------------------
 // Determinar si un evento está vigente HOY
 // --------------------------------------------------------------
@@ -102,18 +125,41 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   }, [])
 
   function tiempoRestante(expiraEn) {
-    if (!expiraEn?.seconds) return null
+    if (!expiraEn) return null
 
-    const ahora = Date.now()
-    const expiraMs = expiraEn.seconds * 1000
-    const diff = expiraMs - ahora
+    let expiraMs = null
 
+    // 🔹 Firestore Timestamp { seconds, nanoseconds }
+    if (typeof expiraEn === 'object' && typeof expiraEn.seconds === 'number') {
+      expiraMs = expiraEn.seconds * 1000
+    }
+
+    // 🔹 ISO String "2025-12-22T06:50:32.471Z"
+    else if (typeof expiraEn === 'string') {
+      const d = new Date(expiraEn)
+      if (!isNaN(d.getTime())) {
+        expiraMs = d.getTime()
+      }
+    }
+
+    // 🔹 Date nativo
+    else if (expiraEn instanceof Date) {
+      expiraMs = expiraEn.getTime()
+    }
+
+    if (!expiraMs) return null
+
+    const diff = expiraMs - Date.now()
     if (diff <= 0) return null
 
-    const m = Math.floor(diff / 60000)
-    const s = Math.floor((diff % 60000) / 1000)
+    const totalSeconds = Math.floor(diff / 1000)
+    const m = Math.floor(totalSeconds / 60)
+    const s = totalSeconds % 60
 
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+    return {
+      texto: `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`,
+      totalSeconds,
+    }
   }
 
   // --------------------------------------------------------------
@@ -436,12 +482,7 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
       }
 
       res = await validarCompra({ compraId: compraIdFinal })
-      // 🔒 PASO 5 — VALIDACIÓN DE ESTADO DE COMPRA
-      if (!res?.ok || res.tipo !== 'compra') {
-        mostrarError('Compra inválida')
-        return
-      }
-
+      console.log('EXPIRA EN:', res.data?.expiraEn)
       const estado = res.data?.estado
 
       // ❌ Estados NO permitidos
@@ -458,6 +499,11 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
       // ❌ Cualquier otro estado raro
       if (!['pendiente', 'pagado'].includes(estado)) {
         mostrarError('Estado de pedido no válido')
+        return
+      }
+      // 🔒 PASO 5 — VALIDACIÓN DE ESTADO DE COMPRA
+      if (!res?.ok || res.tipo !== 'compra') {
+        mostrarError('Compra inválida')
         return
       }
 
@@ -792,17 +838,67 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
                     : '#0c5728ff', // rojo (NO pagado)
               }}
             >
-              {pedidoCaja.estado === 'pendiente' && (
-                <>
-                  PEDIDO VÁLIDO. ⚠️ <strong>FALTA ABONAR</strong>
-                  <div style={{ marginTop: 6, fontSize: 14 }}>
-                    ⏳ Vence en:{' '}
-                    <strong>
-                      {tiempoRestante(pedidoCaja.expiraEn) || 'EXPIRADO'}
-                    </strong>
-                  </div>
-                </>
-              )}
+              {pedidoCaja.estado === 'pendiente' &&
+                (() => {
+                  const restante = tiempoRestante(pedidoCaja.expiraEn)
+
+                  if (!restante) return null
+
+                  const mostrarExtender = restante.totalSeconds <= 120 // ⬅️ 2 minutos
+
+                  return (
+                    <>
+                      <div style={{ fontWeight: 'bold' }}>
+                        PEDIDO VÁLIDO. ⚠️ <strong>FALTA ABONAR</strong>
+                      </div>
+
+                      <div style={{ marginTop: 6, fontSize: 14 }}>
+                        ⏳ Vence en: <strong>{restante.texto}</strong>
+                      </div>
+
+                      {mostrarExtender && (
+                        <button
+                          className="btn btn swal-btn-alt btn-sm mt-2"
+                          onClick={async () => {
+                            try {
+                              const r = await Swal.fire({
+                                title: 'Extender vencimiento',
+                                text: '¿Extender 5 minutos este pedido?',
+                                icon: 'question',
+                                showCancelButton: true,
+                                confirmButtonText: 'Extender',
+                                cancelButtonText: 'Cancelar',
+                                customClass: {
+                                  confirmButton: 'swal-btn-confirm',
+                                  cancelButton: 'swal-btn-alt',
+                                },
+                              })
+
+                              if (!r.isConfirmed) return
+
+                              const nuevaFecha =
+                                await extenderExpiracionCompraSimple(pedidoCaja)
+
+                              // 🔄 refresh local inmediato
+                              setPedidoCaja(p => ({
+                                ...p,
+                                expiraEn: {
+                                  seconds: Math.floor(
+                                    nuevaFecha.getTime() / 1000
+                                  ),
+                                },
+                              }))
+                            } catch (err) {
+                              Swal.fire('No permitido', err.message, 'error')
+                            }
+                          }}
+                        >
+                          ⏱ Extender 5 min
+                        </button>
+                      )}
+                    </>
+                  )
+                })()}
 
               {pedidoCaja.estado === 'pagado' && '✅ PAGO CONFIRMADO'}
               {pedidoCaja.estado === 'retirado' && '🎫 TICKET ENTREGADO'}

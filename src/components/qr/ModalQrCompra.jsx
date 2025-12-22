@@ -21,9 +21,38 @@ export async function mostrarQrCompraReact(pedido, onClose) {
     } = pedido
 
     const estadosPretty = {
-      pagado: '🟢 PAGADO',
-      pendiente: '🟡 PENDIENTE',
-      retirado: '⚪ RETIRADO',
+      pagado: 'PAGADO',
+      pendiente: 'PENDIENTE',
+      retirado: 'RETIRADO',
+    }
+
+    const badgeEstado = estado => {
+      const map = {
+        pendiente: { text: 'Pendiente', bg: '#f59e0b', color: '#111' },
+        pagado: { text: 'Pagado', bg: '#16a34a', color: '#fff' },
+        retirado: { text: 'Retirado', bg: '#2563eb', color: '#fff' },
+        expirado: { text: 'Expirado', bg: '#dc2626', color: '#fff' },
+      }
+
+      const e = map[estado] || {
+        text: estado,
+        bg: '#6b7280',
+        color: '#fff',
+      }
+
+      return `
+    <span style="
+      display:inline-block;
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:13px;
+      font-weight:700;
+      background:${e.bg};
+      color:${e.color};
+    ">
+      ${e.text}
+    </span>
+  `
     }
 
     await Swal.fire({
@@ -42,7 +71,11 @@ export async function mostrarQrCompraReact(pedido, onClose) {
             </strong>
           </p>
 
-          <p><strong>Estado:</strong> ${estadosPretty[estado]}</p>
+<p>
+  <strong>Estado:</strong>
+  ${badgeEstado(estado.toUpperCase())}
+</p>
+
           <p><strong>Cliente:</strong> ${usuarioNombre}</p>
           <p><strong>Lugar:</strong> ${lugar}</p>
           <p><strong>Fecha:</strong> ${fechaHumana}</p>

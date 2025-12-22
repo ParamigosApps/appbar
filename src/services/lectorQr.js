@@ -298,7 +298,6 @@ export async function validarCompra({ compraId }) {
     return rechazoCompra('QR inválido', 'No se pudo identificar la compra.')
   }
 
-  // 🔎 Buscar compra en Firestore
   const ref = doc(db, 'compras', compraId)
   const snap = await getDoc(ref)
 
@@ -355,7 +354,7 @@ export async function validarCompra({ compraId }) {
     )
   }
 
-  // ⚠️ No pagado → caja debe cobrar
+  // ⚠️ Pedido pendiente (NO pagado)
   if (!data.pagado) {
     return {
       ok: true,
@@ -364,12 +363,11 @@ export async function validarCompra({ compraId }) {
       titulo: 'Pedido pendiente de pago',
       mensaje: 'Cobrar antes de marcar el pedido como abonado.',
       data: {
-        id: compraId,
-        ...data,
-        nombreEvento: data.eventoNombre || data.nombreEvento || null,
-        fechaEvento: data.fechaEvento || data.eventoFecha || null,
+        id: snap.id,
+        ...data, // ⬅️ expiraEn VIENE ACÁ
       },
       nombreEvento: data.eventoNombre || data.nombreEvento || null,
+      fechaEvento: data.fechaEvento || data.eventoFecha || null,
     }
   }
 
@@ -380,7 +378,10 @@ export async function validarCompra({ compraId }) {
     color: 'green',
     titulo: 'Compra válida',
     mensaje: 'Pedido abonado. Listo para entregar.',
-    data: { id: compraId, ...data },
+    data: {
+      id: snap.id,
+      ...data, // ⬅️ expiraEn TAMBIÉN VIENE ACÁ
+    },
     nombreEvento: data.eventoNombre || data.nombreEvento || null,
     fechaEvento: data.fechaEvento || data.eventoFecha || data.fecha || null,
   }

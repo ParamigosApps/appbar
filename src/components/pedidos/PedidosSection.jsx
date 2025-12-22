@@ -79,12 +79,17 @@ function PedidoCard({ pedido, onEliminar, onExpirar }) {
       return
     }
 
-    const base =
-      pedido.creadoEn?.toDate?.() ??
-      pedido.fecha?.toDate?.() ??
-      new Date(pedido.fecha)
+    const expiraEnMs = (() => {
+      if (!pedido.expiraEn) return null
 
-    const expiraEnMs = base.getTime() + 15 * 60 * 1000
+      if (pedido.expiraEn.seconds) {
+        // Firestore Timestamp
+        return pedido.expiraEn.seconds * 1000
+      }
+
+      // ISO string fallback
+      return new Date(pedido.expiraEn).getTime()
+    })()
 
     const tick = () => {
       const diff = expiraEnMs - Date.now()
@@ -149,9 +154,10 @@ function PedidoCard({ pedido, onEliminar, onExpirar }) {
       confirmButtonText: 'Eliminar',
       cancelButtonText: 'Cancelar',
       customClass: {
-        confirmButton: 'btn btn-dark',
-        cancelButton: 'btn btn-secondary',
+        confirmButton: 'swal-btn-confirm',
+        cancelButton: 'swal-btn-alt',
       },
+
       buttonsStyling: false,
     })
 
