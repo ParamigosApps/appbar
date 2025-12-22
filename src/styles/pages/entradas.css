@@ -256,3 +256,16 @@
   border-radius: 14px;
   font-weight: 700;
 }
+.ticket-clickable {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ticket-clickable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.ticket-usado {
+  opacity: 0.6;
+}

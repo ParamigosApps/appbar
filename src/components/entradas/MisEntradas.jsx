@@ -260,46 +260,85 @@ export default function MisEntradas() {
                     const pendientes = l.ticketsPendientes.length
                     const total = aprobadas + pendientes
 
+                    const usadas = l.ticketsAprobados.filter(
+                      t => t.usado
+                    ).length
+                    const todasUsadas = aprobadas > 0 && usadas === aprobadas
+
+                    const puedeAbrirQr = aprobadas > 0
                     return (
-                      <div key={i} className="ticket-card rounded-4 shadow-sm ">
-                        <div className="d-flex justify-content-between align-items-center mb-1">
-                          <div className="fw-bold">
-                            🎟 {l.lote?.nombre || 'Entrada general'}
+                      <>
+                        <div
+                          key={i}
+                          className={`ticket-card rounded-4 shadow-sm ${
+                            puedeAbrirQr ? 'ticket-clickable' : ''
+                          } ${todasUsadas ? 'ticket-usado' : ''}`}
+                          role={puedeAbrirQr ? 'button' : undefined}
+                          tabIndex={puedeAbrirQr ? 0 : -1}
+                          onClick={() => {
+                            if (!puedeAbrirQr) return
+
+                            abrirModalQr({
+                              ...g,
+                              lote: l.lote || null,
+                              ticketsAprobados: l.ticketsAprobados,
+                            })
+                          }}
+                          onKeyDown={e => {
+                            if (!puedeAbrirQr) return
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              abrirModalQr({
+                                ...g,
+                                lote: l.lote || null,
+                                ticketsAprobados: l.ticketsAprobados,
+                              })
+                            }
+                          }}
+                        >
+                          <div className="d-flex justify-content-between align-items-center mb-1">
+                            <div className="fw-bold">
+                              🎟 {l.lote?.nombre || 'Entrada general'}
+                            </div>
+
+                            {pendientes > 0 ? (
+                              <Badge color="warning">Pendiente</Badge>
+                            ) : todasUsadas ? (
+                              <Badge color="secondary">No disponibles</Badge>
+                            ) : (
+                              <Badge color="success">
+                                Entradas disponibles
+                              </Badge>
+                            )}
                           </div>
 
-                          {pendientes > 0 ? (
-                            <Badge color="warning">Pendiente</Badge>
-                          ) : (
-                            <Badge color="success">Entradas pagas</Badge>
-                          )}
+                          <div className="ticket-info text-muted">
+                            Cantidad: <strong>{total}</strong>
+                            {todasUsadas && (
+                              <span className="ms-2 text-danger fw-semibold">
+                                · Todas usadas
+                              </span>
+                            )}
+                          </div>
                         </div>
 
-                        <div className="ticket-info text-muted">
-                          Cantidad: <strong>{total}</strong>
-                        </div>
-                      </div>
+                        {/* CTA separado, más limpio */}
+                        {puedeAbrirQr && !todasUsadas && (
+                          <div className="text-end ">
+                            <button
+                              className="btn btn-link p-0 fw-semibold text-primary"
+                              onClick={() =>
+                                abrirModalQr({
+                                  ...g,
+                                  lote: l.lote || null,
+                                  ticketsAprobados: l.ticketsAprobados,
+                                })
+                              }
+                            ></button>
+                          </div>
+                        )}
+                      </>
                     )
                   })}
-
-                {/* BOTÓN ÚNICO POR EVENTO */}
-                {tieneEntradasAprobadas && (
-                  <button
-                    className="btn swal-btn-confirm w-50 d-block mx-auto mt-3"
-                    onClick={() => {
-                      const lotesArray = Object.values(g.lotes)
-
-                      abrirModalQr({
-                        ...g,
-                        ticketsAprobados: lotesArray.flatMap(
-                          l => l.ticketsAprobados
-                        ),
-                        lote: null,
-                      })
-                    }}
-                  >
-                    Ver QR
-                  </button>
-                )}
               </div>
             )
           })
@@ -313,18 +352,22 @@ export default function MisEntradas() {
             <div className="qr-header">
               <p className="qr-title fw-bold mb-1">{qrModal.nombreEvento}</p>
 
+              <p className="qr-lote fw-semibold mb-1">
+                🎟 Lote: {qrModal.lote?.nombre || 'Entrada general'}
+              </p>
+
               <p className="qr-sub text-muted mb-1">
-                📅 {formatearSoloFecha(qrModal.fechaEvento)}
+                📅 Fecha: {formatearSoloFecha(qrModal.fechaEvento)}
               </p>
 
               {qrModal.horaInicio && qrModal.horaFin && (
                 <p className="qr-sub mb-1">
-                  ⏰ {qrModal.horaInicio} a {qrModal.horaFin}
+                  ⏰ Horario: {qrModal.horaInicio} a {qrModal.horaFin}
                 </p>
               )}
 
               {qrModal.lugar && (
-                <p className="qr-sub mb-1">📍 {qrModal.lugar}</p>
+                <p className="qr-sub mb-1">📍 Lugar: {qrModal.lugar}</p>
               )}
 
               <div className="qr-divider" />

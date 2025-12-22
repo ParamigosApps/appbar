@@ -3,32 +3,47 @@
 // Igual a tu proyecto original
 // ========================================
 
+// ========================================
+// MERCADO PAGO – React Version (Entradas)
+// ========================================
+
 export async function crearPreferenciaEntrada({
   usuarioId,
   eventoId,
   nombreEvento,
   cantidad,
   precio,
+  detalleEntradas,
   imagenEventoUrl,
 }) {
   try {
-    const titulo = `${cantidad} Entrada${
-      cantidad > 1 ? 's' : ''
-    } — ${nombreEvento}`
+    const cantidadNum = Number(cantidad)
+    const precioNum = Number(precio)
 
-    const descripcion = `Evento: ${nombreEvento}
-Cantidad: ${cantidad}
-Precio unitario: $${precio}
-Total: $${precio * cantidad}
-Usuario: ${usuarioId}`
+    // 🔒 VALIDACIONES DURAS
+    if (
+      !Number.isInteger(cantidadNum) ||
+      cantidadNum <= 0 ||
+      !Number.isFinite(precioNum) ||
+      precioNum <= 0
+    ) {
+      throw new Error('Datos inválidos para Mercado Pago')
+    }
+
+    // 🧾 TÍTULO CLARO
+    const titulo = `Entradas — ${nombreEvento}`
+
+    // 🧾 DESCRIPCIÓN REAL
+    const descripcion = detalleEntradas
+      ? `${detalleEntradas}\n\nEvento: ${nombreEvento}`
+      : `Entrada para ${nombreEvento}`
 
     const body = {
-      title: titulo,
       items: [
         {
           title: titulo,
-          quantity: cantidad,
-          unit_price: Number(precio),
+          quantity: 1, // ✅ SIEMPRE 1
+          unit_price: precioNum, // ✅ NUMBER VALIDADO
           currency_id: 'ARS',
           picture_url: imagenEventoUrl || '',
           description: descripcion,
@@ -43,7 +58,19 @@ Usuario: ${usuarioId}`
       body: JSON.stringify(body),
     })
 
+    if (!res.ok) {
+      const err = await res.json()
+      console.error('❌ Error backend MP:', err)
+      return null
+    }
+
     const data = await res.json()
+
+    if (!data?.init_point) {
+      console.error('❌ MP sin init_point:', data)
+      return null
+    }
+
     return data.init_point
   } catch (err) {
     console.error('❌ Error crearPreferenciaEntrada:', err)
@@ -55,43 +82,62 @@ Usuario: ${usuarioId}`
 // src/services/mercadopago.js — VERSIÓN FUNCIONAL
 // --------------------------------------------------------------
 
+// --------------------------------------------------------------
+// src/services/mercadopago.js — VERSIÓN FINAL SEGURA
+// --------------------------------------------------------------
+
+function normalizarPrecio(valor) {
+  if (!valor) return 0
+  if (typeof valor === 'string') {
+    return Number(
+      valor.replace(/\$/g, '').replace(/\./g, '').replace(/,/g, '').trim()
+    )
+  }
+  return Number(valor) || 0
+}
+
 export async function crearPreferenciaCompra({ carrito, ticketId }) {
   try {
-    const resp = await fetch(
-      'https://api.mercadopago.com/checkout/preferences',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `APP_USR-5795035815589721-100821-1783c54528b8fb8b0fed90918f041145-2914738230`, // ⚠️ reemplazar
-        },
-        body: JSON.stringify({
-          items: carrito.map(p => ({
-            title: p.nombre,
-            quantity: p.enCarrito,
-            currency_id: 'ARS',
-            unit_price: Number(
-              p.precio
-                .toString()
-                .replace('$', '')
-                .replace('.', '')
-                .replace(',', '')
-            ),
-          })),
-          external_reference: ticketId,
-          back_urls: {
-            success: 'https://todovaper.com.ar/success',
-            failure: 'https://todovaper.com.ar/error',
-          },
-          auto_return: 'approved',
-        }),
+    const items = carrito.map(p => {
+      const precioNum = normalizarPrecio(p.precio)
+      const cantidadNum = Number(p.enCarrito)
+
+      if (
+        !Number.isFinite(precioNum) ||
+        precioNum <= 0 ||
+        !Number.isInteger(cantidadNum) ||
+        cantidadNum <= 0
+      ) {
+        throw new Error('Item inválido para Mercado Pago')
       }
-    )
 
-    const data = await resp.json()
+      return {
+        title: p.nombre,
+        quantity: cantidadNum,
+        unit_price: precioNum,
+        currency_id: 'ARS',
+      }
+    })
 
-    if (!data.init_point) {
-      console.error('MP response:', data)
+    const res = await fetch('/api/crear-preferencia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items,
+        external_reference: ticketId,
+      }),
+    })
+
+    if (!res.ok) {
+      const err = await res.json()
+      console.error('❌ Error backend MP:', err)
+      return null
+    }
+
+    const data = await res.json()
+
+    if (!data?.init_point) {
+      console.error('❌ MP sin init_point:', data)
       return null
     }
 

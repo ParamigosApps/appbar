@@ -83,7 +83,11 @@ export default function MenuAcordeon() {
   // Evento global para abrir login
   // ------------------------------------------------------------
   useEffect(() => {
-    const handler = () => toggle('usuario')
+    const handler = () => {
+      setAbierto('usuario') // 🔒 abrir SIEMPRE
+      setMostrarTelefono(false) // opcional, limpia estado
+    }
+
     document.addEventListener('abrir-login', handler)
     return () => document.removeEventListener('abrir-login', handler)
   }, [])

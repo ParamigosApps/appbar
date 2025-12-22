@@ -4,7 +4,7 @@
 // --------------------------------------------------------------
 
 import Swal from 'sweetalert2'
-import { crearPreferenciaEntrada } from '../../services/mpEntradas.js'
+import { crearPreferenciaEntrada } from '../../services/borrarmpEntradas.js'
 import {
   obtenerDatosBancarios,
   obtenerContacto,
@@ -17,8 +17,8 @@ import { serverTimestamp } from 'firebase/firestore'
 // =============================================================
 export async function manejarMercadoPago({
   evento,
-  loteSel, // ✅ NUEVO
-  precioUnitario, // ✅ EXPLÍCITO
+  loteSel,
+  precioUnitario,
   cantidadSel,
   usuarioId,
   eventoId,
@@ -54,17 +54,25 @@ export async function manejarMercadoPago({
       cantidadSel,
     })
 
+    const detalleEntradas = Array.isArray(loteSel?.detalles)
+      ? loteSel.detalles
+          .map(d => {
+            const precioFmt = d.precio.toLocaleString('es-AR')
+            return `• ${d.cantidad} × ${d.nombre} ($${precioFmt})`
+          })
+          .join('\n')
+      : `• ${cantidadSel} × ${loteSel.nombre} ($${precioUnitario.toLocaleString(
+          'es-AR'
+        )})`
     const url = await crearPreferenciaEntrada({
       usuarioId,
       eventoId,
-      eventoNombre: evento.nombre,
+      nombreEvento: evento.nombre,
 
-      // 🔑 CLAVES
-      loteId: loteSel.id ?? null,
-      loteNombre: loteSel.nombre,
+      cantidad: 1, // MP
+      precio: precioUnitario,
 
-      cantidad: cantidadSel,
-      precioUnitario,
+      detalleEntradas,
 
       imagenEventoUrl: evento.imagenEventoUrl || evento.imagen || '',
     })

@@ -283,7 +283,7 @@
 .total-box {
   font-size: 0.95rem;
   text-align: center;
-  margin-bottom: 10px;
+  margin-top: 8px;
   color: #111827;
 }
 
@@ -848,4 +848,88 @@
 
 .swal-btn-dark:hover {
   background: #020617;
+}
+.swal-event-header {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.swal-event-title {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.swal-event-sub {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.lote-multi .lote-footer-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.lote-cantidad-box {
+  position: absolute;
+  top: 70px; /* ajustable */
+  right: 16px; /* ajustable */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.lote-select-cant {
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-weight: 600;
+  background: #ffffff;
+}
+
+.lote-info-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+/* FILA COSTO */
+.lote-costo-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* CONTENEDOR DE BADGES */
+.lote-badges-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* BADGE BASE (precio + consumición) */
+.precio-valor,
+.lote-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  height: 24px;
+  padding: 0 10px;
+
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 999px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.lote-hora {
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: #1f2937;
+}
+.lote-card.lote-multi {
+  position: relative;
 }

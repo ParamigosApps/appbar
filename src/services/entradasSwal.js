@@ -38,6 +38,170 @@ function estadoLote(l, evento) {
 }
 
 // ======================================================================
+// SELECCIÓN MULTI LOTE — PRO (MISMO DISEÑO, CON CANTIDADES)
+// ======================================================================
+export async function abrirSeleccionLotesMultiPro(
+  evento,
+  lotes,
+  theme = 'light'
+) {
+  const MySwal = crearSwalConTheme(theme)
+
+  // 🔒 Normalizar estado con string
+  const estado = {}
+  lotes.forEach(l => (estado[String(l.index)] = 0))
+
+  const opcionesCantidad = Array.from({ length: 9 }, (_, i) => i)
+    .map(i => `<option value="${i}">${i}</option>`)
+    .join('')
+
+  const html = `
+    <!-- HEADER EVENTO -->
+    <div class="swal-event-header">
+      <div class="swal-event-title">${evento.nombre}</div>
+      ${
+        evento.fechaInicio
+          ? `<div class="swal-event-sub">📅 ${formatearSoloFecha(
+              evento.fechaInicio
+            )}</div>`
+          : ''
+      }
+      ${
+        evento.lugar
+          ? `<div class="swal-event-sub">📍 ${evento.lugar}</div>`
+          : ''
+      }
+    </div>
+
+    <!-- LOTES -->
+    <div class="lotes-scroll">
+      <div class="lotes-wrapper">
+        ${lotes
+          .map(l => {
+            const id = String(l.index)
+
+            const descripcion =
+              l.descripcionLote || l.descripcion || l.descripcion_lote || ''
+
+            const precioHtml =
+              Number(l.precio) === 0
+                ? `<span class="precio-valor badge-gratis">GRATIS</span>`
+                : `<span class="precio-valor badge-pago">$${l.precio}</span>`
+
+            const badgeConsumicion = l.incluyeConsumicion
+              ? `<span class="lote-badge badge-consu-ok">🍸 CON CONSUMICIÓN</span>`
+              : `<span class="lote-badge badge-consu-no">SIN CONSUMICIÓN</span>`
+
+            return `
+<div class="lote-card lote-multi" data-id="${id}">
+  <div class="lote-nombre-principal">
+    <span class="lote-label">LOTE:</span> ${l.nombre.toUpperCase()}
+  </div>
+
+  ${
+    descripcion
+      ? `<div class="lote-desc">
+           <span class="lote-label">DESCRIPCIÓN:</span>
+           ${descripcion}
+         </div>`
+      : ''
+  }
+
+  <div class="lote-horario-box">
+    <span class="lote-label">INGRESO PERMITIDO:</span>
+   <span>
+  <strong class="lote-hora">
+    ${l.desdeHora ? `${l.desdeHora}hs` : '-'}
+    →
+    ${l.hastaHora ? `${l.hastaHora}hs` : '-'}
+  </strong>
+</span>
+
+  </div>
+
+<div class="lote-info-left">
+  <div class="lote-costo-row">
+    <span class="lote-label">COSTO:</span>
+
+    <div class="lote-badges-inline">
+      ${precioHtml}
+      ${badgeConsumicion}
+    </div>
+  </div>
+</div>
+
+
+
+  <div class="lote-footer-flex">
+    <div class="lote-cantidad-box">
+      <label class="lote-label">CANTIDAD</label>
+      <select class="lote-select-cant" data-id="${id}">
+        ${opcionesCantidad}
+      </select>
+    </div>
+  </div>
+</div>
+`
+          })
+          .join('')}
+      </div>
+    </div>
+
+    <!-- TOTAL -->
+    <div id="resumen-total" class="total-box">
+      Total: <b>$0</b>
+    </div>
+  `
+
+  const res = await MySwal.fire({
+    title: null,
+    html,
+    showCancelButton: true,
+    confirmButtonText: 'Continuar',
+    cancelButtonText: 'Cancelar',
+    buttonsStyling: false,
+
+    preConfirm: () => {
+      const seleccion = lotes
+        .map(l => ({
+          lote: l,
+          cantidad: estado[String(l.index)],
+        }))
+        .filter(x => x.cantidad > 0)
+
+      if (!seleccion.length) {
+        Swal.showValidationMessage('Seleccioná al menos una entrada')
+        return false
+      }
+
+      return seleccion
+    },
+
+    didOpen: () => {
+      const actualizarTotal = () => {
+        let total = 0
+        lotes.forEach(l => {
+          total += Number(l.precio || 0) * estado[String(l.index)]
+        })
+
+        document.getElementById('resumen-total').innerHTML =
+          total === 0 ? 'Total: <b>GRATIS</b>' : `Total: <b>$${total}</b>`
+      }
+
+      document.querySelectorAll('.lote-select-cant').forEach(select => {
+        select.onchange = () => {
+          const id = select.dataset.id
+          estado[id] = Number(select.value)
+          actualizarTotal()
+        }
+      })
+    },
+  })
+
+  return res.isConfirmed ? res.value : null
+}
+
+// ======================================================================
 // SELECCIÓN DE LOTE
 // ======================================================================
 export async function abrirSeleccionLote(evento, lotes, theme = 'light') {

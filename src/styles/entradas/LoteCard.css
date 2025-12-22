@@ -190,19 +190,19 @@
 .badge-pago {
   background: #14a8e2;
   color: #fff;
-  padding: 4px 12px;
+  padding: 3px 10px;
   border-radius: 10px;
   font-size: 0.9rem;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .badge-gratis {
   background: linear-gradient(135deg, #10b981, #059669);
   color: #fff;
-  padding: 4px 12px;
+  padding: 3px 10px;
   border-radius: 10px;
   font-size: 0.9rem;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 /* ----------------------------------------------------------

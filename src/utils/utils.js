@@ -80,5 +80,5 @@ export function mostrarMensaje(texto) {
 }
 
 export function abrirLoginGlobal() {
-  document.dispatchEvent(new Event('abrir-login'))
+  document.dispatchEvent(new CustomEvent('abrir-login', { detail: 'forced' }))
 }

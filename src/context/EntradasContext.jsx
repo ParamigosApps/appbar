@@ -15,7 +15,7 @@ import { db } from '../Firebase.js'
 
 import { useAuth } from './AuthContext.jsx'
 import { useQr } from './QrContext.jsx'
-
+import { abrirLoginGlobal } from '../utils/utils'
 import Swal from 'sweetalert2'
 // LÓGICA
 import { calcularCuposEvento } from '../logic/entradas/entradasEventos.js'
@@ -37,6 +37,7 @@ import {
 import {
   abrirSeleccionLote,
   abrirResumenLote,
+  abrirSeleccionLotesMultiPro,
 } from '../services/entradasSwal.js'
 
 // --------------------------------------------------------------
@@ -49,7 +50,6 @@ export const useEntradas = () => useContext(EntradasContext)
 // PROVIDER
 // --------------------------------------------------------------
 export function EntradasProvider({ children }) {
-  const { abrirLoginGlobal } = useAuth()
   const { mostrarQrReact } = useQr()
 
   const [eventos, setEventos] = useState([])
@@ -171,9 +171,23 @@ export function EntradasProvider({ children }) {
   async function pedirEntrada(evento) {
     try {
       if (!user) {
-        await Swal.fire('Iniciá sesión', 'Necesitás estar logueado.', 'warning')
-        setTimeout(() => abrirLoginGlobal(), 0)
-        return
+        const res = await Swal.fire({
+          title: 'Iniciá sesión',
+          text: 'Necesitás estar logueado.',
+          icon: 'warning',
+          confirmButtonText: 'Iniciar sesión',
+
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: 'swal-btn-confirm',
+          },
+        })
+
+        if (res.isConfirmed) {
+          abrirLoginGlobal()
+        }
+
+        return // ⛔ CORTE DURO SIEMPRE
       }
 
       const usuarioId = user.uid
@@ -205,95 +219,115 @@ export function EntradasProvider({ children }) {
       }
 
       // --------------------------------------------------------------
-      // EVENTO CON LOTES
+      // EVENTO CON LOTES — MULTI LOTE
       // --------------------------------------------------------------
       if (lotesInfo.length > 0) {
-        const resSel = await abrirSeleccionLote(evento, lotesInfo)
-        if (!resSel || resSel.cancelado) return
+        const seleccion = await abrirSeleccionLotesMultiPro(evento, lotesInfo)
+        if (!seleccion) return
 
-        const loteSel =
-          lotesInfo.find(l => String(l.index) === String(resSel.loteId)) ||
-          lotesInfo.find(l => String(l.id) === String(resSel.loteId))
+        const total = seleccion.reduce(
+          (acc, s) =>
+            acc + Number(s.lote.precio || 0) * Number(s.cantidad || 0),
+          0
+        )
 
-        if (!loteSel) return
+        const totalFinal = Number(total)
 
-        const precioLote = Number(loteSel.precio || 0)
-        const restantes = loteSel.restantes
-        const totalPendientes = await obtenerTotalPendientes({
-          eventoId: evento.id,
-          usuarioId: user.uid,
-        })
+        if (!Number.isFinite(totalFinal) || totalFinal <= 0) {
+          console.error('❌ Total inválido MP:', totalFinal, seleccion)
 
-        // --------------------------------------------------------------
-        // LOTES FREE
-        // --------------------------------------------------------------
-        if (precioLote === 0) {
-          const maxCantidad = Math.min(maxUser, restantes)
-
-          const resResumen = await abrirResumenLote(evento, loteSel, {
-            totalObtenidas: totalUsuario,
-            totalPendientes: totalPendientes,
-            limiteUsuario: limitePorUsuario - totalUsuario,
-            maxCantidad,
-            cuposLote: restantes,
-            precioUnitario: 0,
-            esGratis: true,
+          await Swal.fire({
+            title: 'Error',
+            text: 'El monto del pago es inválido.',
+            icon: 'error',
           })
 
-          if (!resResumen || resResumen.cancelado) return
-
-          const cantidadSel = resResumen.cantidad || 1
-
-          return pedirEntradaFreeConLote({
-            evento,
-            loteSel,
-            usuarioId,
-            usuarioNombre,
-            usuarioEmail,
-            cantidadSel,
-            mostrarQrReact,
-            cargarEntradasUsuario,
-          })
+          return
         }
+        // ==========================
+        // TODOS GRATIS
+        // ==========================
+        if (total === 0) {
+          for (const s of seleccion) {
+            await pedirEntradaFreeConLote({
+              evento,
+              loteSel: s.lote,
+              usuarioId,
+              usuarioNombre,
+              usuarioEmail,
+              cantidadSel: s.cantidad, // ✅ CORRECTO
+              mostrarQrReact,
+              cargarEntradasUsuario,
+            })
+          }
 
-        // --------------------------------------------------------------
-        // LOTE PAGO
-        // --------------------------------------------------------------
-        const maxCantidadPago = Math.min(maxUser, restantes)
-
-        const resResumen = await abrirResumenLote(evento, loteSel, {
-          totalObtenidas: totalUsuario,
-          totalPendientes: totalPendientes,
-          limiteUsuario: limitePorUsuario - totalUsuario,
-          maxCantidad: maxCantidadPago,
-          cuposLote: restantes,
-          precioUnitario: precioLote,
-          esGratis: false,
+          return
+        }
+        const descripcionPago = seleccion
+          .map(
+            s =>
+              `• ${s.cantidad} × ${s.lote.nombre} ($${Number(
+                s.lote.precio || 0
+              )})`
+          )
+          .join('<br>')
+        // ==========================
+        // HAY PAGO
+        // ==========================
+        const r = await Swal.fire({
+          title: '¿Cómo querés pagar?',
+          html: `
+    <div style="text-align:left">
+      <p><b>Entradas:</b></p>
+      <p style="font-size:14px; opacity:.85">
+        ${descripcionPago}
+      </p>
+      <hr />
+      <p style="font-size:18px">
+        <b>Total:</b> $${total}
+      </p>
+    </div>
+  `,
+          showCancelButton: true,
+          confirmButtonText: 'Mercado Pago',
+          cancelButtonText: 'Transferencia',
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: 'swal-btn-confirm',
+            cancelButton: 'swal-btn-cancel',
+          },
         })
 
-        if (!resResumen || resResumen.cancelado) return
-
-        const { cantidad, metodo } = resResumen
-        const cantidadSel = cantidad || 1
-
-        if (metodo === 'transfer') {
-          return manejarTransferencia({
+        if (r.isConfirmed) {
+          return manejarMercadoPago({
             evento,
-            precio: precioLote,
-            cantidadSel,
-            loteSel,
+            loteSel: {
+              id: 'multi',
+              nombre: descripcionPago,
+            },
+            precioUnitario: totalFinal, // total final
+            cantidadSel: 1, // ✅ CLAVE
             usuarioId,
-            usuarioNombre,
             eventoId: evento.id,
-            crearSolicitudPendiente,
           })
         }
 
-        return manejarMercadoPago({
+        return manejarTransferencia({
           evento,
-          precio: precioLote,
-          cantidadSel,
+          precio: total,
+
+          loteSel: {
+            nombre: descripcionPago,
+            detalle: seleccion.map(s => ({
+              loteId: s.lote.id ?? s.lote.index,
+              nombre: s.lote.nombre,
+              cantidad: s.cantidad,
+              precioUnitario: Number(s.lote.precio || 0),
+              subtotal: Number(s.lote.precio || 0) * s.cantidad,
+            })),
+          },
           usuarioId,
+          usuarioNombre,
           eventoId: evento.id,
         })
       }
