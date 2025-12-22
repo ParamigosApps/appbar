@@ -62,7 +62,7 @@ export async function mostrarComprobanteCaja(compra) {
           text-align:center;
           border-radius:6px;
         ">
-          Presentar este QR en la barra para retirar su pedido.
+          Presentar este ticket en la barra para retirar tu pedido.
         </p>
 
         <hr>

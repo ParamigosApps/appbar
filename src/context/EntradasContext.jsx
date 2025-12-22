@@ -178,6 +178,7 @@ export function EntradasProvider({ children }) {
 
       const usuarioId = user.uid
       const usuarioNombre = user.displayName || 'Usuario'
+      const usuarioEmail = user.email || null
 
       // --------------------------------------------------------------
       // CALCULAR CUPOS REALES
@@ -248,6 +249,7 @@ export function EntradasProvider({ children }) {
             loteSel,
             usuarioId,
             usuarioNombre,
+            usuarioEmail,
             cantidadSel,
             mostrarQrReact,
             cargarEntradasUsuario,
@@ -325,6 +327,7 @@ export function EntradasProvider({ children }) {
           evento,
           usuarioId,
           usuarioNombre,
+          usuarioEmail,
           maxUser,
           cantidadSel,
           mostrarQrReact,

@@ -1,7 +1,8 @@
 import Swal from 'sweetalert2'
-import { generarQrEntradaPayload } from '../../services/generarQrService.js'
 import { crearEntradaBase } from '../../services/crearEntradaBase.js'
-
+import { firmarEntradaCorta } from '../../services/firmarEntrada.js'
+import { enviarEntradasPorMail } from '../../services/mailEntradasService.js'
+import { updateDoc } from 'firebase/firestore'
 // --------------------------------------------------------------
 // Normaliza cantidad desde abrirResumenLote()
 // --------------------------------------------------------------
@@ -21,6 +22,7 @@ export async function pedirEntradaFreeConLote({
   loteSel,
   usuarioId,
   usuarioNombre,
+  usuarioEmail,
   cantidadSel,
   cargarEntradasUsuario,
   mostrarQrAlGenerar = false,
@@ -43,27 +45,50 @@ export async function pedirEntradaFreeConLote({
       n: i + 1,
     }
 
-    const qrData = generarQrEntradaPayload(qrPayload)
+    // const ref = await crearEntradaBase({
+    //   usuarioId,
+    //   usuarioNombre,
+    //   evento,
 
+    //   metodo: 'free',
+    //   precioUnitario: 0,
+
+    //   lote: {
+    //     id: loteSel?.id ?? null,
+    //     nombre: loteSel?.nombre ?? 'Entrada general',
+    //   },
+
+    //   cantidad: 1,
+    //   estado: 'aprobada',
+    //   aprobadaPor: 'sistema',
+    //   operacionId,
+    //   qr: qrData,
+    // })
+
+    // 1️⃣ Crear entrada SIN QR
     const ref = await crearEntradaBase({
       usuarioId,
       usuarioNombre,
       evento,
-
       metodo: 'free',
       precioUnitario: 0,
-
       lote: {
         id: loteSel?.id ?? null,
         nombre: loteSel?.nombre ?? 'Entrada general',
       },
-
       cantidad: 1,
       estado: 'aprobada',
       aprobadaPor: 'sistema',
       operacionId,
-      qr: qrData,
+      qr: null, // ⬅️ después lo actualizamos
     })
+
+    // 2️⃣ Firmar con ID real
+    const firma = firmarEntradaCorta(ref.id)
+    const qrData = `E|${ref.id}|${firma}`
+
+    // 3️⃣ Guardar QR definitivo
+    await updateDoc(ref, { qr: qrData })
 
     generadas.push({ id: ref.id, qr: qrData })
 
@@ -72,7 +97,29 @@ export async function pedirEntradaFreeConLote({
     }
   }
 
+  // 🔒 Clonar entradas con QR ANTES de otros awaits
+  const entradasParaMail = generadas.map(e => ({
+    id: e.id,
+    qr: e.qr,
+  }))
   await cargarEntradasUsuario(usuarioId)
+  console.log(
+    '🧪 Payloads para mail:',
+    entradasParaMail.map(e => e.qr)
+  )
+  // --------------------------------------------------------------
+  // 📧 ENVIAR MAIL CON QRs (FREE CON LOTE)
+  // --------------------------------------------------------------
+  try {
+    await enviarEntradasPorMail({
+      email: usuarioEmail,
+      nombre: usuarioNombre,
+      evento,
+      entradas: entradasParaMail,
+    })
+  } catch (e) {
+    console.warn('⚠️ No se pudo enviar mail de entradas:', e)
+  }
 
   const res = await Swal.fire({
     title: cantidad === 1 ? '¡Entrada generada!' : '¡Entradas generadas!',
@@ -108,6 +155,7 @@ export async function pedirEntradaFreeSinLote({
   evento,
   usuarioId,
   usuarioNombre,
+  usuarioEmail,
   maxUser,
   cantidadSel,
   cargarEntradasUsuario,
@@ -119,20 +167,14 @@ export async function pedirEntradaFreeSinLote({
   }
 
   const operacionId = crypto.randomUUID()
-
   const cantidad = normalizarCantidad(cantidadSel, maxPermitido)
   const generadas = []
 
+  // ======================================================
+  // ✅ UN SOLO LOOP — 1 entrada = 1 QR = 1 documento
+  // ======================================================
   for (let i = 0; i < cantidad; i++) {
-    const qrPayload = {
-      tipo: 'entrada',
-      eventoId: evento.id,
-      usuarioId,
-      n: i + 1,
-    }
-
-    const qrData = generarQrEntradaPayload(qrPayload)
-
+    // 1️⃣ Crear entrada SIN QR
     const ref = await crearEntradaBase({
       usuarioId,
       usuarioNombre,
@@ -144,13 +186,39 @@ export async function pedirEntradaFreeSinLote({
       estado: 'aprobada',
       aprobadaPor: 'sistema',
       operacionId,
-      qr: qrData,
+      qr: null, // ⬅️ se setea después
     })
+
+    // 2️⃣ Firmar con ID real
+    const firma = firmarEntradaCorta(ref.id)
+    const qrData = `E|${ref.id}|${firma}`
+
+    // 3️⃣ Guardar QR definitivo
+    await updateDoc(ref, { qr: qrData })
 
     generadas.push({ id: ref.id, qr: qrData })
   }
 
+  // ======================================================
+  // 📧 MAIL — usar solo QRs ya generados
+  // ======================================================
+  const entradasParaMail = generadas.map(e => ({
+    id: e.id,
+    qr: e.qr,
+  }))
+
   await cargarEntradasUsuario(usuarioId)
+
+  try {
+    await enviarEntradasPorMail({
+      email: usuarioEmail,
+      nombre: usuarioNombre,
+      evento,
+      entradas: entradasParaMail,
+    })
+  } catch (e) {
+    console.warn('⚠️ No se pudo enviar mail de entradas:', e)
+  }
 
   const fin = await Swal.fire({
     title: cantidad === 1 ? '¡Entrada generada!' : '¡Entradas generadas!',
@@ -171,8 +239,10 @@ export async function pedirEntradaFreeSinLote({
     timer: 3500,
     timerProgressBar: true,
   })
+
   if (fin.isConfirmed) {
     document.dispatchEvent(new Event('abrir-mis-entradas'))
   }
+
   return generadas
 }

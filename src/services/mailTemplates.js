@@ -93,19 +93,17 @@ export function mailPedido(payload = {}) {
       <p><b>Total:</b> $${total}</p>
       <p><b>Lugar:</b> ${lugar}</p>
       <p><b>Fecha:</b> ${fechaStr}</p>
-      <p style="font-size:14px;">
-      <p style="font-size:14px;">
-        <b>Código de retiro: </b>
+
+      <hr/>
+      <p><b>Código de retiro:</b>
         <span style="
-          font-size:18px;
+          font-size:16px;
           font-weight:bold;
           letter-spacing:0.5px;
         ">
           ${ticketId}
         </span>
       </p>
-
-      <hr/>
 
       ${
         qrUrl
@@ -143,4 +141,60 @@ export function mailPedido(payload = {}) {
 
     </div>
   `
+}
+
+export function mailEntradas({ nombre, evento, entradas = [], qrs = [] }) {
+  return `
+<!DOCTYPE html>
+<html>
+  <body style="font-family: Arial, sans-serif; background:#f7f7f7; padding:20px">
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td align="center">
+          <table width="600" style="background:#ffffff; padding:20px; border-radius:8px">
+            <tr>
+              <td>
+
+                <h2 style="margin-top:0">
+                  Hola ${nombre || 'Usuario'}
+                </h2>
+
+                <p>
+                  Estas son tus entradas para
+                  <strong>${evento?.nombre || 'el evento'}</strong>
+                </p>
+
+                ${entradas
+                  .map((_, i) => {
+                    const qr = qrs[i]
+                    if (!qr) return ''
+
+                    return `
+                      <div style="margin:20px 0; text-align:center">
+                        <p><strong>Entrada #${i + 1}</strong></p>
+                    <img
+                      src="${qr}"
+                      alt="Entrada-${i + 1}"
+                      title="Entrada-${i + 1}"
+                      width="200"
+                      style="border:1px solid #ddd; padding:10px"
+                    />
+                      </div>
+                    `
+                  })
+                  .join('')}
+
+                <p style="margin-top:30px; font-size:14px; color:#555">
+                  Podés acceder a tus QR directamente desde la app.
+                </p>
+
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+`
 }

@@ -59,6 +59,9 @@ export default function MisEntradas() {
     )
 
     const unsubAprobadas = onSnapshot(qAprobadas, snap => {
+      // 🔥 LIMPIAR antes de reconstruir
+      mapRef.current = {}
+
       snap.forEach(docSnap => {
         const e = docSnap.data()
         const id = docSnap.id
@@ -87,11 +90,6 @@ export default function MisEntradas() {
             ticketsAprobados: [],
             ticketsPendientes: [],
           }
-        } else {
-          mapRef.current[eventoKey].lotes[loteKey].precioUnitario = Math.min(
-            mapRef.current[eventoKey].lotes[loteKey].precioUnitario,
-            precioEntrada
-          )
         }
 
         mapRef.current[eventoKey].lotes[loteKey].ticketsAprobados.push({
@@ -117,6 +115,7 @@ export default function MisEntradas() {
         const eventoKey = p.eventoId
         const loteKey = p.lote?.nombre || p.loteNombre || 'Entrada general'
 
+        // Si el evento no existe todavía (caso raro pero posible)
         if (!mapRef.current[eventoKey]) {
           mapRef.current[eventoKey] = {
             eventoId: p.eventoId,
@@ -129,6 +128,7 @@ export default function MisEntradas() {
           }
         }
 
+        // Si el lote no existe
         if (!mapRef.current[eventoKey].lotes[loteKey]) {
           mapRef.current[eventoKey].lotes[loteKey] = {
             lote: p.lote || null,
@@ -136,6 +136,9 @@ export default function MisEntradas() {
             ticketsPendientes: [],
           }
         }
+
+        // 🔒 IMPORTANTE: limpiar pendientes del lote antes de volver a cargarlas
+        mapRef.current[eventoKey].lotes[loteKey].ticketsPendientes = []
 
         const cant = Number(p.cantidad) || 1
         for (let i = 0; i < cant; i++) {

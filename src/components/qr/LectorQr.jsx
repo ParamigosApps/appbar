@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import { Html5Qrcode } from 'html5-qrcode'
-
+import { firmarEntradaCorta } from '../../services/firmarEntrada.js'
 import {
   decodificarQr,
   analizarPayload,
@@ -104,7 +104,6 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
   const [resultado, setResultado] = useState(null)
   const [eventoSeleccionado, setEventoSeleccionado] = useState(null)
   const [eventoInfo, setEventoInfo] = useState(null)
-  const [infoAbierto, setInfoAbierto] = useState(false)
   const [pedidoCaja, setPedidoCaja] = useState(null)
   const selectorMostrado = useRef(false)
 
@@ -381,6 +380,24 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
     leyendo.current = true
 
     try {
+      // ==========================================================
+      // 🔐 VALIDACIÓN DE FIRMA (QR CORTO)
+      // ==========================================================
+      if (text.includes('|')) {
+        const [tipo, id, firma] = text.split('|')
+
+        if (tipo === 'E') {
+          const esperada = firmarEntradaCorta(id)
+          if (firma !== esperada) {
+            mostrarError('QR adulterado')
+            return
+          }
+        }
+      }
+
+      // ==========================================================
+      // ⛔ CAJA — BLOQUEO SI HAY PEDIDO ABIERTO
+      // ==========================================================
       if (modo === 'caja' && pedidoCaja) {
         mostrarError(
           'Finalizá o cerrá el pedido actual antes de escanear otro.'
@@ -388,10 +405,13 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
         return
       }
 
-      let dec = decodificarQr(text)
+      // ==========================================================
+      // 🔎 DECODIFICACIÓN BASE
+      // ==========================================================
+      const dec = decodificarQr(text)
       let payload = analizarPayload(dec)
 
-      // 🔍 Si el QR no indica tipo, lo resolvemos contra Firestore
+      // ID plano para resolver tipo si hace falta
       const idPlano =
         payload.entradaId ||
         payload.compraId ||
@@ -400,91 +420,57 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
         dec.id ||
         text
 
+      // ==========================================================
+      // 🔍 RESOLVER TIPO POR FIRESTORE (UNA SOLA VEZ)
+      // ==========================================================
       if (payload.tipo === 'desconocido' && idPlano) {
-        console.log('🔎 Resolviendo tipo por Firestore:', idPlano)
-
         const detectado = await detectarTipoPorFirestore(idPlano)
-
-        payload = {
-          ...payload,
-          ...detectado,
-        }
-
-        console.log('✅ Tipo resuelto:', payload)
+        payload = { ...payload, ...detectado }
       }
 
       let res = null
 
-      // =========================
-      // MODO ENTRADAS — FINAL PROD
-      // =========================
+      // ==========================================================
+      // 🎟️ MODO ENTRADAS
+      // ==========================================================
       if (modo === 'entradas') {
-        // 1️⃣ Resolver tipo si el QR es mínimo
-        if (!payload.esEntrada) {
-          if (!payload.id) {
-            mostrarError('QR inválido')
-            return
-          }
-
-          const detectado = await detectarTipoPorFirestore(payload.id)
-          payload = { ...payload, ...detectado }
-        }
-        const detectado = await detectarTipoPorFirestore(payload.id)
-        console.log('🧪 detectado:', detectado)
-        payload = { ...payload, ...detectado }
-        // 2️⃣ A esta altura, SOLO Firestore decide
-        if (!payload.esEntrada) {
+        if (!payload.esEntrada || !payload.id) {
           mostrarError('QR no corresponde a una entrada')
           return
         }
 
-        // 3️⃣ Validación REAL (Firestore)
+        // Validación real
         const resultadoValidacion = await validarTicket(
           payload,
           eventoSeleccionado
         )
 
-        // 4️⃣ Fallo de validación
         if (!resultadoValidacion?.ok) {
           mostrarResultado(resultadoValidacion)
           return
         }
 
-        // 5️⃣ Comparación FINAL de evento
+        // Comparación final de evento
         if (resultadoValidacion.data.eventoId !== eventoSeleccionado) {
-          console.warn('⛔ Evento incorrecto', {
-            scanner: eventoSeleccionado,
-            entrada: resultadoValidacion.data.eventoId,
-          })
-
           mostrarError(
             'Esta entrada pertenece a otro evento y no puede validarse aquí.'
           )
           return
         }
 
-        // 6️⃣ OK
-        console.log('🎯 EVENTO OK', {
-          evento: eventoSeleccionado,
-          entrada: resultadoValidacion.data.eventoId,
-        })
-
+        // ✅ OK
         mostrarResultado(resultadoValidacion)
-
-        // 7️⃣ Marcar como usada
         await marcarEntradaUsada(resultadoValidacion.data.id)
         cargarEstadisticasEvento(eventoSeleccionado)
-
         return
       }
 
-      // =========================
-      // MODO CAJA
-      // =========================
-      // Si el QR ya trae compraId, validamos directo.
-      // Si NO trae compraId pero trae ticketId (tu caso real), resolvemos por query 1 vez.
+      // ==========================================================
+      // 🧾 MODO CAJA
+      // ==========================================================
       let compraIdFinal = payload.compraId
 
+      // Resolver por ticketId si no vino compraId
       if (!compraIdFinal) {
         const ticket = payload.ticketId || payload.id
         if (!ticket) {
@@ -496,8 +482,8 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
           collection(db, 'compras'),
           where('ticketId', '==', ticket)
         )
-        const snap = await getDocs(qCompra)
 
+        const snap = await getDocs(qCompra)
         if (snap.empty) {
           mostrarError('Compra no encontrada para este ticket')
           return
@@ -507,16 +493,19 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
       }
 
       res = await validarCompra({ compraId: compraIdFinal })
-      console.log('EXPIRA EN:', res.data?.expiraEn)
+
       const estado = res.data?.estado
 
-      if (modo === 'caja') {
-        if (res.data.eventoId !== eventoSeleccionado) {
-          mostrarError('Este pedido pertenece a otro evento')
-          return
-        }
+      if (!res?.ok || res.tipo !== 'compra') {
+        mostrarError('Compra inválida')
+        return
       }
-      // ❌ Estados NO permitidos
+
+      if (res.data.eventoId !== eventoSeleccionado) {
+        mostrarError('Este pedido pertenece a otro evento')
+        return
+      }
+
       if (estado === 'expirado') {
         mostrarError('Pedido expirado')
         return
@@ -527,23 +516,14 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
         return
       }
 
-      // ❌ Cualquier otro estado raro
       if (!['pendiente', 'pagado'].includes(estado)) {
         mostrarError('Estado de pedido no válido')
         return
       }
-      // 🔒 PASO 5 — VALIDACIÓN DE ESTADO DE COMPRA
-      if (!res?.ok || res.tipo !== 'compra') {
-        mostrarError('Compra inválida')
-        return
-      }
 
+      // ✅ OK
       mostrarResultado(res)
-
-      if (res?.ok && res.tipo === 'compra') {
-        console.log('🧾 pedidoCaja recibido:', res.data)
-        setPedidoCaja(res.data)
-      }
+      setPedidoCaja(res.data)
     } catch (err) {
       console.error('Error al procesar QR:', err)
       mostrarError('Error procesando el QR')
