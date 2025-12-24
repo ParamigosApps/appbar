@@ -24,6 +24,7 @@ import {
   subirQrGeneradoAFirebase,
 } from './generarQrService.js'
 
+import { showLoading, hideLoading } from './loadingService.js'
 // --------------------------------------------------------------
 // 📌 FECHA EXACTA (idéntica al proyecto original)
 // --------------------------------------------------------------
@@ -122,7 +123,10 @@ export async function crearPedido({ carrito, total, lugar, pagado, evento }) {
       throw new Error('Límite de pedidos alcanzado (máximo 3 pendientes)')
     }
   }
-
+  showLoading({
+    title: 'Generando ticket',
+    text: 'Estamos generando tu ticket..',
+  })
   const ticketId = `${Date.now()}-${Math.floor(Math.random() * 9999)}`
   const numeroPedido = await obtenerNumeroPedido()
   const fechaHumana = obtenerFechaCompra()
@@ -145,8 +149,12 @@ export async function crearPedido({ carrito, total, lugar, pagado, evento }) {
   // --------------------------------------------------
   // 1️⃣ CREAR PEDIDO EN FIRESTORE
   // --------------------------------------------------
-  const userSnap = await getDoc(doc(db, 'usuarios', usuarioId))
-  const usuarioEmail = auth.currentUser?.email || userSnap.data()?.email || null
+
+  let userSnap = null
+  let usuarioEmail = null
+
+  userSnap = await getDoc(doc(db, 'usuarios', usuarioId))
+  usuarioEmail = auth.currentUser?.email || userSnap.data()?.email || null
 
   const ref = await addDoc(collection(db, 'compras'), {
     // -----------------------------
@@ -203,11 +211,11 @@ export async function crearPedido({ carrito, total, lugar, pagado, evento }) {
     creadoEn: serverTimestamp(),
     expiraEn: expiraEn || null,
   })
-
-  // --------------------------------------------------
-  // 2️⃣ GENERAR QR VISUAL (SIEMPRE)
-  // --------------------------------------------------
   try {
+    // --------------------------------------------------
+    // 2️⃣ GENERAR QR VISUAL (SIEMPRE)
+    // --------------------------------------------------
+
     const qrDiv = await generarCompraQr({
       compraId: ref.id,
       numeroPedido,
@@ -251,5 +259,7 @@ export async function crearPedido({ carrito, total, lugar, pagado, evento }) {
       qrUrl: null,
       usuarioEmail,
     }
+  } finally {
+    hideLoading()
   }
 }

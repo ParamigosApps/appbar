@@ -7,6 +7,7 @@ export function showLoading({
 } = {}) {
   Swal.fire({
     title: `<span class="loading-title">${title}</span>`,
+    text: '',
     html: `
       <div class="loading-box">
         <div class="loading-spinner"></div>

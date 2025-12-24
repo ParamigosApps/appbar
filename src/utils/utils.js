@@ -6,7 +6,16 @@ import 'toastify-js/src/toastify.css'
 // Formatea una fecha a: "23/11/2025, 07:35HS"
 export function formatearFecha(fecha = new Date()) {
   try {
-    const d = fecha instanceof Date ? fecha : new Date(fecha)
+    let d = fecha
+
+    // 🔥 Firestore Timestamp
+    if (typeof fecha?.toDate === 'function') {
+      d = fecha.toDate()
+    } else if (!(fecha instanceof Date)) {
+      d = new Date(fecha)
+    }
+
+    if (isNaN(d.getTime())) return '—'
 
     const dia = String(d.getDate()).padStart(2, '0')
     const mes = String(d.getMonth() + 1).padStart(2, '0')
@@ -18,9 +27,10 @@ export function formatearFecha(fecha = new Date()) {
     return `${dia}/${mes}/${año}, ${horas}:${mins}HS`
   } catch (e) {
     console.error('Error formatearFecha:', e)
-    return 'Fecha inválida'
+    return '—'
   }
 }
+
 export function formatearSoloFecha(valor) {
   if (!valor) return '—'
 

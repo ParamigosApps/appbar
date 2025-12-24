@@ -22,6 +22,8 @@ import { abrirLoginGlobal } from '../utils/utils'
 const CarritoContext = createContext()
 export const useCarrito = () => useContext(CarritoContext)
 import { swalRequiereLogin } from '../utils/swalUtils'
+import { showLoading, hideLoading } from '../services/loadingService'
+
 // --------------------------------------------------------------
 // HELPERS
 // --------------------------------------------------------------
@@ -140,9 +142,20 @@ export function CarritoProvider({ children }) {
   // --------------------------------------------------------------
   async function finalizarCompra() {
     try {
-      cerrarCarrito()
+      // VALIDACIONES PREVIAS
+      const limite = await validarLimitePendientes(user.uid)
+      if (limite) {
+        await Swal.fire(
+          'No puedes generar más pedidos',
+          'Ya tienes 3 pedidos pendientes.',
+          'warning'
+        )
 
-      // ❌ No logueado
+        abrirCarrito()
+        abrirPendientes?.()
+        return
+      }
+
       if (!user) {
         const res = await swalRequiereLogin()
 
@@ -155,9 +168,16 @@ export function CarritoProvider({ children }) {
 
       if (carrito.length === 0)
         return Swal.fire('Carrito vacío', 'Añadí productos primero.', 'info')
+
+      // FIN VALIDACIOENS PREVIAS
+
+      showLoading({
+        title: 'Generando pedido',
+        text: 'Estamos creando tu pedido..',
+      })
+
       // 🟡 VALIDAR STOCK REAL (OBLIGATORIO)
       const erroresStock = await validarStockCarrito(carrito)
-
       if (erroresStock.length > 0) {
         await Swal.fire({
           title: '⚠️ Productos faltantes',
@@ -197,25 +217,13 @@ export function CarritoProvider({ children }) {
         return
       }
 
+      // FIN DE VALIDACIONES
+      cerrarCarrito()
       const total = calcularTotal()
-
-      // ❌ Límite 3 pendientes
-      const limite = await validarLimitePendientes(user.uid)
-      if (limite) {
-        await Swal.fire(
-          'No puedes generar más pedidos',
-          'Ya tienes 3 pedidos pendientes.',
-          'warning'
-        )
-
-        abrirCarrito()
-        abrirPendientes?.()
-        return
-      }
 
       let metodoSeleccionado = null
 
-      const res = await Swal.fire({
+      await Swal.fire({
         title: `<span class="swal-title-main">Finalizar compra</span>`,
 
         html: `
@@ -309,15 +317,17 @@ export function CarritoProvider({ children }) {
       if (!metodoSeleccionado) return
       cerrarCarrito()
 
+      let pedido = null
       // 🟡 PAGO EN CAJA
+
       if (metodoSeleccionado === 'transfer') {
-        const pedido = await crearPedido({
+        pedido = await crearPedido({
           carrito,
           total,
           lugar: 'Tienda',
           pagado: false,
         })
-        console.log(pedido.usuarioEmail)
+
         if (!pedido) {
           await Swal.fire({
             title: 'Límite alcanzado',
@@ -353,7 +363,7 @@ export function CarritoProvider({ children }) {
 
       // 🟢 MERCADO PAGO
       if (metodoSeleccionado === 'mp') {
-        const pedido = await crearPedido({
+        pedido = await crearPedido({
           carrito,
           total,
           lugar: 'Tienda',
@@ -374,43 +384,46 @@ export function CarritoProvider({ children }) {
           })
           return
         }
-
-        // 📧 Generar y enviar ticket con PDF adjunto
-        try {
-          console.log('MAIL DEBUG →', {
-            pedidoId: pedido.id,
-            usuarioEmail: pedido.usuarioEmail,
-            userEmail: user?.email,
-          })
-          if (pedido.usuarioEmail) {
-            await fetch('/api/confirmar-pedido', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                pedidoId: pedido.id,
-                to: pedido.usuarioEmail,
-                nombre: pedido.usuarioNombre,
-              }),
-            })
-          } else {
-            console.warn('⚠️ Pedido sin email, no se envía comprobante')
-          }
-        } catch (err) {
-          console.warn('⚠️ No se pudo enviar el mail:', err)
-        }
-        const initPoint = await crearPreferenciaCompra({
-          carrito,
-          ticketId: pedido.ticketId,
-        })
-
-        setCarrito([])
-        syncLocalStorage([])
-
-        window.location.href = initPoint
       }
+
+      // 📧 Generar y enviar ticket con PDF adjunto
+      try {
+        console.log('MAIL DEBUG →', {
+          pedidoId: pedido.id,
+          usuarioEmail: pedido.usuarioEmail,
+          userEmail: user?.email,
+        })
+        if (pedido.usuarioEmail) {
+          await fetch('/api/confirmar-pedido', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              pedidoId: pedido.id,
+              to: pedido.usuarioEmail,
+              nombre: pedido.usuarioNombre,
+            }),
+          })
+        } else {
+          console.warn('⚠️ Pedido sin email, no se envía comprobante')
+        }
+      } catch (err) {
+        console.warn('⚠️ No se pudo enviar el mail:', err)
+      }
+
+      const initPoint = await crearPreferenciaCompra({
+        carrito,
+        ticketId: pedido.ticketId,
+      })
+
+      setCarrito([])
+      syncLocalStorage([])
+
+      window.location.href = initPoint
     } catch (err) {
-      console.error('❌ Error finalizarCompra:', err)
-      Swal.fire('Error', err.message, 'error')
+      console.error('❌ Error finalizar compra:', err)
+      Swal.fire('Error', err.message || 'Ocurrió un error', 'error')
+    } finally {
+      hideLoading()
     }
   }
 

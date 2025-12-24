@@ -4,6 +4,7 @@
 import { db } from '../Firebase.js'
 import {
   addDoc,
+  getDoc,
   collection,
   deleteDoc,
   doc,
@@ -13,6 +14,13 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 
+import {
+  generarEntradaQr,
+  subirQrGeneradoAFirebase,
+} from '../services/generarQrService.js'
+
+import { enviarMail } from '../services/mailService.js'
+import { mailEntradasAprobadas } from '../services/mailTemplates.js'
 // --------------------------------------------------------------
 // Utils
 // --------------------------------------------------------------
@@ -115,7 +123,7 @@ export async function aprobarEntrada(entrada) {
       loteNombre = null,
 
       pagado,
-      operacionId: operacionIdEntrada, // 👈 CLAVE
+      operacionId: operacionIdEntrada,
     } = entrada
 
     if (!eventoId || !usuarioId) {
@@ -124,8 +132,7 @@ export async function aprobarEntrada(entrada) {
 
     const cant = Number(cantidad) || 1
     const precioNum = Number(precio) || 0
-
-    // 🔥 RESPETAR OPERACIÓN DEL LOTE
+    const pagadoFinal = true
     const operacionId = operacionIdEntrada || crypto.randomUUID()
 
     console.log('🧪 APROBANDO ENTRADA:', {
@@ -135,10 +142,31 @@ export async function aprobarEntrada(entrada) {
     })
 
     // ----------------------------------------------------------
+    // 🧾 ACUMULADOR PARA MAIL (APILADO POR LOTE)
+    // ----------------------------------------------------------
+    const resumenLotes = {}
+
+    const nombreLoteFinal = loteNombre || lote?.nombre || 'Entrada general'
+
+    if (!resumenLotes[nombreLoteFinal]) {
+      resumenLotes[nombreLoteFinal] = {
+        nombre: nombreLoteFinal,
+        cantidad: 0,
+        horarioIngreso: lote?.horarioIngreso || lote?.ingreso || null,
+      }
+    }
+
+    // ----------------------------------------------------------
     // 1️⃣ Crear entradas reales
     // ----------------------------------------------------------
+    // ----------------------------------------------------------
+    // 1️⃣ Crear entradas reales + generar QR
+    // ----------------------------------------------------------
+    const qrsGenerados = []
+
     for (let i = 0; i < cant; i++) {
-      await addDoc(collection(db, 'entradas'), {
+      // 1️⃣ Crear la entrada
+      const docRef = await addDoc(collection(db, 'entradas'), {
         eventoId,
         usuarioId,
         usuarioNombre: usuarioNombre || 'Usuario',
@@ -151,37 +179,95 @@ export async function aprobarEntrada(entrada) {
         lugar: lugar || '',
         horario: horario || '',
 
-        // 🔥 CAMPOS CLAVE PARA NOTIFICACIÓN
         aprobadaPor: 'admin',
         operacionId,
 
         estado: 'aprobada',
         metodo: 'transferencia',
-        pagado: pagado ?? true,
+        pagado: pagadoFinal,
         usado: false,
 
         precioUnitario: precioNum,
 
         lote:
-          lote && typeof lote === 'object'
-            ? lote
-            : loteNombre
-            ? { nombre: loteNombre }
-            : null,
+          lote && typeof lote === 'object' ? lote : { nombre: nombreLoteFinal },
 
         loteIndice: Number.isFinite(loteIndice) ? loteIndice : null,
-        loteNombre,
+        loteNombre: nombreLoteFinal,
 
-        // timestamps
         creadoEn: serverTimestamp(),
         aprobadaEn: serverTimestamp(),
       })
+
+      // --------------------------------------------------------
+      // 2️⃣ Generar QR (FRONTEND)
+      // --------------------------------------------------------
+      const qrDiv = await generarEntradaQr({
+        ticketId: docRef.id,
+      })
+
+      // --------------------------------------------------------
+      // 3️⃣ Subir QR a Firebase Storage
+      // --------------------------------------------------------
+      const qrUrl = await subirQrGeneradoAFirebase({
+        qrDiv,
+        path: `entradas/${eventoId}/${docRef.id}.png`,
+      })
+
+      // --------------------------------------------------------
+      // 4️⃣ Acumular para el mail
+      // --------------------------------------------------------
+      qrsGenerados.push({
+        id: docRef.id,
+        url: qrUrl,
+      })
+
+      resumenLotes[nombreLoteFinal].cantidad++
     }
 
     // ----------------------------------------------------------
     // 2️⃣ Eliminar pendiente
     // ----------------------------------------------------------
     await deleteDoc(doc(db, 'entradasPendientes', id))
+
+    // ----------------------------------------------------------
+    // 3️⃣ Obtener email del usuario (si existe)
+    // ----------------------------------------------------------
+    let emailUsuario = null
+
+    try {
+      const refUser = doc(db, 'usuarios', usuarioId)
+      const snapUser = await getDoc(refUser)
+
+      if (snapUser.exists()) {
+        emailUsuario = snapUser.data().email || null
+        console.log('CACACACA ' + emailUsuario)
+      }
+    } catch (err) {
+      console.warn('⚠️ No se pudo obtener email del usuario:', err)
+    }
+
+    // ----------------------------------------------------------
+    // 4️⃣ Enviar mail (NO BLOQUEANTE)
+    // ----------------------------------------------------------
+    if (emailUsuario) {
+      enviarMail({
+        to: emailUsuario,
+        subject: '🎟️ Tus entradas fueron aprobadas',
+        html: mailEntradasAprobadas({
+          usuarioNombre,
+          eventoNombre,
+          fechaEvento,
+          lugar,
+          horarioEvento: `${horaInicio || ''}${horaFin ? ' a ' + horaFin : ''}`,
+          resumenLotes: Object.values(resumenLotes),
+          qrs: qrsGenerados, // array de URLs
+          metodo: 'Transferencia',
+        }),
+      }).catch(err =>
+        console.warn('⚠️ Error enviando mail de entradas aprobadas:', err)
+      )
+    }
 
     return true
   } catch (err) {

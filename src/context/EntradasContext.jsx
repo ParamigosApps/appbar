@@ -284,12 +284,11 @@ export function EntradasProvider({ children }) {
         if (gratis.length > 0) {
           // 👉 Mostrar loading SOLO si luego va a haber pago
 
-          showLoading({
-            title: 'Generando entradas',
-            text: 'Estamos creando tus entradas gratuitas...',
-          })
-
           try {
+            showLoading({
+              title: 'Cargando entradas',
+              text: 'Estamos creando tus entradas..',
+            })
             for (const g of gratis) {
               await pedirEntradaFreeConLote({
                 evento,

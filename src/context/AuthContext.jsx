@@ -27,6 +27,7 @@ import Swal from 'sweetalert2'
 import { guardarPerfilUsuario } from '../services/usuarioService'
 import { enviarMail } from '../services/mailService'
 import { mailLogin } from '../services/mailTemplates'
+import { showLoading, hideLoading } from '../services/loadingService.js'
 
 // ============================================================
 // CONTEXT
@@ -188,9 +189,23 @@ export function AuthProvider({ children }) {
   // LOGIN GOOGLE
   // ============================================================
   async function loginGoogle() {
+    let loadingTimeout
+
     try {
+      showLoading({
+        title: 'Iniciando sesión',
+        text: 'Conectando con Google...',
+      })
+
+      // ⏱️ Timeout de seguridad (NO interfiere con login correcto)
+      loadingTimeout = setTimeout(() => {
+        hideLoading()
+      }, 4000)
+
       const res = await signInWithPopup(auth, new GoogleAuthProvider())
       const u = res.user
+
+      clearTimeout(loadingTimeout)
 
       const ref = doc(db, 'usuarios', u.uid)
       const snap = await getDoc(ref)
@@ -207,6 +222,8 @@ export function AuthProvider({ children }) {
         },
         { merge: true }
       )
+
+      hideLoading()
 
       setUser({
         ...u,
@@ -226,8 +243,18 @@ export function AuthProvider({ children }) {
         }).catch(err => console.warn('⚠️ Mail de bienvenida no enviado:', err))
       }
     } catch (err) {
+      clearTimeout(loadingTimeout)
+
       console.error('❌ Error login Google:', err)
-      // toast.error('Error al iniciar sesión con Google')
+
+      // ⛔ Canceló el popup → cerrar loading inmediato
+      if (err.code === 'auth/popup-closed-by-user') {
+        hideLoading()
+        return
+      }
+    } finally {
+      clearTimeout(loadingTimeout)
+      hideLoading()
     }
   }
 
@@ -235,9 +262,23 @@ export function AuthProvider({ children }) {
   // LOGIN FACEBOOK
   // ============================================================
   async function loginFacebook() {
+    let loadingTimeout
+
     try {
+      showLoading({
+        title: 'Iniciando sesión',
+        text: 'Conectando con Facebook...',
+      })
+
+      // ⏱️ Timeout de seguridad (NO interfiere con login correcto)
+      loadingTimeout = setTimeout(() => {
+        hideLoading()
+      }, 4000)
+
       const res = await signInWithPopup(auth, new FacebookAuthProvider())
       const u = res.user
+
+      clearTimeout(loadingTimeout)
 
       const ref = doc(db, 'usuarios', u.uid)
       const snap = await getDoc(ref)
@@ -254,6 +295,8 @@ export function AuthProvider({ children }) {
         },
         { merge: true }
       )
+
+      hideLoading()
 
       setUser({
         ...u,
@@ -275,8 +318,20 @@ export function AuthProvider({ children }) {
         )
       }
     } catch (err) {
+      clearTimeout(loadingTimeout)
+
       console.error('❌ Error login Facebook:', err)
+
+      // ⛔ Canceló el popup → cerrar loading inmediato
+      if (err.code === 'auth/popup-closed-by-user') {
+        hideLoading()
+        return
+      }
+
       toast.error('No se pudo iniciar sesión con Facebook')
+    } finally {
+      clearTimeout(loadingTimeout)
+      hideLoading()
     }
   }
 

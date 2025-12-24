@@ -1,3 +1,5 @@
+import { formatearFecha } from '../utils/utils.js'
+
 // --------------------------------------------------------------
 // LOGIN — TEMPLATE FINAL MULTI PROVIDER
 // --------------------------------------------------------------
@@ -197,4 +199,119 @@ export function mailEntradas({ nombre, evento, entradas = [], qrs = [] }) {
   </body>
 </html>
 `
+}
+
+// --------------------------------------------------------------
+// MAIL — ENTRADAS APROBADAS (FINAL)
+// --------------------------------------------------------------
+export function mailEntradasAprobadas({
+  usuarioNombre = 'Usuario',
+  eventoNombre = 'Evento',
+  fechaEvento = null,
+  lugar = '',
+  horarioEvento = '',
+  resumenLotes = [],
+  qrs = [],
+  metodo = 'Transferencia',
+}) {
+  const fechaStr = formatearFecha(fechaEvento)
+
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:540px;margin:auto;color:#333">
+
+      <h2>🎟️ Entradas aprobadas</h2>
+
+      <p>
+        Hola <b>${usuarioNombre}</b>, tus entradas fueron
+        <b style="color:#0a7">APROBADAS</b> correctamente.
+      </p>
+
+      <hr/>
+
+      <p><b>Evento:</b> ${eventoNombre}</p>
+      <p><b>Fecha:</b> ${fechaStr}</p>
+      ${horarioEvento ? `<p><b>Horario:</b> ${horarioEvento}</p>` : ''}
+      ${lugar ? `<p><b>Lugar:</b> ${lugar}</p>` : ''}
+
+      <hr/>
+
+      <h3>Detalle de entradas</h3>
+
+      <ul style="padding-left:18px">
+        ${resumenLotes
+          .map(
+            lote => `
+            <li style="margin-bottom:10px">
+              <b>${lote.cantidad} × ${lote.nombre}</b>
+              ${
+                lote.horarioIngreso
+                  ? `<br/>
+                     <span style="font-size:13px;color:#555">
+                       🚪 Ingreso: ${lote.horarioIngreso}
+                     </span>`
+                  : ''
+              }
+            </li>
+          `
+          )
+          .join('')}
+      </ul>
+
+      ${
+        qrs.length
+          ? `
+            <hr/>
+            <h3>🎫 Códigos QR</h3>
+            ${qrs
+              .map(
+                (item, i) => `
+                <div style="text-align:center;margin:18px 0">
+                  <p><b>Entrada #${i + 1}</b></p>
+
+                  ${
+                    item.url
+                      ? `<img
+                          src="${item.url}"
+                          width="200"
+                          style="border:1px solid #ddd;padding:8px"
+                        />`
+                      : ''
+                  }
+
+                  <p style="
+                    font-size:12px;
+                    color:#555;
+                    margin-top:6px;
+                    word-break:break-all
+                  ">
+                    <b>ID de entrada:</b><br/>
+                    ${item.id}
+                  </p>
+                </div>
+              `
+              )
+              .join('')}
+          `
+          : ''
+      }
+
+
+      <hr/>
+
+      <p>
+        <b>Método:</b> ${metodo}<br/>
+        <b>Estado:</b>
+        <span style="color:#0a7;font-weight:bold">PAGADO</span>
+      </p>
+
+      <p style="font-size:11px;color:#888">
+        Si los QR no cargan, presentár este código en el ingreso.
+      </p>
+
+      <p style="font-size:12px;color:#999;margin-top:24px;text-align:center">
+        AppBar 🍻 — Plataforma de eventos
+      </p>
+
+    </div>
+  `
 }

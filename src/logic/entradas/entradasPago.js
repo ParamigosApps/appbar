@@ -326,17 +326,17 @@ export async function manejarTransferencia({
         </div>
       </div>
 
-    <button id="copiar-btn" class="method-btn full-btn celeste">
-      Copiar ALIAS
-    </button>
+      <button id="comprobante-btn" class="method-btn full-btn azul">
+        Enviar comprobante por WhatsApp
+      </button>
 
-    <div id="copiado-ok" class="copiado-ok" style="display:none;">
-      Alias copiado
-    </div>
+      <button id="copiar-btn" class="method-btn full-btn celeste">
+        Copiar ALIAS
+      </button>
 
-    <button id="comprobante-btn" class="method-btn full-btn azul">
-      Enviar comprobante por WhatsApp
-    </button>
+      <div id="copiado-ok" class="copiado-ok" style="display:none;">
+        Alias copiado
+      </div>
 
       <button id="cerrar-btn" class="method-btn full-btn gris">
         Salir

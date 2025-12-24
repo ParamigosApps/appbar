@@ -5,6 +5,7 @@ import { enviarEntradasPorMail } from '../../services/mailEntradasService.js'
 import { updateDoc } from 'firebase/firestore'
 
 import { calcularCuposEvento } from '../entradas/entradasEventos.js'
+import { showLoading, hideLoading } from '../../services/loadingService.js'
 
 // --------------------------------------------------------------
 // Normaliza cantidad desde abrirResumenLote()
@@ -204,28 +205,35 @@ export async function pedirEntradaFreeSinLote({
   for (let i = 0; i < cantidad; i++) {
     // 1️⃣ Crear entrada SIN QR
 
-    const ref = await crearEntradaBase({
-      usuarioId,
-      usuarioNombre,
-      evento,
-      lote: null,
-      metodo: 'free',
-      precioUnitario: 0,
-      cantidad: 1,
-      estado: 'aprobada',
-      aprobadaPor: 'sistema',
-      operacionId,
-      qr: null, // ⬅️ se setea después
-    })
+    try {
+      showLoading({
+        title: 'Generando entradas',
+        text: 'Estamos creando tus entradas gratuitas...',
+      })
+      const ref = await crearEntradaBase({
+        usuarioId,
+        usuarioNombre,
+        evento,
+        lote: null,
+        metodo: 'free',
+        precioUnitario: 0,
+        cantidad: 1,
+        estado: 'aprobada',
+        aprobadaPor: 'sistema',
+        operacionId,
+        qr: null, // ⬅️ se setea después
+      })
+      // 2️⃣ Firmar con ID real
+      const firma = firmarEntradaCorta(ref.id)
+      const qrData = `E|${ref.id}|${firma}`
 
-    // 2️⃣ Firmar con ID real
-    const firma = firmarEntradaCorta(ref.id)
-    const qrData = `E|${ref.id}|${firma}`
+      // 3️⃣ Guardar QR definitivo
+      await updateDoc(ref, { qr: qrData })
 
-    // 3️⃣ Guardar QR definitivo
-    await updateDoc(ref, { qr: qrData })
-
-    generadas.push({ id: ref.id, qr: qrData })
+      generadas.push({ id: ref.id, qr: qrData })
+    } finally {
+      hideLoading()
+    }
   }
 
   // ======================================================
