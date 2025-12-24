@@ -328,11 +328,6 @@ export function CatalogoProvider({ children }) {
   }
 
   async function seleccionarCategoria(cat) {
-    if (!evento) {
-      const ok = await pedirEventoAntesDeCatalogo()
-      if (!ok) return
-    }
-
     try {
       const snap = await getDocs(collection(db, 'productos'))
 

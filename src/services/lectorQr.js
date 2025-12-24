@@ -220,11 +220,12 @@ export async function validarTicket(payload, eventoForzado = null) {
   const data = snap.data()
 
   if (eventoForzado && data.eventoId !== eventoForzado) {
-    return rechazoEntrada(
-      'Entrada de otro evento',
-      'Esta entrada no corresponde al evento seleccionado.'
+    return rechazoCompra(
+      'Pedido de otro evento',
+      'Este pedido no corresponde al evento seleccionado.'
     )
   }
+
   // Evento seleccionado o evento real de la entrada
   const eventoIdEntrada = data.eventoId
   const evento = await obtenerEvento(eventoIdEntrada)
@@ -293,7 +294,7 @@ export async function validarTicket(payload, eventoForzado = null) {
 /* ============================================================
    VALIDAR COMPRA — VERSIÓN FINAL CORREGIDA
    ============================================================ */
-export async function validarCompra({ compraId }) {
+export async function validarCompra({ compraId, eventoForzado = null }) {
   if (!compraId) {
     return rechazoCompra('QR inválido', 'No se pudo identificar la compra.')
   }

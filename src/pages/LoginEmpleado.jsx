@@ -50,7 +50,8 @@ export default function LoginEmpleado() {
     <div className="login-wrapper">
       <h2 className="login-title">PANEL ADMIN</h2>
 
-      <div className="login-divider">Accedé al panel de empleados</div>
+      <div>Accedé al panel de empleados</div>
+      <div className="bar-divider mb-3"></div>
 
       {/* FORM */}
       <form className="login-form" onSubmit={loginLocal}>
@@ -86,7 +87,7 @@ export default function LoginEmpleado() {
       </form>
 
       <p className="login-back" onClick={() => navigate('/')}>
-        ← Volver
+        ← Salir
       </p>
     </div>
   )

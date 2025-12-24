@@ -272,10 +272,31 @@ export default function EditarEvento({ editarId, setSeccion }) {
 
     const ok = await editarEvento(editarId, data, imagen)
     if (ok) {
-      Swal.fire('Listo', 'Evento actualizado correctamente.', 'success')
+      await Swal.fire({
+        title: 'Listo',
+        text: 'Evento actualizado correctamente.',
+        icon: 'success',
+        confirmButtonText: 'Aceptar',
+        customClass: {
+          popup: 'swal-popup-custom',
+          confirmButton: 'swal-btn-confirm',
+        },
+        buttonsStyling: false,
+      })
+
       setSeccion('eventos-lista')
     } else {
-      Swal.fire('Error', 'No se pudo actualizar.', 'error')
+      await Swal.fire({
+        title: 'Error',
+        text: 'No se pudo actualizar.',
+        icon: 'error',
+        confirmButtonText: 'Aceptar',
+        customClass: {
+          popup: 'swal-popup-custom',
+          confirmButton: 'swal-btn-confirm',
+        },
+        buttonsStyling: false,
+      })
     }
   }
 

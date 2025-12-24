@@ -492,7 +492,10 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
         compraIdFinal = snap.docs[0].id
       }
 
-      res = await validarCompra({ compraId: compraIdFinal })
+      res = await validarCompra({
+        compraId: compraIdFinal,
+        eventoForzado: eventoSeleccionado,
+      })
 
       const estado = res.data?.estado
 

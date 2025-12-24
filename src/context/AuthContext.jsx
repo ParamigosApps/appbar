@@ -156,6 +156,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     cargarPermisosSistema()
   }, [])
+
   // 🔑 cerrar loading solo cuando TODO esté listo
   useEffect(() => {
     if (authListo && permisosListos) {
