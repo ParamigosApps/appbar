@@ -205,20 +205,16 @@ export default function ComprasAdmin() {
   // ACCIONES ADMINISTRATIVAS
   // ------------------------------------------------------------
   async function marcarEstado(compra, estado) {
-    const ref = doc(db, 'compras', compra.id)
-
-    const nuevaAccion = {
-      accion: estado,
-      por: empleado.nombre,
-      uid: empleado.uid,
-      nivel,
-      fecha: new Date(),
-    }
-
-    await updateDoc(ref, {
+    await updateDoc(doc(db, 'compras', compra.id), {
       estado,
       pagado: estado !== 'pendiente',
-      audit: [...(compra.audit || []), nuevaAccion],
+      audit: {
+        accion: estado,
+        por: empleado.nombre,
+        uid: empleado.uid,
+        nivel,
+        fecha: new Date(),
+      },
     })
   }
 
@@ -340,34 +336,6 @@ export default function ComprasAdmin() {
             Exportar CSV
           </button>
         )}
-        {nivel === 4 && (
-          <button
-            className="btn btn-dark mt-2"
-            onClick={async () => {
-              if (
-                !confirm(
-                  `Generar cierre de caja desde ${fechaDesde.toLocaleDateString()} hasta ${fechaHasta.toLocaleDateString()}?`
-                )
-              )
-                return
-
-              try {
-                await generarCierreCaja({
-                  compras: comprasProcesadas,
-                  fechaDesde,
-                  fechaHasta,
-                  empleado,
-                })
-
-                alert('✅ Cierre de caja generado correctamente')
-              } catch (err) {
-                alert(err.message)
-              }
-            }}
-          >
-            🧾 Generar cierre de caja
-          </button>
-        )}
       </div>
 
       {/* LISTADO */}
@@ -383,23 +351,11 @@ export default function ComprasAdmin() {
                 {c.usuarioNombre} • {c.nombreEvento || '—'} •{' '}
                 {formatearFechaCompra(c)}
               </div>
-              {c.audit?.length > 0 && (
-                <details className="mt-2">
-                  <summary style={{ fontSize: 12, cursor: 'pointer' }}>
-                    📜 Historial de auditoría
-                  </summary>
-
-                  <ul style={{ fontSize: 12, marginTop: 6 }}>
-                    {c.audit.map((a, i) => (
-                      <li key={i}>
-                        <b>{a.accion}</b> por {a.por} (nivel {a.nivel}) —{' '}
-                        {new Date(
-                          a.fecha?.toDate?.() || a.fecha
-                        ).toLocaleString()}
-                      </li>
-                    ))}
-                  </ul>
-                </details>
+              {c.audit && (
+                <div className="text-muted mt-1" style={{ fontSize: 11 }}>
+                  Última acción: <b>{c.audit.accion}</b> por {c.audit.por} (
+                  nivel {c.audit.nivel})
+                </div>
               )}
             </div>
 

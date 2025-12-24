@@ -6,10 +6,13 @@ import { db } from '../Firebase.js'
 import { collection, getDocs } from 'firebase/firestore'
 import Swal from 'sweetalert2'
 import { useCarrito } from './CarritoContext'
+import { useEvento } from './EventosContext.jsx' // 👈 SINGULAR
 
-const CatalogoContext = createContext()
+// 🔑 CONTEXTO SE DEFINE UNA SOLA VEZ (AFUERA)
+const CatalogoContext = createContext(null)
+
+// 🔑 HOOK DESPUÉS
 export const useCatalogo = () => useContext(CatalogoContext)
-
 // ======================================================
 // PRODUCTO (idéntico al original, pero robusto)
 // ======================================================
@@ -33,7 +36,7 @@ export function CatalogoProvider({ children }) {
   const [catalogoVisible, setCatalogoVisible] = useState(false)
   const [totalFirestore, setTotalFirestore] = useState(0)
   const { agregarProducto, abrirCarrito } = useCarrito()
-
+  const { evento, seleccionarEvento, validarEventoVigente } = useEvento()
   // ======================================================
   // CARGAR CATÁLOGO DESDE FIREBASE SIN MOSTRAR
   // ======================================================
@@ -59,6 +62,20 @@ export function CatalogoProvider({ children }) {
   // ======================================================
   async function abrirProductoDetalle(producto) {
     if (producto.stock <= 0) return
+
+    if (!evento) {
+      await Swal.fire({
+        title: 'Evento requerido',
+        text: 'Seleccioná un evento antes de agregar productos.',
+        icon: 'warning',
+        confirmButtonText: 'Aceptar',
+        customClass: {
+          confirmButton: 'swal-btn-confirm',
+        },
+        buttonsStyling: false,
+      })
+      return
+    }
 
     const descripcionHtml = producto.descripcion
       ? `<p class="producto-desc text-muted">${producto.descripcion}</p>`
@@ -173,16 +190,149 @@ export function CatalogoProvider({ children }) {
   // ======================================================
   // MOSTRAR / OCULTAR
   // ======================================================
-  function toggleCatalogo() {
-    if (!catalogoVisible) {
-      setCategoriaActiva('Todos')
-      setCatalogoVisible(true)
+
+  async function toggleCatalogo() {
+    if (!evento) {
+      const ok = await pedirEventoAntesDeCatalogo()
+      if (!ok) return
     } else {
-      setCatalogoVisible(false)
+      const vigente = await validarEventoVigente()
+
+      if (!vigente) {
+        await Swal.fire({
+          title: 'Evento finalizado',
+          text: 'El evento ya no está activo. Seleccioná otro.',
+          icon: 'info',
+          confirmButtonText: 'Aceptar',
+          customClass: { confirmButton: 'swal-btn-confirm' },
+          buttonsStyling: false,
+        })
+
+        const ok = await pedirEventoAntesDeCatalogo()
+        if (!ok) return
+      }
     }
+
+    setCatalogoVisible(v => !v)
+  }
+
+  async function pedirEventoAntesDeCatalogo() {
+    const snap = await getDocs(collection(db, 'eventos'))
+    const ahora = new Date()
+
+    // Normalizar y filtrar vigentes
+    const eventosVigentes = snap.docs
+      .map(d => {
+        const data = d.data()
+
+        const inicio = data.fechaInicio?.toDate
+          ? data.fechaInicio.toDate()
+          : data.fechaInicio
+          ? new Date(data.fechaInicio)
+          : null
+
+        const fin = data.fechaFin?.toDate
+          ? data.fechaFin.toDate()
+          : data.fechaFin
+          ? new Date(data.fechaFin)
+          : null
+
+        let vigente = false
+
+        if (inicio && fin) {
+          vigente = inicio <= ahora && ahora <= fin
+        } else if (inicio) {
+          // válido solo el día del evento
+          vigente = inicio.toDateString() === ahora.toDateString()
+        }
+
+        return {
+          id: d.id,
+          ...data,
+          inicio,
+          vigente,
+        }
+      })
+      .filter(ev => ev.vigente)
+
+    if (!eventosVigentes.length) {
+      await Swal.fire({
+        title: 'Sin eventos vigentes',
+        text: 'No hay eventos activos en este momento.',
+        icon: 'info',
+        confirmButtonText: 'Aceptar',
+        customClass: { confirmButton: 'swal-btn-confirm' },
+        buttonsStyling: false,
+      })
+      return false
+    }
+
+    // Ordenar por fecha (más cercano primero)
+    eventosVigentes.sort((a, b) => a.inicio - b.inicio)
+
+    const formatearFecha = f =>
+      f.toLocaleDateString('es-AR', {
+        weekday: 'short',
+        day: '2-digit',
+        month: '2-digit',
+      })
+
+    let html = `
+    <div style="margin-bottom:12px;font-size:15px">
+      Seleccioná el evento vigente:
+    </div>
+    <select id="evento-select" class="swal2-select" style="width:100%;padding:12px">
+  `
+
+    eventosVigentes.forEach((ev, i) => {
+      const esHoy = ev.inicio?.toDateString() === ahora.toDateString()
+
+      html += `
+      <option value="${ev.id}" ${i === 0 ? 'selected' : ''}>
+        ${esHoy ? '🔥 ' : ''}${ev.nombre} — ${formatearFecha(ev.inicio)}
+      </option>
+    `
+    })
+
+    html += '</select>'
+
+    const res = await Swal.fire({
+      title: 'Evento activo',
+      html,
+      confirmButtonText: 'Continuar',
+      allowOutsideClick: false,
+      buttonsStyling: false,
+      customClass: {
+        popup: 'swal-select-evento',
+        confirmButton: 'swal-btn-confirm',
+      },
+      preConfirm: () => {
+        const el = document.getElementById('evento-select')
+        return el?.value || false
+      },
+    })
+
+    if (!res.value) return false
+
+    const ev = eventosVigentes.find(e => e.id === res.value)
+    if (!ev) return false
+
+    seleccionarEvento({
+      id: ev.id,
+      nombre: ev.nombre,
+      fechaInicio: ev.fechaInicio || null,
+      horaInicio: ev.horaInicio || null,
+    })
+
+    return true
   }
 
   async function seleccionarCategoria(cat) {
+    if (!evento) {
+      const ok = await pedirEventoAntesDeCatalogo()
+      if (!ok) return
+    }
+
     try {
       const snap = await getDocs(collection(db, 'productos'))
 

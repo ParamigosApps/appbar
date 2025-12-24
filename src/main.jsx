@@ -24,25 +24,28 @@ import { CatalogoProvider } from './context/CatalogoContext.jsx'
 import { PedidosProvider } from './context/PedidosContext.jsx'
 import { QrProvider } from './context/QrContext.jsx'
 import { EntradasProvider } from './context/EntradasContext.jsx'
+import { EventoProvider } from './context/EventosContext.jsx'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <FirebaseProvider>
-      <AuthProvider>
-        <ThemeProvider>
-          <CarritoProvider>
-            <CatalogoProvider>
-              <PedidosProvider>
-                <QrProvider>
-                  <EntradasProvider>
-                    <App />
-                  </EntradasProvider>
-                </QrProvider>
-              </PedidosProvider>
-            </CatalogoProvider>
-          </CarritoProvider>
-        </ThemeProvider>
-      </AuthProvider>
+      <EventoProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <CarritoProvider>
+              <CatalogoProvider>
+                <PedidosProvider>
+                  <QrProvider>
+                    <EntradasProvider>
+                      <App />
+                    </EntradasProvider>
+                  </QrProvider>
+                </PedidosProvider>
+              </CatalogoProvider>
+            </CarritoProvider>
+          </ThemeProvider>
+        </AuthProvider>
+      </EventoProvider>
     </FirebaseProvider>
   </React.StrictMode>
 )

@@ -28,6 +28,7 @@ import { guardarPerfilUsuario } from '../services/usuarioService'
 import { enviarMail } from '../services/mailService'
 import { mailLogin } from '../services/mailTemplates'
 import { showLoading, hideLoading } from '../services/loadingService.js'
+import { useEvento } from './EventosContext'
 
 // ============================================================
 // CONTEXT
@@ -51,6 +52,7 @@ export function AuthProvider({ children }) {
   const [rolUsuario, setRolUsuario] = useState(0)
   const [permisos, setPermisos] = useState({})
   const [loading, setLoading] = useState(true)
+  const { validarEventoVigente, limpiarEvento } = useEvento()
 
   // 🔑 FLAGS REALES
   const [authListo, setAuthListo] = useState(false)
@@ -69,33 +71,18 @@ export function AuthProvider({ children }) {
   // RESTAURAR SESIÓN
   // ============================================================
   useEffect(() => {
-    // 1️⃣ ADMIN MANUAL (localStorage)
-    const adminSession = localStorage.getItem(LS_ADMIN)
-    if (adminSession) {
-      const saved = JSON.parse(adminSession)
-      setAdminUser(saved)
-      setRolUsuario(saved.uid === 'admin-master' ? 4 : Number(saved.nivel || 1))
-    }
+    const unsub = onAuthStateChanged(auth, async firebaseUser => {
+      if (firebaseUser) {
+        const ref = doc(db, 'usuarios', firebaseUser.uid)
+        const snap = await getDoc(ref)
 
-    // 2️⃣ PERMISOS DEL SISTEMA
-    cargarPermisosSistema()
-
-    // 3️⃣ FIREBASE AUTH (usuarios normales)
-    const unsub = onAuthStateChanged(auth, async u => {
-      if (u) {
-        try {
-          const ref = doc(db, 'usuarios', u.uid)
-          const snap = await getDoc(ref)
-
-          if (snap.exists()) {
-            setUser({ ...u, ...snap.data() })
-          } else {
-            // ⚠️ Usuario sin perfil → tratar como no logueado
-            setUser(null)
-          }
-        } catch (err) {
-          console.error('Error cargando perfil:', err)
-          setUser(null)
+        if (snap.exists()) {
+          setUser({
+            ...firebaseUser,
+            ...snap.data(),
+          })
+        } else {
+          setUser(firebaseUser)
         }
       } else {
         setUser(null)
@@ -106,6 +93,29 @@ export function AuthProvider({ children }) {
 
     return () => unsub()
   }, [])
+
+  useEffect(() => {
+    let cancelado = false
+
+    async function syncEventoConSesion() {
+      if (!user) {
+        limpiarEvento()
+        return
+      }
+
+      const vigente = await validarEventoVigente()
+
+      if (!vigente && !cancelado) {
+        console.warn('Evento vencido al restaurar sesión')
+      }
+    }
+
+    syncEventoConSesion()
+
+    return () => {
+      cancelado = true
+    }
+  }, [user])
 
   useEffect(() => {
     if (recaptchaRef.current) return
@@ -143,7 +153,9 @@ export function AuthProvider({ children }) {
     window.addEventListener('perfil-actualizado', handler)
     return () => window.removeEventListener('perfil-actualizado', handler)
   }, [])
-
+  useEffect(() => {
+    cargarPermisosSistema()
+  }, [])
   // 🔑 cerrar loading solo cuando TODO esté listo
   useEffect(() => {
     if (authListo && permisosListos) {

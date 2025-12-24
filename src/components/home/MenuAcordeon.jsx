@@ -152,10 +152,7 @@ export default function MenuAcordeon() {
                 <div className="accordion-body d-grid gap-3">
                   <button
                     className="btn btn-outline-dark w-100"
-                    onClick={() => {
-                      seleccionarCategoria('Todos')
-                      toggleCatalogo()
-                    }}
+                    onClick={toggleCatalogo}
                   >
                     Ver catálogo completo
                   </button>
@@ -172,7 +169,10 @@ export default function MenuAcordeon() {
                             className={`categoria-btn ${
                               categoriaActiva === cat ? 'active' : ''
                             }`}
-                            onClick={() => seleccionarCategoria(cat)}
+                            onClick={async () => {
+                              await toggleCatalogo()
+                              seleccionarCategoria(cat)
+                            }}
                           >
                             <span className="categoria-icon">{icon}</span>
                             <span className="categoria-label">{cat}</span>
