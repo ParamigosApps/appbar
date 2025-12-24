@@ -24,6 +24,7 @@ export async function crearEntradaBase({
   qr = '',
 
   usado = false,
+  loteIndice = null,
 }) {
   // ----------------------------------------------------------
   // VALIDACIONES DURAS
@@ -73,6 +74,7 @@ export async function crearEntradaBase({
 
     // Lote
     lote: loteSnapshot,
+    loteIndice: Number.isFinite(loteIndice) ? loteIndice : null,
 
     // Compra
     metodo,

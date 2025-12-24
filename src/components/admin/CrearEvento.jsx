@@ -114,6 +114,7 @@ export default function CrearEvento({ setSeccion = () => {} }) {
         desdeHora: '',
         hastaHora: '',
         incluyeConsumicion: false,
+        maxPorUsuario: '',
       },
     ])
   }
@@ -145,12 +146,10 @@ export default function CrearEvento({ setSeccion = () => {} }) {
   function validarLotes(entradasMaximasNum) {
     if (!lotes.length) return true
 
-    // --------------------------------------------------
-    // VALIDAR CADA LOTE
-    // --------------------------------------------------
     for (const lote of lotes) {
       const nombre = (lote.nombre || '').trim()
       const cantidadNum = Number(lote.cantidad) || 0
+      const maxPorUsuarioNum = Number(lote.maxPorUsuario) || 0
 
       if (!nombre) {
         Swal.fire(
@@ -165,6 +164,24 @@ export default function CrearEvento({ setSeccion = () => {} }) {
         Swal.fire(
           'Error en lotes',
           `El lote "${nombre}" debe tener una cantidad mayor a 0.`,
+          'error'
+        )
+        return false
+      }
+
+      if (maxPorUsuarioNum < 0) {
+        Swal.fire(
+          'Error en lotes',
+          `El máximo por usuario del lote "${nombre}" no puede ser negativo.`,
+          'error'
+        )
+        return false
+      }
+
+      if (maxPorUsuarioNum > 0 && maxPorUsuarioNum > cantidadNum) {
+        Swal.fire(
+          'Error en lotes',
+          `El máximo por usuario del lote "${nombre}" no puede superar la cantidad total del lote.`,
           'error'
         )
         return false
@@ -189,9 +206,6 @@ export default function CrearEvento({ setSeccion = () => {} }) {
       }
     }
 
-    // --------------------------------------------------
-    // VALIDAR SUMA TOTAL
-    // --------------------------------------------------
     const totalLotes = lotes.reduce(
       (acc, l) => acc + (Number(l.cantidad) || 0),
       0
@@ -272,6 +286,7 @@ export default function CrearEvento({ setSeccion = () => {} }) {
         desdeHora: l.desdeHora || '',
         hastaHora: l.hastaHora || '',
         incluyeConsumicion: !!l.incluyeConsumicion,
+        maxPorUsuario: Number(l.maxPorUsuario) || 0,
       })),
     }
 
@@ -454,8 +469,9 @@ export default function CrearEvento({ setSeccion = () => {} }) {
           {lotes.length > 0 && (
             <div className="mb-3">
               {lotes.map(lote => (
-                <div key={lote.id} className="border rounded p-2 mb-3 bg-light">
-                  <div className="d-flex justify-content-between mb-2">
+                <div key={lote.id} className="border rounded p-3 mb-3 bg-light">
+                  {/* Header del lote */}
+                  <div className="d-flex justify-content-between align-items-center mb-3">
                     <strong>{lote.nombre || 'Lote sin nombre'}</strong>
                     <button
                       type="button"
@@ -466,9 +482,9 @@ export default function CrearEvento({ setSeccion = () => {} }) {
                     </button>
                   </div>
 
+                  {/* ================= Fila 1: Nombre + Descripción ================= */}
                   <div className="row g-2 mb-2">
-                    {/* Nombre del lote */}
-                    <div className="col-md-4">
+                    <div className="col-md-6">
                       <label className="form-label small m-0">
                         Nombre del lote <span style={{ color: 'red' }}>*</span>
                       </label>
@@ -484,8 +500,7 @@ export default function CrearEvento({ setSeccion = () => {} }) {
                       />
                     </div>
 
-                    {/* Descripción extra */}
-                    <div className="col-md-4">
+                    <div className="col-md-6">
                       <label className="form-label small m-0">
                         Descripción (opcional)
                       </label>
@@ -503,26 +518,36 @@ export default function CrearEvento({ setSeccion = () => {} }) {
                         }
                       />
                     </div>
+                  </div>
 
+                  {/* ================= Fila 2: Cantidad + Máx por usuario ================= */}
+                  {/* ================= Fila 2: Precio + Cantidad + Máx por usuario ================= */}
+                  <div className="row g-2 mb-2">
                     {/* Precio */}
-                    <div className="col-md-2">
+                    <div className="col-md-4">
                       <label className="form-label small m-0">
-                        Precio <span style={{ color: 'red' }}>*</span>
+                        Precio del lote <span style={{ color: 'red' }}>*</span>
                       </label>
                       <input
                         type="number"
                         className="form-control form-control-sm"
-                        placeholder="Ej: $3000"
+                        placeholder="Ej: 5000"
+                        min={0}
                         value={lote.precio}
                         onChange={e =>
-                          actualizarLote(lote.id, 'precio', e.target.value)
+                          actualizarLote(
+                            lote.id,
+                            'precio',
+                            Number(e.target.value) || 0
+                          )
                         }
                         required
                       />
+                      <small className="text-muted">0 = Entrada gratuita</small>
                     </div>
 
                     {/* Cantidad */}
-                    <div className="col-md-2">
+                    <div className="col-md-4">
                       <label className="form-label small m-0">
                         Límite de entradas{' '}
                         <span style={{ color: 'red' }}>*</span>
@@ -536,7 +561,7 @@ export default function CrearEvento({ setSeccion = () => {} }) {
                       <input
                         type="number"
                         className={`form-control form-control-sm ${
-                          lote.cantidad >= entradasDisponiblesParaLote(lote.id)
+                          lote.cantidad > entradasDisponiblesParaLote(lote.id)
                             ? 'is-invalid'
                             : ''
                         }`}
@@ -550,11 +575,35 @@ export default function CrearEvento({ setSeccion = () => {} }) {
                             Math.min(valor, max)
                           )
                         }}
+                        required
                       />
+                    </div>
+
+                    {/* Máx por usuario */}
+                    <div className="col-md-4">
+                      <label className="form-label small m-0">
+                        Máx. por usuario
+                      </label>
+                      <input
+                        type="number"
+                        className="form-control form-control-sm"
+                        min={0}
+                        value={lote.maxPorUsuario}
+                        onChange={e =>
+                          actualizarLote(
+                            lote.id,
+                            'maxPorUsuario',
+                            Number(e.target.value) || 0
+                          )
+                        }
+                      />
+                      <small className="text-muted">
+                        0 = sin límite por usuario
+                      </small>
                     </div>
                   </div>
 
-                  {/* Género */}
+                  {/* ================= Fila 3: Género + Horarios ================= */}
                   <div className="row g-2 mb-2">
                     <div className="col-md-4">
                       <label className="form-label small m-0">
@@ -574,30 +623,27 @@ export default function CrearEvento({ setSeccion = () => {} }) {
                       </select>
                     </div>
 
-                    {/* Desde */}
-                    <div className="col-md-2">
+                    <div className="col-md-8">
                       <label className="form-label small m-0">
                         Ingreso permitido{' '}
                         <span style={{ color: 'red' }}>*</span>
                       </label>
 
-                      <div className="d-flex align-items-center gap-1">
-                        {/* Desde */}
-                        <span className="small"> Desde: </span>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="small">Desde</span>
                         <input
                           type="text"
                           className="form-control form-control-sm"
-                          value={form.horaInicio}
+                          placeholder="00:00"
+                          value={lote.desdeHora}
                           onChange={e =>
                             actualizarLote(lote.id, 'desdeHora', e.target.value)
                           }
-                          style={{ minWidth: '65px' }}
+                          style={{ maxWidth: 90 }}
                           required
                         />
 
-                        <span className="small"> Hasta: </span>
-
-                        {/* Hasta */}
+                        <span className="small">Hasta</span>
                         <input
                           type="text"
                           className="form-control form-control-sm"
@@ -606,15 +652,15 @@ export default function CrearEvento({ setSeccion = () => {} }) {
                           onChange={e =>
                             actualizarLote(lote.id, 'hastaHora', e.target.value)
                           }
-                          style={{ minWidth: '65px' }}
+                          style={{ maxWidth: 90 }}
                           required
                         />
                       </div>
                     </div>
                   </div>
 
-                  {/* Consumición */}
-                  <div className="row g-2 mb-2">
+                  {/* ================= Consumición ================= */}
+                  <div className="row g-2">
                     <div className="col-md-12 d-flex align-items-center">
                       <input
                         type="checkbox"
@@ -637,12 +683,13 @@ export default function CrearEvento({ setSeccion = () => {} }) {
               ))}
             </div>
           )}
+
           <button
             type="button"
             className="btn btn-outline-dark mb-3"
             onClick={agregarLote}
           >
-            ➕ Agregar lote
+            Agregar lote
           </button>
           {/* SUBMIT */}
           <div className="form-divider my-3" />

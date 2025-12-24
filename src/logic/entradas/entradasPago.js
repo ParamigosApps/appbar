@@ -4,109 +4,219 @@
 // --------------------------------------------------------------
 
 import Swal from 'sweetalert2'
-import { crearPreferenciaEntrada } from '../../services/borrarmpEntradas.js'
+import { crearPreferenciaEntrada } from '../../services/mercadoPagoEntradas.js'
 import {
   obtenerDatosBancarios,
   obtenerContacto,
   crearSolicitudPendiente,
 } from './entradasUtils.js'
-import { serverTimestamp } from 'firebase/firestore'
-
+import { normalizarPrecio } from '../../utils/utils.js'
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
+import { db } from '../../Firebase.js'
 // =============================================================
 // 🔵 MERCADO PAGO
 // =============================================================
 export async function manejarMercadoPago({
   evento,
   loteSel,
-  precioUnitario,
-  cantidadSel,
   usuarioId,
   eventoId,
 }) {
-  // 🛑 DEFENSA REAL
   if (
     !evento ||
     !eventoId ||
     !usuarioId ||
-    !loteSel ||
-    typeof precioUnitario !== 'number' ||
-    precioUnitario <= 0 ||
-    !cantidadSel
+    !Array.isArray(loteSel?.detalles) ||
+    !loteSel.detalles.length
   ) {
-    console.warn('⚠️ manejarMercadoPago llamado con datos inválidos', {
-      evento,
-      loteSel,
-      precioUnitario,
-      cantidadSel,
-      usuarioId,
-      eventoId,
-    })
+    console.warn('⚠️ manejarMercadoPago datos inválidos')
     return
   }
 
   try {
-    console.log('🔵 manejarMercadoPago()', {
-      eventoId,
-      usuarioId,
-      loteId: loteSel.id,
-      loteNombre: loteSel.nombre,
-      precioUnitario,
-      cantidadSel,
+    // ------------------------------------------------------------
+    // LOG GLOBAL (NUEVO) — Snapshot entrada
+    // ------------------------------------------------------------
+    console.group('🧾 manejarMercadoPago() INPUT SNAPSHOT')
+    console.log('eventoId:', eventoId)
+    console.log('usuarioId:', usuarioId)
+    console.log('evento.nombre:', evento?.nombre)
+    console.log('loteSel:', loteSel)
+    console.groupEnd()
+
+    const items = loteSel.detalles.map((d, i) => {
+      console.group(`🎟️ ITEM MP #${i}`)
+      console.log('RAW detalle:', d)
+      console.log('RAW precio:', d.precio, typeof d.precio)
+      console.log('RAW cantidad:', d.cantidad, typeof d.cantidad)
+
+      const precio = normalizarPrecio(d.precio)
+      const cantidad = Number(d.cantidad)
+
+      console.log('NORMALIZADO precio:', precio, typeof precio)
+      console.log('NORMALIZADO cantidad:', cantidad, typeof cantidad)
+
+      // ------------------------------------------------------------
+      // ✅ CORRECCIÓN “SIN QUITAR NADA”: SANITIZAR PARA MP
+      // - unit_price: número finito, redondeado, > 0
+      // - quantity: entero >= 1
+      // ------------------------------------------------------------
+      const precioSeguro = Math.round(Number(precio))
+      const cantidadSegura = Number.isFinite(cantidad)
+        ? Math.trunc(cantidad)
+        : NaN
+
+      console.log('SANITIZADO precioSeguro:', precioSeguro, typeof precioSeguro)
+      console.log(
+        'SANITIZADO cantidadSegura:',
+        cantidadSegura,
+        typeof cantidadSegura
+      )
+      console.groupEnd()
+
+      // ------------------------------------------------------------
+      // Validaciones originales (LAS MANTENGO)
+      // ------------------------------------------------------------
+      if (!Number.isFinite(precio) || precio <= 0) {
+        throw new Error(`Precio inválido: ${d.precio}`)
+      }
+
+      if (!Number.isInteger(cantidad) || cantidad <= 0) {
+        throw new Error(`Cantidad inválida: ${d.cantidad}`)
+      }
+
+      // ------------------------------------------------------------
+      // ✅ Validaciones nuevas (NO REEMPLAZAN; refuerzan)
+      // ------------------------------------------------------------
+      if (!Number.isFinite(precioSeguro) || precioSeguro <= 0) {
+        throw new Error(
+          `Precio inválido para MP (sanitizado): raw=${d.precio} norm=${precio} seguro=${precioSeguro}`
+        )
+      }
+
+      if (!Number.isInteger(cantidadSegura) || cantidadSegura <= 0) {
+        throw new Error(
+          `Cantidad inválida para MP (sanitizado): raw=${d.cantidad} norm=${cantidad} segura=${cantidadSegura}`
+        )
+      }
+
+      return {
+        title: `${d.nombre} — ${evento.nombre}`,
+        quantity: cantidadSegura, // ✅ FIX: entero seguro
+        unit_price: precioSeguro, // ✅ FIX: number seguro para MP
+        currency_id: 'ARS',
+      }
     })
 
-    const detalleEntradas = Array.isArray(loteSel?.detalles)
+    // ------------------------------------------------------------
+    // LOGS FINALES (NUEVO) — Payload exacto a backend
+    // ------------------------------------------------------------
+    console.group('💳 MP PAYLOAD FINAL (ANTES DE BACKEND)')
+    console.table(
+      items.map((it, idx) => ({
+        idx,
+        title: it.title,
+        unit_price: it.unit_price,
+        unit_price_type: typeof it.unit_price,
+        quantity: it.quantity,
+        quantity_type: typeof it.quantity,
+        currency_id: it.currency_id,
+      }))
+    )
+    console.log('items RAW:', items)
+    console.groupEnd()
+
+    console.log('🟢 MP items OK:', items)
+
+    const entradasGratisPendientes = Array.isArray(loteSel?.detalles)
       ? loteSel.detalles
-          .map(d => {
-            const precioFmt = d.precio.toLocaleString('es-AR')
-            return `• ${d.cantidad} × ${d.nombre} ($${precioFmt})`
-          })
-          .join('\n')
-      : `• ${cantidadSel} × ${loteSel.nombre} ($${precioUnitario.toLocaleString(
-          'es-AR'
-        )})`
-    const url = await crearPreferenciaEntrada({
+          .filter(d => normalizarPrecio(d.precio) === 0)
+          .map(d => ({
+            lote: {
+              id: loteSel.id ?? 'general',
+              nombre: d.nombre,
+            },
+            cantidad: Number(d.cantidad),
+          }))
+      : []
+
+    const pagoRef = await addDoc(collection(db, 'pagos'), {
+      // ----------------------------
+      // INFO DEL PAGO
+      // ----------------------------
+      metodo: 'mp',
+      estado: 'pendiente',
+
+      // ----------------------------
+      // USUARIO
+      // ----------------------------
+      usuarioId,
+      usuarioNombre: evento?.usuarioNombre || '',
+      usuarioEmail: evento?.usuarioEmail || '',
+
+      // ----------------------------
+      // EVENTO
+      // ----------------------------
+      eventoId,
+
+      // ----------------------------
+      // ITEMS PAGADOS (SNAPSHOT)
+      // 🔑 ESTO ES LO QUE PREGUNTABAS
+      // ----------------------------
+      itemsPagados: loteSel?.detalles ?? [],
+      total: items.reduce((acc, i) => acc + i.unit_price * i.quantity, 0),
+
+      // ----------------------------
+      // ENTRADAS GRATIS
+      // ----------------------------
+      entradasGratisPendientes,
+      gratisEntregadas: false,
+
+      // ----------------------------
+      // FECHA
+      // ----------------------------
+      createdAt: serverTimestamp(),
+    })
+
+    // 🔑 ESTE ID ES CLAVE PARA EL WEBHOOK
+    const pagoId = pagoRef.id
+
+    const resp = await crearPreferenciaEntrada({
       usuarioId,
       eventoId,
-      nombreEvento: evento.nombre,
-
-      cantidad: 1, // MP
-      precio: precioUnitario,
-
-      detalleEntradas,
-
+      pagoId, // 🔑 CLAVE
+      items,
       imagenEventoUrl: evento.imagenEventoUrl || evento.imagen || '',
     })
 
-    if (typeof url !== 'string' || !url.startsWith('http')) {
-      console.warn('⚠️ URL inválida Mercado Pago:', url)
+    // ------------------------------------------------------------
+    // ✅ FIX “sin quitar nada”: soportar backend que devuelve objeto error
+    // ------------------------------------------------------------
+    console.log('🧩 crearPreferenciaEntrada() RESPUESTA RAW:', resp)
 
-      await Swal.fire({
-        title: 'Error',
-        text: 'No se pudo iniciar Mercado Pago.',
-        icon: 'error',
-        allowOutsideClick: false,
-        allowEscapeKey: false,
-        customClass: {
-          htmlContainer: 'swal-text-center',
-        },
-      })
-      return
+    const url =
+      typeof resp === 'string'
+        ? resp
+        : resp?.init_point || resp?.url || resp?.sandbox_init_point || ''
+
+    if (!url || typeof url !== 'string' || !url.startsWith('http')) {
+      // Log extra si viene error estructurado
+      console.group('❌ MP RESPUESTA INVÁLIDA / SIN init_point')
+      console.log('resp:', resp)
+      console.log('items enviados:', items)
+      console.groupEnd()
+
+      throw new Error('MP no devolvió init_point')
     }
 
-    // 🚀 REDIRECCIÓN REAL
     window.location.href = url
   } catch (err) {
-    console.error('❌ Error en manejarMercadoPago:', err)
+    console.error('❌ Error Mercado Pago:', err)
 
     await Swal.fire({
       title: 'Error',
-      text: 'No se pudo iniciar Mercado Pago.',
+      text: 'No se pudo iniciar el pago con Mercado Pago.',
       icon: 'error',
-      allowOutsideClick: false,
-      allowEscapeKey: false,
-      customClass: {
-        htmlContainer: 'swal-text-center',
-      },
     })
   }
 }
@@ -122,6 +232,7 @@ export async function manejarTransferencia({
   usuarioId,
   usuarioNombre,
   eventoId,
+  detallesPagos,
 }) {
   if (
     !evento ||
@@ -140,6 +251,23 @@ export async function manejarTransferencia({
     })
     return
   }
+  // -----------------------------------------
+  // 🧩 Resolver lotes: single-lote o multi-lote
+  // -----------------------------------------
+  const lista =
+    Array.isArray(detallesPagos) && detallesPagos.length
+      ? detallesPagos
+      : Array.isArray(loteSel?.detalles) && loteSel.detalles.length
+      ? loteSel.detalles
+      : null
+
+  if (!lista) {
+    console.warn('⚠️ manejarTransferencia sin detalles de lotes', {
+      loteSel,
+      detallesPagos,
+    })
+    return
+  }
 
   try {
     console.log('🔄 manejarTransferencia()', {
@@ -148,6 +276,7 @@ export async function manejarTransferencia({
       cantidadSel,
       precio,
       loteSel,
+      detallesPagos,
     })
 
     const datos = await obtenerDatosBancarios()
@@ -175,7 +304,7 @@ export async function manejarTransferencia({
     <div class="transfer-box">
       <p class="transfer-monto">
         <b>Monto total:</b>
-        <span class="transfer-precio">$${precio * cantidadSel}</span>
+        <span class="transfer-precio">$${precio}</span>
       </p>
 
       <div class="transfer-datos-dark">
@@ -255,42 +384,48 @@ export async function manejarTransferencia({
     }
 
     // ----------------------------------------------------------
-    // CREAR SOLICITUD PENDIENTE
+    // CREAR SOLICITUDES PENDIENTES (UNA POR LOTE)
     // ----------------------------------------------------------
-    await crearSolicitudPendiente(eventoId, usuarioId, {
-      // USUARIO
-      usuarioId,
-      usuarioNombre,
+    for (const d of lista) {
+      const loteIndice = Number.isFinite(d?.lote?.index)
+        ? d.lote.index
+        : Number.isFinite(d?.loteIndice)
+        ? d.loteIndice
+        : Number.isFinite(d?.loteId)
+        ? Number(d.loteId)
+        : null
 
-      // EVENTO (snapshot)
-      eventoId,
-      eventoNombre: evento.nombre,
-      lugar: evento.lugar,
-      fechaEvento: evento.fechaInicio,
-      horaInicio: evento.horaInicio,
-      horaFin: evento.horaFin,
+      await crearSolicitudPendiente(eventoId, usuarioId, {
+        usuarioId,
+        usuarioNombre,
 
-      // 🎟️ LOTE — NORMALIZADO (CLAVE)
-      lote: loteSel
-        ? {
-            id: loteSel.id ?? loteSel.index ?? null,
-            nombre: loteSel.nombre,
-          }
-        : null,
+        eventoId,
+        eventoNombre: evento.nombre,
+        lugar: evento.lugar,
+        fechaEvento: evento.fechaInicio,
+        horaInicio: evento.horaInicio,
+        horaFin: evento.horaFin,
 
-      // COMPRA
-      metodo: 'transfer', // ✅ CLAVE
-      precioUnitario: precio,
-      cantidad: cantidadSel,
-      total: precio * cantidadSel,
+        lote: {
+          id: d.lote?.id ?? d.loteId ?? loteIndice ?? 'general',
+          nombre: d.nombre ?? d.lote?.nombre ?? 'Entrada general',
+          precio: Number(d.precio) || 0,
+        },
 
-      estado: 'pendiente',
+        // ✅ FIJO: guardar el calculado
+        loteIndice: loteIndice,
 
-      // 🔴 CLAVE PARA EL ADMIN
-      ultimaModificacionPor: 'usuario',
-      ultimaModificacionEn: serverTimestamp(),
-      creadoEn: serverTimestamp(),
-    })
+        metodo: 'transferencia',
+        precioUnitario: Number(d.precio) || 0,
+        cantidad: Number(d.cantidad) || 1,
+        total: (Number(d.precio) || 0) * (Number(d.cantidad) || 1),
+
+        estado: 'pendiente',
+        ultimaModificacionPor: 'usuario',
+        ultimaModificacionEn: serverTimestamp(),
+        creadoEn: serverTimestamp(),
+      })
+    }
 
     // ----------------------------------------------------------
     // SWAL FINAL

@@ -205,6 +205,7 @@ export default function EditarEvento({ editarId, setSeccion }) {
         desdeHora: '',
         hastaHora: '',
         incluyeConsumicion: false,
+        maxPorUsuario: 0,
       },
     ])
   }
@@ -265,6 +266,7 @@ export default function EditarEvento({ editarId, setSeccion }) {
         desdeHora: l.desdeHora || '',
         hastaHora: l.hastaHora || '',
         incluyeConsumicion: !!l.incluyeConsumicion,
+        maxPorUsuario: Number(l.maxPorUsuario) || 4,
       })),
     }
 
@@ -501,6 +503,27 @@ export default function EditarEvento({ editarId, setSeccion }) {
 
             {/* Segunda fila */}
             <div className="row g-2 mb-2">
+              {/* Máx por usuario */}
+              <div className="col-md-4">
+                <label className="form-label small m-0">Máx. por usuario</label>
+                <input
+                  type="number"
+                  className="form-control form-control-sm"
+                  min={0}
+                  value={Number(lote.maxPorUsuario) || 0}
+                  onChange={e =>
+                    actualizarLote(
+                      lote.id,
+                      'maxPorUsuario',
+                      Number(e.target.value) || 0
+                    )
+                  }
+                />
+                <small className="text-muted">
+                  Dejar en 0 para no establecer límite
+                </small>
+              </div>
+
               {/* Género */}
               <div className="col-md-4">
                 <label className="form-label small m-0">

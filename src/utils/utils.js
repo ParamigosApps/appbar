@@ -78,6 +78,22 @@ export function mostrarMensaje(texto) {
     },
   }).showToast()
 }
+export function normalizarPrecio(valor) {
+  if (typeof valor === 'number') return valor
+
+  if (typeof valor === 'string') {
+    const limpio = valor
+      .replace(/\$/g, '')
+      .replace(/\./g, '')
+      .replace(/,/g, '')
+      .trim()
+
+    const num = Number(limpio)
+    return Number.isFinite(num) ? num : 0
+  }
+
+  return 0
+}
 
 export function abrirLoginGlobal() {
   document.dispatchEvent(new CustomEvent('abrir-login', { detail: 'forced' }))

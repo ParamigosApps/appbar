@@ -21,7 +21,7 @@ export default function EntradasAdmin() {
             }
             onClick={() => setTab('pendientes')}
           >
-            🔄 Pendientes
+            Pendientes de aprobación
           </button>
 
           <button

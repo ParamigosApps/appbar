@@ -3,6 +3,9 @@ import { crearEntradaBase } from '../../services/crearEntradaBase.js'
 import { firmarEntradaCorta } from '../../services/firmarEntrada.js'
 import { enviarEntradasPorMail } from '../../services/mailEntradasService.js'
 import { updateDoc } from 'firebase/firestore'
+
+import { calcularCuposEvento } from '../entradas/entradasEventos.js'
+
 // --------------------------------------------------------------
 // Normaliza cantidad desde abrirResumenLote()
 // --------------------------------------------------------------
@@ -26,44 +29,60 @@ export async function pedirEntradaFreeConLote({
   cantidadSel,
   cargarEntradasUsuario,
   mostrarQrAlGenerar = false,
+  noMostrarSwal = false,
 }) {
-  const maxPermitido = Number(loteSel.restantes || 0)
+  if (!loteSel) {
+    console.error('❌ pedirEntradaFreeConLote llamado sin loteSel', {
+      evento,
+      cantidadSel,
+    })
+    return Swal.fire(
+      'Error',
+      'No se pudo asignar el lote de la entrada.',
+      'error'
+    )
+  }
+
+  // 🔒 RECALCULAR CUPOS REALES (ANTI FRAUDE)
+  const { maxUser, lotesInfo } = await calcularCuposEvento(evento.id, usuarioId)
+
+  const loteIndex = Number.isFinite(loteSel.index)
+    ? loteSel.index
+    : Number.isFinite(loteSel.loteIndice)
+    ? loteSel.loteIndice
+    : null
+
+  if (loteIndex === null) {
+    return Swal.fire('Error', 'Lote inválido.', 'error')
+  }
+
+  const loteActual = lotesInfo.find(l => l.index === loteIndex)
+
+  if (!loteActual || loteActual.restantes <= 0) {
+    return Swal.fire(
+      'Sin cupos',
+      'Este lote ya no tiene disponibilidad.',
+      'info'
+    )
+  }
+
+  // 🔐 límite FINAL
+  const maxPermitido = Math.min(loteActual.restantes, maxUser)
 
   if (maxPermitido <= 0) {
-    return Swal.fire('Sin cupos', 'Este lote ya no tiene lugares.', 'info')
+    return Swal.fire(
+      'Límite alcanzado',
+      'Ya no podés generar más entradas.',
+      'info'
+    )
   }
+
   const operacionId = crypto.randomUUID()
   const cantidad = normalizarCantidad(cantidadSel, maxPermitido)
   const generadas = []
 
   for (let i = 0; i < cantidad; i++) {
-    const qrPayload = {
-      tipo: 'entrada',
-      eventoId: evento.id,
-      usuarioId,
-      loteId: loteSel.id ?? loteSel.index ?? null,
-      n: i + 1,
-    }
-
-    // const ref = await crearEntradaBase({
-    //   usuarioId,
-    //   usuarioNombre,
-    //   evento,
-
-    //   metodo: 'free',
-    //   precioUnitario: 0,
-
-    //   lote: {
-    //     id: loteSel?.id ?? null,
-    //     nombre: loteSel?.nombre ?? 'Entrada general',
-    //   },
-
-    //   cantidad: 1,
-    //   estado: 'aprobada',
-    //   aprobadaPor: 'sistema',
-    //   operacionId,
-    //   qr: qrData,
-    // })
+    if (i >= maxPermitido) break
 
     // 1️⃣ Crear entrada SIN QR
     const ref = await crearEntradaBase({
@@ -76,6 +95,7 @@ export async function pedirEntradaFreeConLote({
         id: loteSel?.id ?? null,
         nombre: loteSel?.nombre ?? 'Entrada general',
       },
+      loteIndice: loteIndex,
       cantidad: 1,
       estado: 'aprobada',
       aprobadaPor: 'sistema',
@@ -121,6 +141,9 @@ export async function pedirEntradaFreeConLote({
     console.warn('⚠️ No se pudo enviar mail de entradas:', e)
   }
 
+  if (noMostrarSwal) {
+    return generadas
+  }
   const res = await Swal.fire({
     title: cantidad === 1 ? '¡Entrada generada!' : '¡Entradas generadas!',
     html: `
@@ -156,11 +179,15 @@ export async function pedirEntradaFreeSinLote({
   usuarioId,
   usuarioNombre,
   usuarioEmail,
-  maxUser,
   cantidadSel,
   cargarEntradasUsuario,
 }) {
-  const maxPermitido = Number(maxUser || 0)
+  const { maxUser: maxUserReal } = await calcularCuposEvento(
+    evento.id,
+    usuarioId
+  )
+
+  const maxPermitido = Number(maxUserReal || 0)
 
   if (maxPermitido <= 0) {
     return Swal.fire('Sin cupos', 'No tenés cupos disponibles.', 'info')
@@ -173,8 +200,10 @@ export async function pedirEntradaFreeSinLote({
   // ======================================================
   // ✅ UN SOLO LOOP — 1 entrada = 1 QR = 1 documento
   // ======================================================
+
   for (let i = 0; i < cantidad; i++) {
     // 1️⃣ Crear entrada SIN QR
+
     const ref = await crearEntradaBase({
       usuarioId,
       usuarioNombre,
@@ -245,4 +274,44 @@ export async function pedirEntradaFreeSinLote({
   }
 
   return generadas
+}
+
+export async function entregarEntradasGratisPostPago({
+  evento,
+  usuarioId,
+  usuarioNombre,
+  usuarioEmail,
+  entradasGratisPendientes,
+  mostrarQrReact,
+  cargarEntradasUsuario,
+}) {
+  if (!Array.isArray(entradasGratisPendientes)) return
+
+  for (const g of entradasGratisPendientes) {
+    // 👉 SI TIENE LOTE
+    if (g.lote) {
+      await pedirEntradaFreeConLote({
+        evento,
+        loteSel: g.lote,
+        usuarioId,
+        usuarioNombre,
+        usuarioEmail,
+        cantidadSel: g.cantidad,
+        mostrarQrAlGenerar: mostrarQrReact,
+        noMostrarSwal: true,
+        cargarEntradasUsuario,
+      })
+    }
+    // 👉 SIN LOTE
+    else {
+      await pedirEntradaFreeSinLote({
+        evento,
+        usuarioId,
+        usuarioNombre,
+        usuarioEmail,
+        cantidadSel: g.cantidad,
+        cargarEntradasUsuario,
+      })
+    }
+  }
 }

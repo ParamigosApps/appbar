@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   console.log('🔵 /api/crear-preferencia INICIADA')
 
   // ======================================================
-  // LEER RAW BODY
+  // LEER RAW BODY (Vercel)
   // ======================================================
   let rawBody = ''
   await new Promise(resolve => {
@@ -47,8 +47,8 @@ export default async function handler(req, res) {
   // ======================================================
   let items = body.items
 
-  if (!Array.isArray(items)) {
-    console.log('⚠ items NO vino → generando item único')
+  if (!Array.isArray(items) || items.length === 0) {
+    console.log('⚠ items no válidos → generando item único')
 
     items = [
       {
@@ -56,11 +56,19 @@ export default async function handler(req, res) {
         quantity: Number(body.quantity ?? 1),
         unit_price: Number(body.unit_price ?? body.price ?? 0),
         currency_id: 'ARS',
-        description: body.description || '',
         picture_url: body.picture_url ?? body.imagenEventoUrl ?? '',
       },
     ]
   }
+
+  // Validación fuerte (MP es estricto)
+  items = items.map(i => ({
+    title: String(i.title),
+    quantity: Number(i.quantity),
+    unit_price: Number(i.unit_price),
+    currency_id: 'ARS',
+    picture_url: i.picture_url || '',
+  }))
 
   console.log('📦 ITEMS DEFINITIVOS:', items)
 
@@ -75,8 +83,13 @@ export default async function handler(req, res) {
     const result = await preference.create({
       body: {
         items,
-        external_reference: body.external_reference || 'sin_ref',
-        auto_return: 'approved',
+
+        external_reference: body.external_reference || null,
+
+        payer:
+          body.payer && typeof body.payer === 'object'
+            ? body.payer
+            : { email: 'test_user_123456@test.com' },
 
         back_urls: {
           success: `${BASE_URL}/pago-exitoso.html`,
@@ -84,22 +97,28 @@ export default async function handler(req, res) {
           pending: `${BASE_URL}/pago-pendiente.html`,
         },
 
-        metadata: { origen: 'appbar', tipo: 'entrada' },
+        auto_return: 'approved',
       },
     })
 
-    console.log('✅ RESULTADO PREFERENCIA:', result)
+    const pref = result
+
+    console.log('🟦 RESULTADO MP REAL:', {
+      id: pref.id,
+      init_point: pref.init_point,
+      sandbox_init_point: pref.sandbox_init_point,
+    })
 
     return res.status(200).json({
-      id: result.id ?? null,
-      init_point: result.init_point ?? null,
-      sandbox_init_point: result.sandbox_init_point ?? null,
+      id: pref.id,
+      init_point: pref.init_point,
+      sandbox_init_point: pref.sandbox_init_point,
     })
   } catch (error) {
-    console.error('❌ ERROR AL CREAR PREFERENCIA:', error)
+    console.error('❌ ERROR AL CREAR PREFERENCIA MP:', error)
 
     return res.status(500).json({
-      error: error.message,
+      error: error.message || 'Error Mercado Pago',
       detalles: error,
     })
   }

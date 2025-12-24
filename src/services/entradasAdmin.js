@@ -65,6 +65,8 @@ export function escucharEntradasPendientes(setLista) {
         lote: data.lote ?? null,
         loteNombre: data.lote?.nombre || data.loteNombre || 'Entrada general',
 
+        loteIndice: Number.isFinite(data.loteIndice) ? data.loteIndice : null,
+
         pagado: data.pagado ?? false,
       }
     })
@@ -126,6 +128,12 @@ export async function aprobarEntrada(entrada) {
     // 🔥 RESPETAR OPERACIÓN DEL LOTE
     const operacionId = operacionIdEntrada || crypto.randomUUID()
 
+    console.log('🧪 APROBANDO ENTRADA:', {
+      id,
+      loteIndice,
+      loteNombre,
+    })
+
     // ----------------------------------------------------------
     // 1️⃣ Crear entradas reales
     // ----------------------------------------------------------
@@ -161,7 +169,7 @@ export async function aprobarEntrada(entrada) {
             ? { nombre: loteNombre }
             : null,
 
-        loteIndice,
+        loteIndice: Number.isFinite(loteIndice) ? loteIndice : null,
         loteNombre,
 
         // timestamps

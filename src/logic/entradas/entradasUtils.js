@@ -22,7 +22,6 @@ export async function obtenerDatosBancarios() {
   const ref = doc(db, 'configuracion', 'datosBancarios')
   const snap = await getDoc(ref)
   const data = snap.exists() ? snap.data() : {}
-  console.log('🏦 datosBancarios:', data)
   return data
 }
 
@@ -33,7 +32,6 @@ export async function obtenerContacto() {
   const ref = doc(db, 'configuracion', 'social')
   const snap = await getDoc(ref)
   const data = snap.exists() ? snap.data() : null
-  console.log('📲 contacto social:', data)
   return data
 }
 
@@ -56,6 +54,17 @@ export async function crearSolicitudPendiente(
   usuarioId,
   entradaBase
 ) {
+  const loteIndice = Number.isFinite(entradaBase.loteIndice)
+    ? entradaBase.loteIndice
+    : Number.isFinite(entradaBase.lote?.index)
+    ? entradaBase.lote.index
+    : null
+
+  if (entradaBase.lote && !Number.isFinite(loteIndice)) {
+    console.error('❌ Entrada pendiente sin loteIndice', entradaBase)
+    throw new Error('Entrada inválida: falta loteIndice')
+  }
+
   const filtros = [
     where('eventoId', '==', eventoId),
     where('usuarioId', '==', usuarioId),
@@ -89,6 +98,8 @@ export async function crearSolicitudPendiente(
     cantidad,
     precioUnitario,
     monto: cantidad * precioUnitario,
+
+    loteIndice,
 
     lote: entradaBase.lote
       ? {
@@ -126,7 +137,6 @@ export async function crearSolicitudPendiente(
   // ➕ CREAR
   // ----------------------------------------------------------
   if (existentes.empty) {
-    console.log('🆕 Creando entrada pendiente')
     return await addDoc(collection(db, 'entradasPendientes'), dataBase)
   }
 
@@ -136,8 +146,6 @@ export async function crearSolicitudPendiente(
   const ref = existentes.docs[0].ref
   const prev = Number(existentes.docs[0].data().cantidad) || 1
   const updated = prev + cantidad
-
-  console.log('🔁 Actualizando entrada pendiente')
 
   return updateDoc(ref, {
     cantidad: updated,
@@ -171,6 +179,5 @@ export async function obtenerTotalPendientes({
 
   const snap = await getDocs(q)
 
-  console.log('⏳ totalPendientes:', snap.size)
   return snap.size
 }

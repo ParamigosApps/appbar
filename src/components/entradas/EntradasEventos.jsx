@@ -119,12 +119,17 @@ export default function EntradasEventos() {
 
             <h5 className="fw-bold">{evento.nombre}</h5>
 
-            <p className="mb-0">📅 {formatearFecha(evento.fechaInicio)}</p>
-            <p className="mb-0">📍 {evento.lugar || 'Lugar a confirmar'}</p>
+            <p className="mb-0">
+              📅 Fecha: <strong>{formatearFecha(evento.fechaInicio)}</strong>
+            </p>
+            <p className="mb-0">
+              📍 Dirección:{' '}
+              <strong> {evento.lugar || 'Lugar a confirmar'}</strong>
+            </p>
 
             <p className="mb-0">
-              🕑 Desde: {formatearHora(evento.fechaInicio)} hs → hasta{' '}
-              {formatearHora(evento.fechaFin)} hs.
+              🕑 Desde: <strong>{formatearHora(evento.fechaInicio)} hs </strong>{' '}
+              → hasta <strong>{formatearHora(evento.fechaFin)} hs</strong>
             </p>
 
             <p className="mt-2 mb-1">
@@ -144,11 +149,6 @@ export default function EntradasEventos() {
                       `$${lote.precio}`
                     ) : (
                       <span className="text-dark fw-bold">{' GRATIS '}</span>
-                    )}
-                    {lote.incluyeConsumicion && (
-                      <span className="text-dark fw-bold">
-                        {' | CON CONSUMICIÓN '}
-                      </span>
                     )}
                   </div>
                 ))}

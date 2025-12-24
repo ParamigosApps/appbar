@@ -48,6 +48,11 @@ export default function NotificacionesListener() {
           icon: 'success',
           title: '🎉 Entradas disponibles',
           html: `<b>${n.nombreEvento}</b><br/>Tus entradas ya están listas.`,
+          confirmButtonText: 'Aceptar',
+          buttonsStyling: false,
+          customClass: {
+            confirmButton: 'swal-btn-confirm',
+          },
         })
       })
     })

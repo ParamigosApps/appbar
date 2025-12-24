@@ -246,11 +246,18 @@ export default function MisEntradas() {
                 <h5 className="fw-bold m-0">{g.nombreEvento}</h5>
 
                 <p className="mb-0 mt-1">
-                  📅 {formatearSoloFecha(g.fechaEvento)} — 🕑 {g.horaInicio} a{' '}
-                  {g.horaFin}
+                  📅 Fecha:{' '}
+                  <strong> {formatearSoloFecha(g.fechaEvento)} </strong>— 🕑
+                  Hora:
+                  <strong>
+                    {' '}
+                    {g.horaInicio}hs a {g.horaFin}hs.
+                  </strong>
                 </p>
 
-                <p className="mb-0">📍 {g.lugar}</p>
+                <p className="mb-0">
+                  📍 Dirección: <strong>{g.lugar}</strong>
+                </p>
 
                 {Object.values(g.lotes)
                   .sort((a, b) => a.precioUnitario - b.precioUnitario)
@@ -263,7 +270,11 @@ export default function MisEntradas() {
                     const usadas = l.ticketsAprobados.filter(
                       t => t.usado
                     ).length
+                    const todasDisponlibles = aprobadas > 0 && usadas === 0
                     const todasUsadas = aprobadas > 0 && usadas === aprobadas
+                    const algunasUsadas = usadas > 0 && usadas < aprobadas
+                    const textoUsadas =
+                      usadas === 1 ? 'Entrada usada' : 'Entradas usadas'
 
                     const puedeAbrirQr = aprobadas > 0
                     return (
@@ -305,17 +316,30 @@ export default function MisEntradas() {
                             ) : todasUsadas ? (
                               <Badge color="secondary">No disponibles</Badge>
                             ) : (
-                              <Badge color="success">
-                                Entradas disponibles
-                              </Badge>
+                              <Badge color="success">Disponible</Badge>
                             )}
                           </div>
 
                           <div className="ticket-info text-muted">
                             Cantidad: <strong>{total}</strong>
+                            {todasDisponlibles && (
+                              <span className="ms-2 text-success fw-semibold">
+                                · Todas disponibles
+                              </span>
+                            )}
                             {todasUsadas && (
                               <span className="ms-2 text-danger fw-semibold">
                                 · Todas usadas
+                              </span>
+                            )}
+                            {algunasUsadas && (
+                              <span className="ms-2 text-danger fw-semibold">
+                                · {usadas} {textoUsadas}
+                              </span>
+                            )}
+                            {pendientes > 0 && (
+                              <span className="ms-2 text-warning fw-semibold">
+                                · Pendientes de aprobación
                               </span>
                             )}
                           </div>
@@ -323,18 +347,16 @@ export default function MisEntradas() {
 
                         {/* CTA separado, más limpio */}
                         {puedeAbrirQr && !todasUsadas && (
-                          <div className="text-end ">
-                            <button
-                              className="btn btn-link p-0 fw-semibold text-primary"
-                              onClick={() =>
-                                abrirModalQr({
-                                  ...g,
-                                  lote: l.lote || null,
-                                  ticketsAprobados: l.ticketsAprobados,
-                                })
-                              }
-                            ></button>
-                          </div>
+                          <button
+                            className="btn btn-link p-0 fw-semibold text-primary"
+                            onClick={() =>
+                              abrirModalQr({
+                                ...g,
+                                lote: l.lote || null,
+                                ticketsAprobados: l.ticketsAprobados,
+                              })
+                            }
+                          ></button>
                         )}
                       </>
                     )

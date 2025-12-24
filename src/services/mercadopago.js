@@ -1,54 +1,33 @@
-// ========================================
-// MERCADO PAGO – React Version
-// Igual a tu proyecto original
-// ========================================
-
-// ========================================
-// MERCADO PAGO – React Version (Entradas)
-// ========================================
-
 export async function crearPreferenciaEntrada({
   usuarioId,
   eventoId,
-  nombreEvento,
-  cantidad,
-  precio,
-  detalleEntradas,
+  items,
   imagenEventoUrl,
 }) {
   try {
-    const cantidadNum = Number(cantidad)
-    const precioNum = Number(precio)
-
-    // 🔒 VALIDACIONES DURAS
-    if (
-      !Number.isInteger(cantidadNum) ||
-      cantidadNum <= 0 ||
-      !Number.isFinite(precioNum) ||
-      precioNum <= 0
-    ) {
-      throw new Error('Datos inválidos para Mercado Pago')
+    if (!Array.isArray(items) || !items.length) {
+      throw new Error('Items inválidos para Mercado Pago')
     }
 
-    // 🧾 TÍTULO CLARO
-    const titulo = `Entradas — ${nombreEvento}`
-
-    // 🧾 DESCRIPCIÓN REAL
-    const descripcion = detalleEntradas
-      ? `${detalleEntradas}\n\nEvento: ${nombreEvento}`
-      : `Entrada para ${nombreEvento}`
-
     const body = {
-      items: [
-        {
-          title: titulo,
-          quantity: 1, // ✅ SIEMPRE 1
-          unit_price: precioNum, // ✅ NUMBER VALIDADO
+      items: items.map(i => {
+        if (
+          !Number.isFinite(i.unit_price) ||
+          i.unit_price <= 0 ||
+          !Number.isInteger(i.quantity) ||
+          i.quantity <= 0
+        ) {
+          throw new Error('Item inválido enviado a MP')
+        }
+
+        return {
+          title: i.title,
+          quantity: i.quantity,
+          unit_price: i.unit_price,
           currency_id: 'ARS',
           picture_url: imagenEventoUrl || '',
-          description: descripcion,
-        },
-      ],
+        }
+      }),
       external_reference: `${usuarioId}_${eventoId}`,
     }
 
@@ -65,26 +44,12 @@ export async function crearPreferenciaEntrada({
     }
 
     const data = await res.json()
-
-    if (!data?.init_point) {
-      console.error('❌ MP sin init_point:', data)
-      return null
-    }
-
-    return data.init_point
+    return data?.init_point || null
   } catch (err) {
     console.error('❌ Error crearPreferenciaEntrada:', err)
     return null
   }
 }
-
-// --------------------------------------------------------------
-// src/services/mercadopago.js — VERSIÓN FUNCIONAL
-// --------------------------------------------------------------
-
-// --------------------------------------------------------------
-// src/services/mercadopago.js — VERSIÓN FINAL SEGURA
-// --------------------------------------------------------------
 
 function normalizarPrecio(valor) {
   if (!valor) return 0

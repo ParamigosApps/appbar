@@ -15,7 +15,7 @@ import { db } from '../Firebase.js'
 
 import { useAuth } from './AuthContext.jsx'
 import { useQr } from './QrContext.jsx'
-import { abrirLoginGlobal } from '../utils/utils'
+import { abrirLoginGlobal, normalizarPrecio } from '../utils/utils'
 import Swal from 'sweetalert2'
 // LÓGICA
 import { calcularCuposEvento } from '../logic/entradas/entradasEventos.js'
@@ -40,6 +40,9 @@ import {
   abrirSeleccionLotesMultiPro,
 } from '../services/entradasSwal.js'
 
+import { showLoading, hideLoading } from '../services/loadingService'
+import { formatearSoloFecha } from '../utils/utils'
+import { triggerLimpiezaPagos } from '../services/triggerLimpiezaPagos'
 // --------------------------------------------------------------
 // CONTEXTO
 // --------------------------------------------------------------
@@ -85,6 +88,8 @@ export function EntradasProvider({ children }) {
   // CARGAR EVENTOS
   // ----------------------------------------------------------
   useEffect(() => {
+    triggerLimpiezaPagos()
+
     async function cargar() {
       try {
         const snap = await getDocs(collection(db, 'eventos'))
@@ -165,40 +170,79 @@ export function EntradasProvider({ children }) {
     return data
   }
 
+  function renderResumenEntradas({ gratis = [], pagas = [] }) {
+    const rowsGratis = gratis.map(g => {
+      return `
+    <div class="limite-row entrada gratis">
+      <span class="label">
+        ${g.lote.nombre} x<span class="cantidad">${g.cantidad}</span>
+        <span class="badge-generadas">Confirmado</span>
+      </span>
+      <span class="value gratis-text">GRATIS</span>
+    </div>
+  `
+    })
+
+    const rowsPagas = pagas.map(p => {
+      const sub = p.cantidad * p.precio
+
+      return `
+    <div class="limite-row entrada paga">
+      <span class="label">
+        ${p.nombre} x<span class="cantidad">${p.cantidad}</span>
+      </span>
+      <span class="value">$${sub.toLocaleString('es-AR')}</span>
+    </div>
+  `
+    })
+
+    return `
+    <div class="resumen-lote-box">
+      
+      <hr />
+      <div class="info-limites-box">
+        ${[...rowsGratis, ...rowsPagas].join('')}
+      </div>
+    </div>
+  `
+  }
+
   // --------------------------------------------------------------
   // FUNCIÓN PRINCIPAL: PEDIR ENTRADA
   // --------------------------------------------------------------
   async function pedirEntrada(evento) {
     try {
+      // ==========================================================
+      // 🔐 VALIDACIÓN LOGIN
+      // ==========================================================
       if (!user) {
         const res = await Swal.fire({
           title: 'Iniciá sesión',
           text: 'Necesitás estar logueado.',
           icon: 'warning',
           confirmButtonText: 'Iniciar sesión',
-
           buttonsStyling: false,
+
           customClass: {
             confirmButton: 'swal-btn-confirm',
           },
         })
 
-        if (res.isConfirmed) {
-          abrirLoginGlobal()
-        }
-
-        return // ⛔ CORTE DURO SIEMPRE
+        if (res.isConfirmed) abrirLoginGlobal()
+        return
       }
 
       const usuarioId = user.uid
       const usuarioNombre = user.displayName || 'Usuario'
       const usuarioEmail = user.email || null
 
-      // --------------------------------------------------------------
-      // CALCULAR CUPOS REALES
-      // --------------------------------------------------------------
-      const { eventoData, limitePorUsuario, totalUsuario, maxUser, lotesInfo } =
-        await calcularCuposEvento(evento.id, usuarioId)
+      // ==========================================================
+      // 📊 CALCULAR CUPOS REALES
+      // ==========================================================
+      const { eventoData, maxUser, lotesInfo } = await calcularCuposEvento(
+        evento.id,
+        usuarioId
+      )
 
       if (maxUser <= 0) {
         await Swal.fire({
@@ -206,156 +250,286 @@ export function EntradasProvider({ children }) {
           text: 'Ya alcanzaste el máximo de entradas permitidas.',
           icon: 'info',
           confirmButtonText: 'Aceptar',
-
+          buttonsStyling: false,
           customClass: {
-            popup: 'swal-popup-custom',
-            htmlContainer: 'swal-text-center',
             confirmButton: 'swal-btn-confirm',
           },
-
-          buttonsStyling: false,
         })
         return
       }
 
-      // --------------------------------------------------------------
-      // EVENTO CON LOTES — MULTI LOTE
-      // --------------------------------------------------------------
-      if (lotesInfo.length > 0) {
+      // ==========================================================
+      // 🎟 EVENTO CON LOTES — MULTI LOTE
+      // ==========================================================
+      if (Array.isArray(lotesInfo) && lotesInfo.length > 0) {
         const seleccion = await abrirSeleccionLotesMultiPro(evento, lotesInfo)
         if (!seleccion) return
 
-        const total = seleccion.reduce(
-          (acc, s) =>
-            acc + Number(s.lote.precio || 0) * Number(s.cantidad || 0),
+        // ----------------------------------------------------------
+        // 🔀 SEPARAR GRATIS VS PAGAS
+        // ----------------------------------------------------------
+        const gratis = seleccion.filter(
+          s => Number(normalizarPrecio(s.lote.precio)) === 0
+        )
+
+        const pagas = seleccion.filter(
+          s => Number(normalizarPrecio(s.lote.precio)) > 0
+        )
+
+        // ----------------------------------------------------------
+        // 🟢 CREAR ENTRADAS GRATIS (SIEMPRE, HAYA O NO PAGO)
+        // ----------------------------------------------------------
+        const soloEntradasFree = gratis.length > 0 && pagas.length === 0
+
+        if (gratis.length > 0) {
+          // 👉 Mostrar loading SOLO si luego va a haber pago
+
+          showLoading({
+            title: 'Generando entradas',
+            text: 'Estamos creando tus entradas gratuitas...',
+          })
+
+          try {
+            for (const g of gratis) {
+              await pedirEntradaFreeConLote({
+                evento,
+                loteSel: g.lote,
+                usuarioId,
+                usuarioNombre,
+                usuarioEmail,
+                cantidadSel: g.cantidad,
+
+                // 🔑 CLAVE
+                noMostrarSwal: !soloEntradasFree, // ❌ ocultar swal si hay pago
+                mostrarQrAlGenerar: false,
+
+                cargarEntradasUsuario,
+              })
+            }
+          } finally {
+            if (!soloEntradasFree) {
+              hideLoading()
+            }
+          }
+        }
+
+        // ----------------------------------------------------------
+        // 🟢 AVISO: ENTRADAS GRATIS GENERADAS (ANTES DEL PAGO)
+        // ----------------------------------------------------------
+        if (gratis.length > 0 && pagas.length > 0) {
+          const totalGratis = gratis.reduce(
+            (acc, g) => acc + Number(g.cantidad || 0),
+            0
+          )
+
+          const resAviso = await Swal.fire({
+            title: 'Entradas gratis generadas',
+            html: `
+      <p>
+        Se genero correctamente <b>${totalGratis}</b>
+        ${totalGratis === 1 ? 'entrada gratuita' : 'entradas gratuitas'}.
+      </p>
+      <p class="mt-2">
+        A continuación podrás continuar con el pago de las entradas restantes.
+      </p>
+    `,
+            icon: 'success',
+            confirmButtonText: 'Continuar al pago',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            buttonsStyling: false,
+            customClass: {
+              confirmButton: 'swal-btn-confirm',
+            },
+          })
+
+          if (!resAviso.isConfirmed) return
+        }
+
+        // ----------------------------------------------------------
+        // 📦 ENTRADAS GRATIS (PENDIENTES A POST-PAGO)
+        // ----------------------------------------------------------
+        const entradasGratisPendientes = gratis.map(s => ({
+          lote: s.lote,
+          cantidad: Number(s.cantidad),
+        }))
+
+        // ⛔ seguridad adicional
+        if (pagas.length === 0) return
+
+        // ----------------------------------------------------------
+        // 💳 DETALLE DE ENTRADAS PAGAS
+        // ----------------------------------------------------------
+        const detallesPagos = pagas.map(s => {
+          const loteIndice = Number.isFinite(s.lote?.index)
+            ? s.lote.index
+            : Number.isFinite(s.lote?.loteIndice)
+            ? s.lote.loteIndice
+            : null
+
+          if (loteIndice === null) {
+            console.error('❌ Lote pago sin index/loteIndice:', s.lote)
+            throw new Error('Lote inválido: falta index (loteIndice)')
+          }
+
+          return {
+            lote: s.lote,
+            loteIndice,
+            loteId: s.lote?.id ?? s.lote?.index ?? loteIndice,
+            nombre: s.lote?.nombre || 'Entrada general',
+            cantidad: Number(s.cantidad) || 1,
+            precio: normalizarPrecio(s.lote?.precio),
+          }
+        })
+        console.table(
+          detallesPagos.map(d => ({
+            nombre: d.nombre,
+            loteIndice: d.loteIndice,
+            cantidad: d.cantidad,
+            precio: d.precio,
+          }))
+        )
+
+        const totalPagos = detallesPagos.reduce(
+          (acc, d) => acc + d.precio * d.cantidad,
           0
         )
 
-        const totalFinal = Number(total)
-
-        if (!Number.isFinite(totalFinal) || totalFinal <= 0) {
-          console.error('❌ Total inválido MP:', totalFinal, seleccion)
-
+        if (!Number.isFinite(totalPagos) || totalPagos <= 0) {
           await Swal.fire({
             title: 'Error',
             text: 'El monto del pago es inválido.',
             icon: 'error',
           })
-
           return
         }
-        // ==========================
-        // TODOS GRATIS
-        // ==========================
-        if (total === 0) {
-          for (const s of seleccion) {
-            await pedirEntradaFreeConLote({
-              evento,
-              loteSel: s.lote,
-              usuarioId,
-              usuarioNombre,
-              usuarioEmail,
-              cantidadSel: s.cantidad, // ✅ CORRECTO
-              mostrarQrReact,
-              cargarEntradasUsuario,
-            })
-          }
 
-          return
-        }
-        const descripcionPago = seleccion
-          .map(
-            s =>
-              `• ${s.cantidad} × ${s.lote.nombre} ($${Number(
-                s.lote.precio || 0
-              )})`
-          )
-          .join('<br>')
-        // ==========================
-        // HAY PAGO
-        // ==========================
-        const r = await Swal.fire({
-          title: '¿Cómo querés pagar?',
+        // ----------------------------------------------------------
+        // 🧾 HEADER EVENTO (RESUMEN)
+        // ----------------------------------------------------------
+        const headerEvento = `
+        <div class="evento-header center">
+          <h2 class="evento-title">${evento.nombre}</h2>
+
+          <div class="evento-meta">
+            <span>${formatearSoloFecha(evento.fechaInicio)}</span>
+            <span class="evento-dot">•</span>
+            <span>${evento.lugar}</span>
+          </div>
+
+          <div class="evento-divider"></div>
+
+          <div class="evento-section">
+            🎟 Resumen de entradas
+          </div>
+        </div>
+      `
+
+        const metodoPago = await Swal.fire({
+          title: '',
           html: `
-    <div style="text-align:left">
-      <p><b>Entradas:</b></p>
-      <p style="font-size:14px; opacity:.85">
-        ${descripcionPago}
-      </p>
-      <hr />
-      <p style="font-size:18px">
-        <b>Total:</b> $${total}
-      </p>
+    ${headerEvento}
+
+    ${renderResumenEntradas({
+      gratis,
+      pagas: detallesPagos,
+    })}
+
+    <p class="total-box">
+      Total a pagar: <b>$${totalPagos.toLocaleString('es-AR')}</b>
+    </p>
+
+    <div class="metodos-wrapper mt-3 mb-4">
+      <button id="mp" class="method-btn method-mp only-logo">
+        <img
+          src="https://http2.mlstatic.com/frontend-assets/ui-navigation/5.18.9/mercadopago/logo__large.png"
+          class="mp-logo"
+        />
+      </button>
+
+      <button id="transfer" class="method-btn method-transfer">
+        TRANSFERENCIA
+      </button>
     </div>
   `,
           showCancelButton: true,
-          confirmButtonText: 'Mercado Pago',
-          cancelButtonText: 'Transferencia',
+          cancelButtonText: 'Cancelar',
+          showConfirmButton: false,
+          allowOutsideClick: false,
+          allowEscapeKey: false,
           buttonsStyling: false,
-          customClass: {
-            confirmButton: 'swal-btn-confirm',
-            cancelButton: 'swal-btn-cancel',
+          didOpen: () => {
+            document.getElementById('mp').onclick = () =>
+              Swal.close({ isConfirmed: true, value: 'mp' })
+
+            document.getElementById('transfer').onclick = () =>
+              Swal.close({ isConfirmed: true, value: 'transfer' })
           },
         })
 
-        if (r.isConfirmed) {
+        if (!metodoPago.isConfirmed) return
+
+        // ----------------------------------------------------------
+        // 🚀 MERCADO PAGO
+        // ----------------------------------------------------------
+        if (metodoPago.value === 'mp') {
           return manejarMercadoPago({
             evento,
-            loteSel: {
-              id: 'multi',
-              nombre: descripcionPago,
-            },
-            precioUnitario: totalFinal, // total final
-            cantidadSel: 1, // ✅ CLAVE
             usuarioId,
             eventoId: evento.id,
+            entradasGratisPendientes,
+            detallesPagos, // ✅ enviar lotes reales
           })
         }
 
+        // ----------------------------------------------------------
+        // 🔄 TRANSFERENCIA
+        // ----------------------------------------------------------
+        const cantidadTotal = detallesPagos.reduce(
+          (acc, d) => acc + d.cantidad,
+          0
+        )
+
         return manejarTransferencia({
           evento,
-          precio: total,
-
-          loteSel: {
-            nombre: descripcionPago,
-            detalle: seleccion.map(s => ({
-              loteId: s.lote.id ?? s.lote.index,
-              nombre: s.lote.nombre,
-              cantidad: s.cantidad,
-              precioUnitario: Number(s.lote.precio || 0),
-              subtotal: Number(s.lote.precio || 0) * s.cantidad,
-            })),
-          },
+          precio: totalPagos,
+          cantidadSel: cantidadTotal,
           usuarioId,
           usuarioNombre,
           eventoId: evento.id,
+          entradasGratisPendientes,
+          detallesPagos, // ✅ enviar lotes reales
         })
       }
 
-      // --------------------------------------------------------------
-      // EVENTO SIN LOTES — FREE
-      // --------------------------------------------------------------
-      const precioEvento = Number(eventoData.precio || 0)
+      // ==========================================================
+      // 🎫 EVENTO SIN LOTES
+      // ==========================================================
+      const misEntradasEvento = misEntradas.filter(
+        e => e.eventoId === evento.id
+      )
+
+      const pendientesEvento = entradasPendientes.filter(
+        e => e.eventoId === evento.id
+      )
+      const precioEvento = Number(eventoData?.precio || 0)
 
       if (precioEvento === 0) {
-        const maxCantidad = maxUser
-
-        const loteVirtual = {
-          nombre: 'Entrada general',
-          precio: 0,
-        }
-
-        const resResumen = await abrirResumenLote(evento, loteVirtual, {
-          totalObtenidas: totalUsuario,
-          limiteUsuario: limitePorUsuario - totalUsuario,
-          maxCantidad,
-          precioUnitario: 0,
-          esGratis: true,
-        })
+        const resResumen = await abrirResumenLote(
+          evento,
+          {
+            nombre: 'Entrada general',
+            precio: 0,
+          },
+          {
+            limiteUsuario: Number(evento.entradasPorUsuario) || 8,
+            maxCantidad: Number(evento.entradasPorUsuario) || 8,
+            totalObtenidas: misEntradasEvento.length,
+            totalPendientes: pendientesEvento.length,
+          }
+        )
 
         if (!resResumen || resResumen.cancelado) return
-
-        const cantidadSel = resResumen.cantidad || 1
 
         return pedirEntradaFreeSinLote({
           evento,
@@ -363,49 +537,69 @@ export function EntradasProvider({ children }) {
           usuarioNombre,
           usuarioEmail,
           maxUser,
-          cantidadSel,
+          cantidadSel: resResumen.cantidad || 1,
           mostrarQrReact,
           cargarEntradasUsuario,
         })
       }
 
-      // --------------------------------------------------------------
-      // EVENTO SIN LOTES — PAGO
-      // --------------------------------------------------------------
-      const loteVirtualPago = {
-        nombre: 'Entrada general',
-        precio: precioEvento,
-      }
-
-      const resResumen = await abrirResumenLote(evento, loteVirtualPago, {
-        totalObtenidas: totalUsuario,
-        limiteUsuario: limitePorUsuario - totalUsuario,
-        maxCantidad: maxUser,
-        precioUnitario: precioEvento,
-        esGratis: false,
-      })
+      const resResumen = await abrirResumenLote(
+        evento,
+        {
+          nombre: 'Entrada general',
+          precio: precioEvento,
+        },
+        {
+          limiteUsuario: Number(evento.entradasPorUsuario) || 8,
+          maxCantidad: Number(evento.entradasPorUsuario) || 8,
+          totalObtenidas: misEntradasEvento.length,
+          totalPendientes: pendientesEvento.length,
+        }
+      )
 
       if (!resResumen || resResumen.cancelado) return
 
-      const { cantidad, metodo } = resResumen
-      const cantidadSel = cantidad || 1
-
-      if (metodo === 'transfer') {
+      if (resResumen.metodo === 'transfer') {
         return manejarTransferencia({
           evento,
           precio: precioEvento,
-          cantidadSel,
+          cantidadSel: resResumen.cantidad || 1,
           usuarioId,
           usuarioNombre,
           eventoId: evento.id,
-          crearSolicitudPendiente,
+
+          // 🔥 ESTO ES LO QUE FALTABA
+          detallesPagos: [
+            {
+              lote: {
+                id: 'general',
+                nombre: 'Entrada general',
+                index: 0,
+                precio: precioEvento,
+              },
+              loteIndice: 0,
+              loteId: 'general',
+              nombre: 'Entrada general',
+              cantidad: resResumen.cantidad || 1,
+              precio: precioEvento,
+            },
+          ],
         })
       }
 
       return manejarMercadoPago({
         evento,
-        precio: precioEvento,
-        cantidadSel,
+        loteSel: {
+          id: 'general',
+          nombre: 'Entrada general',
+          detalles: [
+            {
+              nombre: 'Entrada general',
+              cantidad: resResumen.cantidad || 1,
+              precio: precioEvento,
+            },
+          ],
+        },
         usuarioId,
         eventoId: evento.id,
       })

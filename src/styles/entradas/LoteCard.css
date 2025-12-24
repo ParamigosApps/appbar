@@ -197,14 +197,21 @@
 }
 
 .badge-gratis {
-  background: linear-gradient(135deg, #10b981, #059669);
+  background: #059669;
   color: #fff;
   padding: 3px 10px;
   border-radius: 10px;
   font-size: 0.9rem;
   font-weight: 700;
 }
-
+.badge-generadas {
+  background: #015f41c1;
+  color: #fff;
+  padding: 3px 5px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 500;
+}
 /* ----------------------------------------------------------
    BOTÓN CONFIRMAR (Continuar) — estilo del botón COMPRAR
 ---------------------------------------------------------- */

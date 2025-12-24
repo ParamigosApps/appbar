@@ -6,7 +6,7 @@ import React, { useState, useEffect } from 'react'
 import { useCatalogo } from '../../context/CatalogoContext.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useEntradas } from '../../context/EntradasContext.jsx'
-
+console.log('🟢 useEntradas importado desde:', import.meta.url)
 import EntradasEventos from '../entradas/EntradasEventos.jsx'
 import MisEntradas from '../entradas/MisEntradas.jsx'
 import RedesSociales from '../home/RedesSociales.jsx'

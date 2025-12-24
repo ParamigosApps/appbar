@@ -269,3 +269,123 @@
 .ticket-usado {
   opacity: 0.6;
 }
+.detalle-pago {
+  margin-top: 10px;
+  text-align: left;
+}
+
+.linea-detalle {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.ld-izq {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+
+.ld-cant {
+  opacity: 0.75;
+  font-size: 0.9em;
+}
+
+.ld-der {
+  white-space: nowrap;
+  font-weight: 600;
+}
+.gratis-box {
+  background: #f0fff5;
+  border: 1px dashed #4caf50;
+}
+
+.gratis-text {
+  color: #2e7d32;
+  font-weight: 700;
+}
+
+.evento-header h3 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.evento-meta {
+  opacity: 0.7;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.entrada.gratis .value {
+  color: #2e7d32;
+  font-weight: 700;
+}
+
+.entrada.paga .value {
+  font-weight: 600;
+}
+
+.entrada {
+  display: flex;
+  justify-content: space-between;
+}
+.evento-header {
+  flex-direction: column;
+}
+.evento-header.center {
+  text-align: center;
+}
+
+.evento-header.center .evento-meta {
+  justify-content: center;
+}
+
+.evento-title {
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0;
+  color: #111827;
+}
+
+.evento-meta {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.evento-divider {
+  margin: 14px auto 10px;
+  width: 80%;
+  border-top: 1px solid #e5e7eb;
+}
+
+.evento-section {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+}
+
+select {
+  color: #2d2d2d !important; /* texto apagado */
+  border-color: #b5b5b5 !important;
+  font-size: 1.1rem !important;
+  font-weight: 800 !important;
+}
+
+select:disabled {
+  background-color: rgb(184, 181, 181) important; /* más oscuro */
+  color: #393838 !important; /* texto apagado */
+  border-color: #b5b5b5 !important;
+  opacity: 0.4 !important; /* evita el gris lavado del browser */
+  cursor: not-allowed;
+}
+.label .cantidad {
+  font-weight: 600;
+}

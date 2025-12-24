@@ -4,6 +4,7 @@
 
 import Swal from 'sweetalert2'
 import { formatearSoloFecha } from '../utils/utils.js'
+import { calcularDisponiblesAhora } from '../utils/calcularDisponiblesAhora.js'
 
 // ======================================================================
 // CREAR THEME
@@ -51,10 +52,6 @@ export async function abrirSeleccionLotesMultiPro(
   const estado = {}
   lotes.forEach(l => (estado[String(l.index)] = 0))
 
-  const opcionesCantidad = Array.from({ length: 9 }, (_, i) => i)
-    .map(i => `<option value="${i}">${i}</option>`)
-    .join('')
-
   const html = `
     <!-- HEADER EVENTO -->
     <div class="swal-event-header">
@@ -91,6 +88,21 @@ export async function abrirSeleccionLotesMultiPro(
             const badgeConsumicion = l.incluyeConsumicion
               ? `<span class="lote-badge badge-consu-ok">🍸 CON CONSUMICIÓN</span>`
               : `<span class="lote-badge badge-consu-no">SIN CONSUMICIÓN</span>`
+
+            const maxSeleccionable = Number.isFinite(Number(l.restantes))
+              ? Number(l.restantes)
+              : 0
+
+            const opcionesCantidad =
+              maxSeleccionable === 0
+                ? `<option value="0">0</option>`
+                : [
+                    `<option value="0">0</option>`,
+                    ...Array.from(
+                      { length: maxSeleccionable },
+                      (_, i) => `<option value="${i + 1}">${i + 1}</option>`
+                    ),
+                  ].join('')
 
             return `
 <div class="lote-card lote-multi" data-id="${id}">
@@ -135,9 +147,14 @@ export async function abrirSeleccionLotesMultiPro(
   <div class="lote-footer-flex">
     <div class="lote-cantidad-box">
       <label class="lote-label">CANTIDAD</label>
-      <select class="lote-select-cant" data-id="${id}">
-        ${opcionesCantidad}
-      </select>
+<select
+  class="lote-select-cant"
+  data-id="${id}"
+  ${maxSeleccionable === 0 ? 'disabled' : ''}
+>
+  ${opcionesCantidad}
+</select>
+
     </div>
   </div>
 </div>
@@ -388,6 +405,12 @@ ${lotesOrdenados
 export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
   const MySwal = crearSwalConTheme(theme)
 
+  const cuposReales = Number.isFinite(lote?.restantes)
+    ? Number(lote.restantes) // evento con lote
+    : Number(evento?.cupos) > 0
+    ? Number(evento.cupos) // evento sin lote pero con cupo global
+    : Infinity // evento sin límite de cupos
+
   const {
     maxCantidad = 99,
     limiteUsuario = 0,
@@ -405,14 +428,19 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
 
   const esGratis = esGratisProp ?? precioBase === 0
 
-  const disponiblesAhora = Math.max(
-    0,
-    Math.min(limiteUsuario, cuposLote || limiteUsuario, maxCantidad)
-  )
+  const disponiblesAhora = calcularDisponiblesAhora({
+    evento,
+    limiteUsuario,
+    totalObtenidas,
+    totalPendientes,
+    cuposLote: cuposReales,
+    maxCantidad,
+  })
 
   let cantidad = 1
   let metodoSeleccionado = null
   console.log(totalObtenidas)
+
   const res = await MySwal.fire({
     title: `<span class="swal-title-main">${evento.nombre.toUpperCase()}</span>`,
 
@@ -433,7 +461,7 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
           }
 
           <div class="limite-row">
-            <span class="label infoMaximoEntradas ">Máximo por cuenta:</span>
+            <span class="label infoMaximoEntradas">Máximo por cuenta:</span>
             <span class="value infoMaximoEntradas">
               ${evento.entradasPorUsuario ?? '—'}
             </span>
@@ -459,10 +487,13 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
           <button id="menos" class="cant-btn" ${
             disponiblesAhora <= 1 ? 'disabled' : ''
           }>–</button>
-          <input id="cant" value="1" min="1" max="${Math.max(
-            1,
-            disponiblesAhora
-          )}" ${disponiblesAhora <= 0 ? 'disabled' : ''}>
+          <input
+            id="cant"
+            value="1"
+            min="1"
+            max="${Math.max(1, disponiblesAhora)}"
+            ${disponiblesAhora <= 0 ? 'disabled' : ''}
+          >
           <button id="mas" class="cant-btn" ${
             disponiblesAhora <= 1 ? 'disabled' : ''
           }>+</button>
@@ -496,13 +527,14 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
         }
       </div>
     `,
+    allowOutsideClick: false,
+    allowEscapeKey: false,
 
     showCancelButton: true,
     cancelButtonText: 'Cancelar',
     showConfirmButton: esGratis,
     confirmButtonText: 'Confirmar',
 
-    // ✅ ACA VA EL BLOQUE QUE PREGUNTABAS
     didOpen: () => {
       const input = document.getElementById('cant')
       const total = document.getElementById('total')
@@ -546,7 +578,10 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
       }
     },
   })
-
+  // ⛔ BLOQUEO TOTAL SI SE CERRÓ EL SWAL
+  if (!res || res.isDismissed) {
+    return { cancelado: true }
+  }
   // 🛑 Gratis → depende del confirm
   if (esGratis) {
     if (!res || !res.isConfirmed) return { cancelado: true }
