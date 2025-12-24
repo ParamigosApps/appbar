@@ -270,34 +270,25 @@ export function CatalogoProvider({ children }) {
     // Ordenar por fecha (más cercano primero)
     eventosVigentes.sort((a, b) => a.inicio - b.inicio)
 
-    const formatearFecha = f =>
-      f.toLocaleDateString('es-AR', {
-        weekday: 'short',
-        day: '2-digit',
-        month: '2-digit',
-      })
-
     let html = `
     <div style="margin-bottom:12px;font-size:15px">
-      Seleccioná el evento vigente:
+      ¿En que evento te encuentras?
     </div>
     <select id="evento-select" class="swal2-select" style="width:100%;padding:12px">
   `
 
     eventosVigentes.forEach((ev, i) => {
-      const esHoy = ev.inicio?.toDateString() === ahora.toDateString()
-
       html += `
-      <option value="${ev.id}" ${i === 0 ? 'selected' : ''}>
-        ${esHoy ? '🔥 ' : ''}${ev.nombre} — ${formatearFecha(ev.inicio)}
-      </option>
-    `
+    <option value="${ev.id}" ${i === 0 ? 'selected' : ''}>
+      ${formatearEventoHumano(ev.inicio)} – ${ev.nombre}
+    </option>
+  `
     })
 
     html += '</select>'
 
     const res = await Swal.fire({
-      title: 'Evento activo',
+      title: 'Elige tu evento',
       html,
       confirmButtonText: 'Continuar',
       allowOutsideClick: false,
@@ -361,4 +352,22 @@ export function CatalogoProvider({ children }) {
       {children}
     </CatalogoContext.Provider>
   )
+}
+
+function formatearEventoHumano(fecha) {
+  if (!fecha) return ''
+
+  const hoy = new Date()
+  const esHoy = fecha.toDateString() === hoy.toDateString()
+
+  const fechaTexto = fecha.toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+
+  const capitalizado = fechaTexto.charAt(0).toUpperCase() + fechaTexto.slice(1)
+
+  return `${esHoy ? 'HOY – ' : ''}${capitalizado}`
 }

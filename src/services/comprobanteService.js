@@ -91,17 +91,15 @@ export async function mostrarComprobanteCaja(compra) {
   text-align:center;
   color:#374151;
   font-weight:600;
+  margin-bottom:4px;
 ">
   Ticket válido únicamente para el evento: 
-
-  <span style="font-weight:800">
-    ${compra.nombreEvento || 'Nombre no disponible'}
-  </span><br>
-  <span style="font-weight:800">
-     ${compra.fechaEvento || 'Fecha no disponible'}
-  </span>
-
-  <span style="font-size:11px;color:#6b7280">
+<br />
+<span style="font-weight:900;font-size:14px">
+  ${compra.nombreEvento || 'Nombre no disponible'}
+</span>
+<br />
+<span style="font-weight:900; font-size:14px">
     ${
       compra.fechaEvento
         ? new Date(
@@ -109,10 +107,13 @@ export async function mostrarComprobanteCaja(compra) {
               ? compra.fechaEvento.seconds * 1000
               : compra.fechaEvento
           ).toLocaleDateString('es-AR')
-        : ''
+        : '—'
     }
-  </span>
-</p>
+</span>
+
+
+
+
 
 
 

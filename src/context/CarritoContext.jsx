@@ -4,7 +4,6 @@
 // --------------------------------------------------------------
 import { createContext, useContext, useState } from 'react'
 import Swal from 'sweetalert2'
-
 import { toastSuccess, toastInfo, toastWarning } from '../utils/toastifyUtils'
 
 import { useAuth } from './AuthContext.jsx'
@@ -23,6 +22,8 @@ const CarritoContext = createContext()
 export const useCarrito = () => useContext(CarritoContext)
 import { swalRequiereLogin } from '../utils/swalUtils'
 import { showLoading, hideLoading } from '../services/loadingService'
+import { useEvento } from './EventosContext.jsx'
+import { renderEventoHtml, formatearEventoLinea } from '../utils/eventoUI'
 
 // --------------------------------------------------------------
 // HELPERS
@@ -45,6 +46,7 @@ export function CarritoProvider({ children }) {
   const { user } = useFirebase()
   const { abrirPendientes } = usePedidos() || {}
 
+  const { evento, seleccionarEvento, pedirSeleccionEvento } = useEvento()
   const [carrito, setCarrito] = useState(
     JSON.parse(localStorage.getItem('carrito')) || []
   )
@@ -98,7 +100,17 @@ export function CarritoProvider({ children }) {
     const p = nuevo[index]
 
     if (p.enCarrito >= (p.stock ?? Infinity))
-      return Swal.fire('No hay más stock', '', 'error')
+      return Swal.fire({
+        title: 'Stock insuficiente',
+        text: 'No hay más unidades disponibles de este producto.',
+        icon: 'error',
+        confirmButtonText: 'Entendido',
+        customClass: {
+          popup: 'swal-popup-custom',
+          confirmButton: 'swal-btn-confirm',
+        },
+        buttonsStyling: false,
+      })
 
     p.enCarrito++
     setCarrito(nuevo)
@@ -169,7 +181,17 @@ export function CarritoProvider({ children }) {
       if (carrito.length === 0)
         return Swal.fire('Carrito vacío', 'Añadí productos primero.', 'info')
 
-      // FIN VALIDACIOENS PREVIAS
+      // 🔒 VALIDAR EVENTO ACTIVO (OBLIGATORIO)
+
+      let eventoActivo = evento
+
+      if (!eventoActivo?.id) {
+        const elegido = await pedirSeleccionEvento()
+        if (!elegido) return
+        eventoActivo = elegido
+      }
+
+      // FIN VALIDACIONES PREVIAS
 
       showLoading({
         title: 'Generando pedido',
@@ -224,13 +246,15 @@ export function CarritoProvider({ children }) {
       let metodoSeleccionado = null
 
       await Swal.fire({
-        title: `<span class="swal-title-main">Finalizar compra</span>`,
+        title: ``,
 
         html: `
-    <div class="resumen-lote-box">
+  <div class="resumen-lote-box">
+    <p><b>Resumen de compra</b></p>
 
-      <p><b>Resumen de compra</b></p>
-      <hr />
+    ${renderEventoHtml(eventoActivo)}
+
+    <hr />
 
       <div class="info-limites-box">
         ${carrito
@@ -326,6 +350,7 @@ export function CarritoProvider({ children }) {
           total,
           lugar: 'Tienda',
           pagado: false,
+          evento: eventoActivo,
         })
 
         if (!pedido) {
@@ -368,6 +393,7 @@ export function CarritoProvider({ children }) {
           total,
           lugar: 'Tienda',
           pagado: true,
+          evento: eventoActivo,
         })
 
         if (!pedido) {
