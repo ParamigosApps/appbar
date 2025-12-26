@@ -35,7 +35,6 @@ import {
 
 // SWALS
 import {
-  abrirSeleccionLote,
   abrirResumenLote,
   abrirSeleccionLotesMultiPro,
 } from '../services/entradasSwal.js'

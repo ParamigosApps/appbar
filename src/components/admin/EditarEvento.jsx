@@ -94,9 +94,6 @@ export default function EditarEvento({ editarId, setSeccion }) {
         return
       }
 
-      // Extraer horarios del texto
-      let desde = ''
-      let hasta = ''
       data.fecha
 
       setForm({
@@ -122,10 +119,19 @@ export default function EditarEvento({ editarId, setSeccion }) {
 
       setLotes(
         Array.isArray(data.lotes)
-          ? data.lotes.map((l, idx) => ({
-              id: idx + '-' + Date.now(),
-              ...l,
-            }))
+          ? data.lotes.map((l, idx) => {
+              const cantidadInicial = Number(
+                l.cantidadInicial ?? l.cantidad ?? 0
+              )
+
+              return {
+                id: idx + '-' + Date.now(),
+                ...l,
+                cantidadInicial,
+                cantidad: Number(l.cantidad ?? cantidadInicial),
+                _originalCantidadInicial: cantidadInicial,
+              }
+            })
           : []
       )
 
@@ -262,7 +268,10 @@ export default function EditarEvento({ editarId, setSeccion }) {
         descripcion: (l.descripcion || '').trim(),
         genero: l.genero || 'todos',
         precio: Number(l.precio) || 0,
+
+        cantidadInicial: Number(l.cantidadInicial) || 0,
         cantidad: Number(l.cantidad) || 0,
+
         desdeHora: l.desdeHora || '',
         hastaHora: l.hastaHora || '',
         incluyeConsumicion: !!l.incluyeConsumicion,
@@ -440,188 +449,58 @@ export default function EditarEvento({ editarId, setSeccion }) {
           ➕ Agregar lote
         </button>
 
-        {lotes.map(lote => (
-          <div key={lote.id} className="border rounded p-2 mb-5 bg-light">
-            <div className="d-flex justify-content-between mb-2">
-              <strong>{lote.nombre || 'Lote sin nombre'}</strong>
-              <button
-                type="button"
-                className="btn btn-sm btn-danger"
-                onClick={() => eliminarLote(lote.id)}
-              >
-                Eliminar
-              </button>
-            </div>
+        {lotes.map(lote => {
+          const vendidas = lote.cantidadInicial - lote.cantidad
+          const tieneVentas = vendidas > 0
 
-            <div className="row g-2 mb-2">
-              {/* Nombre */}
-              <div className="col-md-4">
-                <label className="form-label small m-0">
-                  Nombre del lote <span style={{ color: 'red' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  className="form-control form-control-sm"
-                  placeholder="Ej: Preventa 1, Ladies Night, Early Bird..."
-                  value={lote.nombre}
-                  onChange={e =>
-                    actualizarLote(lote.id, 'nombre', e.target.value)
-                  }
-                  required
-                />
-              </div>
-
-              {/* Descripción */}
-              <div className="col-md-4">
-                <label className="form-label small m-0">
-                  Descripción (opcional)
-                </label>
-                <input
-                  type="text"
-                  className="form-control form-control-sm"
-                  placeholder="Ej: Ingreso hasta 01:30, acceso preferencial..."
-                  value={lote.descripcion}
-                  onChange={e =>
-                    actualizarLote(lote.id, 'descripcion', e.target.value)
-                  }
-                />
-              </div>
-
-              {/* Precio */}
-              <div className="col-md-2">
-                <label className="form-label small m-0">
-                  Precio <span style={{ color: 'red' }}>*</span>
-                </label>
-                <input
-                  type="number"
-                  className="form-control form-control-sm"
-                  placeholder="Ej: 3000"
-                  value={lote.precio}
-                  onChange={e =>
-                    actualizarLote(lote.id, 'precio', e.target.value)
-                  }
-                  required
-                />
-              </div>
-
-              {/* Cantidad */}
-              <div className="col-md-2">
-                <label className="form-label small m-0">
-                  Límite de entradas <span style={{ color: 'red' }}>*</span>
-                </label>
-                <input
-                  type="number"
-                  className="form-control form-control-sm"
-                  placeholder="Ej: 50"
-                  value={lote.cantidad}
-                  onChange={e =>
-                    actualizarLote(lote.id, 'cantidad', e.target.value)
-                  }
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Segunda fila */}
-            <div className="row g-2 mb-2">
-              {/* Máx por usuario */}
-              <div className="col-md-4">
-                <label className="form-label small m-0">Máx. por usuario</label>
-                <input
-                  type="number"
-                  className="form-control form-control-sm"
-                  min={0}
-                  value={Number(lote.maxPorUsuario) || 0}
-                  onChange={e =>
-                    actualizarLote(
-                      lote.id,
-                      'maxPorUsuario',
-                      Number(e.target.value) || 0
-                    )
-                  }
-                />
-                <small className="text-muted">
-                  Dejar en 0 para no establecer límite
-                </small>
-              </div>
-
-              {/* Género */}
-              <div className="col-md-4">
-                <label className="form-label small m-0">
-                  Género <span style={{ color: 'red' }}>*</span>
-                </label>
-                <select
-                  className="form-select form-select-sm"
-                  value={lote.genero}
-                  onChange={e =>
-                    actualizarLote(lote.id, 'genero', e.target.value)
-                  }
-                  required
+          return (
+            <div key={lote.id} className="border rounded p-2 mb-5 bg-light">
+              <div className="d-flex justify-content-between mb-2">
+                <strong>{lote.nombre || 'Lote sin nombre'}</strong>
+                <button
+                  type="button"
+                  className="btn btn-sm btn-danger"
+                  onClick={() => eliminarLote(lote.id)}
                 >
-                  <option value="todos">Todos</option>
-                  <option value="hombres">Hombres</option>
-                  <option value="mujeres">Mujeres</option>
-                </select>
+                  Eliminar
+                </button>
               </div>
 
-              {/* Ingreso permitido desde–hasta */}
-              <div className="col-md-4">
-                <label className="form-label small m-0">
-                  Ingreso permitido <span style={{ color: 'red' }}>*</span>
-                </label>
+              {/* ... TODO tu JSX igual ... */}
 
-                <div className="d-flex align-items-center gap-1">
-                  <span className="small">Desde:</span>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    style={{ minWidth: '65px' }}
-                    placeholder="23:30"
-                    value={lote.desdeHora}
-                    onChange={e =>
-                      actualizarLote(lote.id, 'desdeHora', e.target.value)
-                    }
-                    required
-                  />
+              <input
+                type="number"
+                className="form-control form-control-sm"
+                value={lote.cantidadInicial}
+                disabled={tieneVentas}
+                min={vendidas}
+                onChange={e => {
+                  const nuevaCapacidad = Number(e.target.value) || 0
+                  if (nuevaCapacidad < vendidas) return
 
-                  <span className="small">Hasta:</span>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    style={{ minWidth: '65px' }}
-                    placeholder="01:30"
-                    value={lote.hastaHora}
-                    onChange={e =>
-                      actualizarLote(lote.id, 'hastaHora', e.target.value)
-                    }
-                    required
-                  />
-                </div>
-              </div>
+                  actualizarLote(lote.id, 'cantidadInicial', nuevaCapacidad)
+                  actualizarLote(
+                    lote.id,
+                    'cantidad',
+                    Math.max(nuevaCapacidad - vendidas, 0)
+                  )
+                }}
+                required
+              />
 
-              {/* Consumición */}
-              <div className="col-md-4 d-flex align-items-end">
-                <div className="form-check ms-2">
-                  <input
-                    type="checkbox"
-                    className="form-check-input"
-                    checked={lote.incluyeConsumicion}
-                    onChange={e =>
-                      actualizarLote(
-                        lote.id,
-                        'incluyeConsumicion',
-                        e.target.checked
-                      )
-                    }
-                  />
-                  <label className="form-check-label small">
-                    Incluye consumición
-                  </label>
-                </div>
-              </div>
+              {tieneVentas ? (
+                <small className="text-danger">
+                  ⚠️ Este lote tiene {vendidas} entradas vendidas. No se puede
+                  modificar su capacidad.
+                </small>
+              ) : (
+                <small className="text-muted">
+                  Vendidas: 0 · Capacidad editable
+                </small>
+              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
 
         <button className="btn btn-primary w-100" type="submit">
           Guardar cambios

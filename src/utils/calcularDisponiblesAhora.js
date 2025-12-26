@@ -7,11 +7,11 @@ export function calcularDisponiblesAhora({
   limiteUsuario = 0,
   totalObtenidas = 0,
   totalPendientes = 0,
-  cuposLote = 0,
+  cuposLote = Infinity,
   maxCantidad = Infinity,
 }) {
   // ------------------------------------------------------------
-  // 1️⃣ Límite por evento (fuente única de verdad)
+  // 1️⃣ Límite por evento
   // ------------------------------------------------------------
   const limiteEvento =
     Number(evento?.entradasPorUsuario) > 0
@@ -19,22 +19,31 @@ export function calcularDisponiblesAhora({
       : Infinity
 
   // ------------------------------------------------------------
-  // 2️⃣ Override opcional por flujo
+  // 2️⃣ Límite real (override solo si viene explícito)
   // ------------------------------------------------------------
-  const limiteReal = limiteUsuario > 0 ? limiteUsuario : limiteEvento
+  const limiteReal =
+    Number(limiteUsuario) > 0 ? Number(limiteUsuario) : limiteEvento
 
   // ------------------------------------------------------------
-  // 3️⃣ Disponibles reales para el usuario
+  // 3️⃣ Disponible por usuario
   // ------------------------------------------------------------
-  const disponiblesPorUsuario = limiteReal - totalObtenidas - totalPendientes
+  const disponiblesPorUsuario =
+    limiteReal === Infinity
+      ? Infinity
+      : Math.max(limiteReal - totalObtenidas - totalPendientes, 0)
 
   // ------------------------------------------------------------
-  // 4️⃣ Cupos reales del lote
+  // 4️⃣ Disponible por lote (YA ES RESTANTE GLOBAL)
   // ------------------------------------------------------------
-  const cuposReales = Number(cuposLote) > 0 ? Number(cuposLote) : Infinity
+  const disponiblesPorLote = Number.isFinite(cuposLote)
+    ? Math.max(cuposLote, 0)
+    : Infinity
 
   // ------------------------------------------------------------
-  // 5️⃣ Resultado final blindado
+  // 5️⃣ Resultado final
   // ------------------------------------------------------------
-  return Math.max(0, Math.min(disponiblesPorUsuario, cuposReales, maxCantidad))
+  return Math.max(
+    0,
+    Math.min(disponiblesPorUsuario, disponiblesPorLote, maxCantidad)
+  )
 }

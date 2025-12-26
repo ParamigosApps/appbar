@@ -53,7 +53,8 @@ export function AuthProvider({ children }) {
   const [permisos, setPermisos] = useState({})
   const [loading, setLoading] = useState(true)
   const { validarEventoVigente, limpiarEvento } = useEvento()
-
+  const eventoCtx = useEvento()
+  console.log('EVENTO CTX:', eventoCtx)
   // 🔑 FLAGS REALES
   const [authListo, setAuthListo] = useState(false)
   const [permisosListos, setPermisosListos] = useState(false)

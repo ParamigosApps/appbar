@@ -1116,7 +1116,48 @@ export default function LectorQr({ modoInicial = 'entradas' }) {
             }`}
           >
             <h5>{resultado.titulo}</h5>
-            <p dangerouslySetInnerHTML={{ __html: resultado.mensaje }} />
+
+            {/* 🔹 INFO DE LOTE (solo entradas válidas) */}
+            {resultado.ok &&
+              resultado.tipo === 'entrada' &&
+              resultado.data?.lote && (
+                <div
+                  style={{
+                    marginTop: 8,
+                    padding: 12,
+                    borderRadius: 10,
+                    background: '#ecfdf5',
+                    border: '1px solid #86efac',
+                    color: '#065f46',
+                    fontSize: 14,
+                  }}
+                >
+                  <div style={{ fontWeight: 800, fontSize: 15 }}>
+                    🎟 {resultado.data.lote.nombre}
+                  </div>
+
+                  {resultado.data.lote.descripcion && (
+                    <div style={{ marginTop: 4 }}>
+                      {resultado.data.lote.descripcion}
+                    </div>
+                  )}
+
+                  {resultado.data.lote.hastaHora && (
+                    <div style={{ marginTop: 6, fontWeight: 700 }}>
+                      ⏰ Ingreso permitido hasta:{' '}
+                      <span style={{ color: '#047857' }}>
+                        {resultado.data.lote.hastaHora} hs
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+            {/* 🔹 MENSAJE GENERAL (errores / otros casos) */}
+            <p
+              className="mt-2"
+              dangerouslySetInnerHTML={{ __html: resultado.mensaje }}
+            />
           </div>
         )}
       </div>

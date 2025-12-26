@@ -221,7 +221,7 @@ export async function validarTicket(payload, eventoForzado = null) {
 
   if (eventoForzado && data.eventoId !== eventoForzado) {
     return rechazoCompra(
-      'Pedido de otro evento',
+      'Este QR corresponde a otro evento',
       'Este pedido no corresponde al evento seleccionado.'
     )
   }
@@ -270,8 +270,8 @@ export async function validarTicket(payload, eventoForzado = null) {
       }
     }
   }
+  const lote = evento.lotes?.[data.loteIndice] || null
 
-  // OK
   const color = colorPorLote(data)
   const categoria =
     color === 'pink' ? 'Lote Mujeres' : color === 'purple' ? 'VIP' : 'General'
@@ -282,12 +282,24 @@ export async function validarTicket(payload, eventoForzado = null) {
     color,
     titulo: `Entrada válida — ${categoria}`,
     mensaje: `
-  Evento: <b>${evento.nombre}</b><br>
-  ${data.loteNombre ? `Lote: <b>${data.loteNombre}</b><br>` : ''}
-  Titular: <b>${data.usuarioNombre}</b>
-`,
-
-    data: { id: entradaId, ...data },
+    Evento: <b>${evento.nombre}</b><br>
+    ${lote?.nombre ? `Lote: <b>${lote.nombre}</b><br>` : ''}
+    Titular: <b>${data.usuarioNombre}</b>
+  `,
+    data: {
+      id: entradaId,
+      ...data,
+      lote: lote
+        ? {
+            nombre: lote.nombre,
+            descripcion: lote.descripcion || '',
+            desdeHora: lote.desdeHora || null,
+            hastaHora: lote.hastaHora || null,
+            genero: lote.genero || null,
+            precio: lote.precio ?? data.precio ?? 0,
+          }
+        : null,
+    },
   }
 }
 

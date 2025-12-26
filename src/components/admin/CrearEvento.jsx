@@ -109,33 +109,23 @@ export default function CrearEvento({ setSeccion = () => {} }) {
         nombre: '',
         descripcionLote: '',
         genero: 'todos',
-        precio: '',
-        cantidad: '',
+        precio: 0,
+        cantidad: 0,
         desdeHora: '',
         hastaHora: '',
         incluyeConsumicion: false,
-        maxPorUsuario: '',
+        maxPorUsuario: 0,
       },
     ])
   }
 
   function actualizarLote(id, campo, valor) {
     setLotes(prev =>
-      prev.map(l => {
-        if (l.id !== id) return l
-
-        if (campo === 'cantidad') {
-          const maxDisponible = entradasDisponiblesParaLote(id)
-          const seguro = Math.min(Number(valor) || 0, maxDisponible)
-
-          return { ...l, cantidad: seguro }
-        }
-
-        return {
-          ...l,
-          [campo]: campo === 'incluyeConsumicion' ? Boolean(valor) : valor,
-        }
-      })
+      prev.map(l =>
+        l.id === id
+          ? { ...l, [campo]: campo === 'incluyeConsumicion' ? !!valor : valor }
+          : l
+      )
     )
   }
 
@@ -149,6 +139,7 @@ export default function CrearEvento({ setSeccion = () => {} }) {
     for (const lote of lotes) {
       const nombre = (lote.nombre || '').trim()
       const cantidadNum = Number(lote.cantidad) || 0
+
       const maxPorUsuarioNum = Number(lote.maxPorUsuario) || 0
 
       if (!nombre) {
@@ -282,7 +273,11 @@ export default function CrearEvento({ setSeccion = () => {} }) {
         descripcion: (l.descripcionLote || '').trim(),
         genero: l.genero || 'todos',
         precio: Number(l.precio) || 0,
+
+        // 👇 en CREATE: capacidad inicial = restantes = cantidad
+        cantidadInicial: Number(l.cantidad) || 0,
         cantidad: Number(l.cantidad) || 0,
+
         desdeHora: l.desdeHora || '',
         hastaHora: l.hastaHora || '',
         incluyeConsumicion: !!l.incluyeConsumicion,
@@ -298,14 +293,16 @@ export default function CrearEvento({ setSeccion = () => {} }) {
       // Reset
       setForm({
         nombre: '',
-        fecha: '',
-        horarioDesde: '',
-        horarioHasta: '',
+        fechaInicio: '',
+        horaInicio: '',
+        fechaFin: '',
+        horaFin: '',
         lugar: '',
         precio: 0,
-        entradasMaximas: '',
+        entradasMaximas: 500,
         entradasPorUsuario: 4,
       })
+
       setImagen(null)
       setPreviewImg(null)
       setDescripcionHtml('')
@@ -520,7 +517,6 @@ export default function CrearEvento({ setSeccion = () => {} }) {
                     </div>
                   </div>
 
-                  {/* ================= Fila 2: Cantidad + Máx por usuario ================= */}
                   {/* ================= Fila 2: Precio + Cantidad + Máx por usuario ================= */}
                   <div className="row g-2 mb-2">
                     {/* Precio */}

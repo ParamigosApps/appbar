@@ -160,7 +160,7 @@ export default function EntradasEventos() {
               className="btn swal-btn-confirm mt-2 w-50 d-block mx-auto"
               onClick={() => pedirEntrada(evento)}
             >
-              {tieneLotes ? 'Ver opciones de entrada' : 'Pedir entrada'}
+              {tieneLotes ? 'Ver entradas' : 'Pedir entrada'}
             </button>
           </div>
         )

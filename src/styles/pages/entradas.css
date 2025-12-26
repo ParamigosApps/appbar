@@ -389,3 +389,42 @@ select:disabled {
 .label .cantidad {
   font-weight: 600;
 }
+
+.lote-detalle-box {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.lote-linea {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.lote-label {
+  font-weight: 700;
+  opacity: 0.85;
+}
+
+.lote-valor {
+  font-weight: 600;
+}
+
+/* =========================
+   BADGES GÉNERO
+========================= */
+
+.badge-genero-mujeres {
+  background: #ff4fb3;
+  color: #9d174d;
+}
+
+.badge-genero-hombres {
+  background: #027fd3;
+  color: #075985;
+}
+
+.badge-genero-unisex {
+  background: #ffea01;
+  color: #92400e;
+}

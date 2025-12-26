@@ -129,20 +129,24 @@
   }
 }
 
-/* Tarjeta de cada tipo de ticket
-   (equivalente a cada fila de la tabla de Passline) */
+/* ---- Card ---- */
 .lote-card {
-  display: flex;
+  display: block !important;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px;
-  border-radius: 12px;
+  position: relative;
+
   background: #f9fafb;
   border: 1px solid #e5e7eb;
-  cursor: pointer;
-  transition: 0.18s ease;
-}
+  border-radius: 14px;
+  padding: 2px 8px 32px !important; /* espacio p/ botón */
 
+  transition: 0.2s;
+  width: 100% !important;
+  height: 170px;
+
+  cursor: pointer;
+  transition: filter 0.18s ease, transform 0.15s ease;
+}
 /* Header: nombre del ticket + precio */
 .lote-header {
   display: flex;
@@ -873,8 +877,8 @@
 
 .lote-cantidad-box {
   position: absolute;
-  top: 70px; /* ajustable */
-  right: 16px; /* ajustable */
+  top: 86px; /* ajustable */
+  right: 12px; /* ajustable */
   display: flex;
   flex-direction: column;
   align-items: flex-end;

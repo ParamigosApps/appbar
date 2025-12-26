@@ -24,17 +24,6 @@
   gap: 4px;
 }
 
-/* ---- Card ---- */
-.lote-card {
-  border-radius: 14px;
-  padding: 6px 8px 32px !important; /* espacio p/ botón */
-  position: relative;
-  transition: 0.2s;
-  width: 100% !important;
-  margin: 0 0 !important;
-  display: block !important;
-}
-
 /* ---- Fecha ---- */
 .lote-fecha-top-abs {
   position: absolute;
@@ -164,7 +153,8 @@
 }
 
 .badge-unisex {
-  background: #ffcc00; /* unisex celeste */
+  background: #ffcc00;
+  color: #111 !important;
 }
 
 /* Consumisión */
@@ -264,11 +254,130 @@
   justify-content: flex-end !important;
 }
 
-.lote-card {
-  transition: filter 0.18s ease, transform 0.15s ease;
-}
-
 .lote-card:hover {
   filter: brightness(0.96);
   transform: translateY(-4px);
+}
+
+@media (max-width: 400px) {
+  .lote-label {
+    color: #4b5563;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+
+  .badge-consu-ok,
+  .badge-consu-no {
+    padding: 2px 7px;
+    font-size: 0.65rem !important;
+    font-weight: 600;
+  }
+
+  .badge-gratis,
+  .badge-pago {
+    padding: 2px 9px;
+    font-size: 0.75rem !important;
+    font-weight: 650 !important;
+  }
+}
+
+/* ==============================
+   BARRA STOCK — PRO
+============================== */
+/* ===== STOCK BAR — PREMIUM ===== */
+
+.stock-box {
+  margin: 8px 0 4px 0;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+}
+
+/* Header */
+.stock-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+  width: 80%;
+}
+
+/* Texto principal */
+.stock-text {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #111827;
+}
+
+/* Barra activa */
+.stock-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+/* ===== ESTADOS ===== */
+
+/* OK */
+.stock-ok .stock-bar-fill {
+  background: linear-gradient(90deg, #16a34a, #22c55e);
+}
+.stock-ok .stock-text {
+  color: #065f46;
+}
+
+/* WARNING */
+.stock-warning .stock-bar-fill {
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+}
+.stock-warning .stock-text {
+  color: #92400e;
+}
+
+/* CRITICAL */
+.stock-critical .stock-bar-fill {
+  background: linear-gradient(90deg, #fbff00, #f43022);
+}
+.stock-critical .stock-text {
+  color: #e51414;
+}
+
+/* Fila barra + meta */
+.stock-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 75%;
+}
+
+/* Barra base */
+.stock-bar {
+  flex: 1;
+  height: 10px;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+/* Meta al final */
+.stock-meta {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.stock-critical .stock-bar-fill {
+  animation: pulse 1.6s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 1;
+  }
 }

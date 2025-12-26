@@ -2,8 +2,7 @@
 // src/components/entradas/MisEntradas.jsx
 // MIS ENTRADAS PRO 2025 — FINAL DEFINITIVO
 // --------------------------------------------------------------
-
-import React, { useEffect, useState, useRef } from 'react'
+import React, { useEffect, useState, useRef, Fragment } from 'react'
 import {
   collection,
   onSnapshot,
@@ -215,6 +214,26 @@ export default function MisEntradas() {
     return getPrecioLote(l) === 0
   }
 
+  function calcularPorcentajeDisponible(l) {
+    const total =
+      Number(l?.lote?.cantidadTotal) || Number(l?.lote?.cantidad) || 0
+
+    if (!total) return null
+
+    const usadas =
+      (l.ticketsAprobados?.length || 0) + (l.ticketsPendientes?.length || 0)
+
+    const disponibles = Math.max(total - usadas, 0)
+
+    return Math.round((disponibles / total) * 100)
+  }
+
+  function getBarColor(p) {
+    if (p <= 20) return 'danger'
+    if (p <= 30) return 'warning'
+    return 'success'
+  }
+
   // ============================================================
   // RENDER
   // ============================================================
@@ -265,12 +284,21 @@ export default function MisEntradas() {
                   .map((l, i) => {
                     const aprobadas = l.ticketsAprobados.length
                     const pendientes = l.ticketsPendientes.length
+
                     const total = aprobadas + pendientes
 
                     const usadas = l.ticketsAprobados.filter(
                       t => t.usado
                     ).length
+                    const lenghDisponibles = l.ticketsAprobados.length - usadas
+                    const porcentaje = calcularPorcentajeDisponible(l)
+                    const mostrarBarra = porcentaje !== null && porcentaje <= 30
+
                     const todasDisponlibles = aprobadas > 0 && usadas === 0
+                    const algunasDisponibles =
+                      aprobadas > 0 &&
+                      usadas < aprobadas &&
+                      l.ticketsPendientes.length == 0
                     const todasUsadas = aprobadas > 0 && usadas === aprobadas
                     const algunasUsadas = usadas > 0 && usadas < aprobadas
                     const textoUsadas =
@@ -322,11 +350,13 @@ export default function MisEntradas() {
 
                           <div className="ticket-info text-muted">
                             Cantidad: <strong>{total}</strong>
-                            {todasDisponlibles && (
-                              <span className="ms-2 text-success fw-semibold">
-                                · Todas disponibles
-                              </span>
-                            )}
+                            {todasDisponlibles &&
+                              algunasUsadas == 0 &&
+                              pendientes == 0 && (
+                                <span className="ms-2 text-success fw-semibold">
+                                  · Todas disponibles
+                                </span>
+                              )}
                             {todasUsadas && (
                               <span className="ms-2 text-danger fw-semibold">
                                 · Todas usadas
@@ -337,12 +367,44 @@ export default function MisEntradas() {
                                 · {usadas} {textoUsadas}
                               </span>
                             )}
+                            {algunasDisponibles && !todasDisponlibles && (
+                              <span className="ms-2 text-success fw-semibold">
+                                · {lenghDisponibles} Entradas disponibles
+                              </span>
+                            )}
                             {pendientes > 0 && (
                               <span className="ms-2 text-warning fw-semibold">
                                 · Pendientes de aprobación
                               </span>
                             )}
                           </div>
+
+                          {/* 🔴🟡 BARRA DE DISPONIBILIDAD */}
+                          {mostrarBarra && !esFreeLote(l) && (
+                            <div className="mt-2">
+                              <div className="progress" style={{ height: 8 }}>
+                                <div
+                                  className={`progress-bar bg-${getBarColor(
+                                    porcentaje
+                                  )}`}
+                                  role="progressbar"
+                                  style={{ width: `${porcentaje}%` }}
+                                  aria-valuenow={porcentaje}
+                                  aria-valuemin="0"
+                                  aria-valuemax="100"
+                                />
+                              </div>
+
+                              <small
+                                className={`fw-semibold text-${getBarColor(
+                                  porcentaje
+                                )}`}
+                              >
+                                ⚠️ Quedan solo {porcentaje}% de entradas
+                                disponibles
+                              </small>
+                            </div>
+                          )}
                         </div>
 
                         {/* CTA separado, más limpio */}

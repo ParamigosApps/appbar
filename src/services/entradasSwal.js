@@ -50,6 +50,7 @@ export async function abrirSeleccionLotesMultiPro(
 
   // 🔒 Normalizar estado con string
   const estado = {}
+
   lotes.forEach(l => (estado[String(l.index)] = 0))
 
   const html = `
@@ -75,10 +76,77 @@ export async function abrirSeleccionLotesMultiPro(
       <div class="lotes-wrapper">
         ${lotes
           .map(l => {
+            // ================================
+            // STOCK / DISPONIBILIDAD (POR LOTE)
+            // ================================
+
+            // 🔑 total global REAL del lote
+            const totalLote = Number.isFinite(l.cantidadInicial)
+              ? l.cantidadInicial
+              : 0
+
+            // 🔑 restantes globales
+            const restantes = Number.isFinite(l.cantidad) ? l.cantidad : 0
+
+            // 🔑 porcentaje GLOBAL (no usuario)
+            const porcentaje =
+              totalLote > 0
+                ? Math.max(
+                    0,
+                    Math.min(100, Math.round((restantes / totalLote) * 100))
+                  )
+                : 0
+
+            // 🔑 estado visual
+            const mostrarBarra = porcentaje <= 30
+            let estadoStock = 'ok'
+            let textoStock = 'Disponibilidad alta'
+
+            if (porcentaje === 0) {
+              estadoStock = 'critical'
+              textoStock = 'Agotado'
+            } else if (porcentaje <= 15) {
+              estadoStock = 'critical'
+              textoStock = '¡Quedan muy pocos cupos!'
+            } else if (porcentaje <= 30) {
+              estadoStock = 'warning'
+              textoStock = '¡Se estan agotando!'
+            }
+
+            // 🔑 HTML FINAL
+            const barraStockHtml = mostrarBarra
+              ? `
+          <div class="stock-box stock-${estadoStock}">
+            <div class="stock-header">
+              <span class="stock-text">${textoStock}</span>
+            </div>
+
+            <div class="stock-bar-row">
+              <div class="stock-bar">
+                <div class="stock-bar-fill" style="width:${porcentaje}%"></div>
+              </div>
+              <span class="stock-meta">${porcentaje}%</span>
+            </div>
+          </div>
+        `
+              : ''
+
+            // FIN BARRA STOCK
+
             const id = String(l.index)
 
             const descripcion =
               l.descripcionLote || l.descripcion || l.descripcion_lote || ''
+
+            let badgeGenero = ''
+
+            if (l.genero === 'mujeres') {
+              badgeGenero = `<span class="lote-badge badge-genero-mujeres">♀ MUJERES</span>`
+            } else if (l.genero === 'hombres') {
+              badgeGenero = `<span class="lote-badge badge-genero-hombres">♂ HOMBRES</span>`
+            } else {
+              badgeGenero = `<span class="lote-badge badge-genero-unisex">⚥ UNISEX</span>`
+            }
 
             const precioHtml =
               Number(l.precio) === 0
@@ -89,8 +157,8 @@ export async function abrirSeleccionLotesMultiPro(
               ? `<span class="lote-badge badge-consu-ok">🍸 CON CONSUMICIÓN</span>`
               : `<span class="lote-badge badge-consu-no">SIN CONSUMICIÓN</span>`
 
-            const maxSeleccionable = Number.isFinite(Number(l.restantes))
-              ? Number(l.restantes)
+            const maxSeleccionable = Number.isFinite(Number(l.cantidad))
+              ? Number(l.cantidad)
               : 0
 
             const opcionesCantidad =
@@ -128,8 +196,10 @@ export async function abrirSeleccionLotesMultiPro(
     ${l.hastaHora ? `${l.hastaHora}hs` : '-'}
   </strong>
 </span>
+</div>
 
-  </div>
+
+
 
 <div class="lote-info-left">
   <div class="lote-costo-row">
@@ -140,9 +210,15 @@ export async function abrirSeleccionLotesMultiPro(
       ${badgeConsumicion}
     </div>
   </div>
+
+<div class="lote-genero-row">
+  <span class="lote-label">GÉNERO:</span>
+  ${badgeGenero}
 </div>
 
+</div>
 
+${barraStockHtml}
 
   <div class="lote-footer-flex">
     <div class="lote-cantidad-box">
@@ -219,197 +295,14 @@ export async function abrirSeleccionLotesMultiPro(
 }
 
 // ======================================================================
-// SELECCIÓN DE LOTE
-// ======================================================================
-export async function abrirSeleccionLote(evento, lotes, theme = 'light') {
-  const MySwal = crearSwalConTheme(theme)
-  const lotesOrdenados = [...lotes].sort((a, b) => {
-    // 1️⃣ Estado del evento
-    const ea = estadoLote(a, evento)
-    const eb = estadoLote(b, evento)
-
-    const ordenEstado = { hoy: 0, proximo: 1, pasado: 2 }
-    if (ordenEstado[ea] !== ordenEstado[eb]) {
-      return ordenEstado[ea] - ordenEstado[eb]
-    }
-
-    // 2️⃣ Precio (GRATIS primero)
-    const pa = Number(a.precio ?? 0)
-    const pb = Number(b.precio ?? 0)
-
-    if (pa !== pb) {
-      return pa - pb // 0 primero → GRATIS
-    }
-
-    // 3️⃣ Mismo precio → más stock primero
-    return (b.restantes ?? 0) - (a.restantes ?? 0)
-  })
-
-  return await MySwal.fire({
-    title: `<span class="swal-title-main">${evento.nombre}</span>`,
-
-    html: `
-      <div class="lotes-scroll">
-        <div id="swal-lotes" class="lotes-wrapper">
-${lotesOrdenados
-  .map(l => {
-    const agotado = l.restantes <= 0
-    const porc =
-      l.cantidad > 0 ? Math.round((l.restantes / l.cantidad) * 100) : 0
-
-    const estado = estadoLote(l, evento)
-    const esHoy = estado === 'hoy'
-    const esPasado = estado === 'pasado'
-
-    const generoRaw = l.genero?.toLowerCase()
-
-    const generoClase =
-      generoRaw === 'mujeres'
-        ? 'badge-rose'
-        : generoRaw === 'hombres'
-        ? 'badge-blue'
-        : 'badge-unisex'
-
-    // etiqueta fija + valor en badge (imitando COSTO)
-    const generoLabel =
-      generoRaw === 'mujeres' || generoRaw === 'hombres'
-        ? 'EXCLUSIVO:'
-        : 'GÉNERO:'
-
-    const generoValue =
-      generoRaw === 'mujeres'
-        ? 'MUJERES'
-        : generoRaw === 'hombres'
-        ? 'HOMBRES'
-        : 'TODOS'
-
-    // ✅ MISMA IDEA QUE COSTO: <label> + <valor>
-    const generoBadge = `
-  <div class="lote-costo-box lote-genero-box">
-    <span class="lote-label">${generoLabel}</span>
-    <span class="lote-badge ${generoClase}">${generoValue}</span>
-  </div>
-`
-
-    const consumicionBadge = l.incluyeConsumicion
-      ? `<span class="lote-badge badge-consu-ok">🍸 CON CONSUMICIÓN</span>`
-      : `<span class="lote-badge badge-consu-no">SIN CONSUMICIÓN</span>`
-
-    const precioHtml =
-      Number(l.precio) === 0
-        ? `<span class="precio-valor badge-gratis">GRATIS</span>`
-        : `<span class="precio-valor badge-pago">$${l.precio}</span>`
-
-    let badgeStock = ''
-    if (!agotado && porc <= 30) {
-      badgeStock =
-        porc <= 10
-          ? `<span class="lote-badge badge-red">ÚLTIMOS CUPOS</span>`
-          : `<span class="lote-badge badge-orange">POCOS CUPOS</span>`
-    }
-
-    const badgeHoy = esHoy
-      ? `<span class="lote-badge badge-hoy">🟢 HOY</span>`
-      : ''
-
-    const fechaHtml =
-      evento.fechaInicio && formatearSoloFecha
-        ? `<div class="lote-fecha-top-abs">${formatearSoloFecha(
-            evento.fechaInicio
-          )}</div>`
-        : ''
-
-    const mostrarCTA = !agotado && !esPasado
-
-    return `
-<div class="lote-card ${agotado ? 'lote-sin-cupos' : ''} ${
-      esPasado ? 'lote-pasado' : ''
-    }" data-id="${l.index}">
-
-  ${fechaHtml}
-
-  <div class="lote-nombre-principal">
-    <span class="lote-label">LOTE:</span> ${String(l.nombre).toUpperCase()}
-  </div>
-
-  ${
-    l.descripcionLote?.trim()
-      ? `<div class="lote-desc"><span class="lote-label">DESCRIPCIÓN: </span>${l.descripcionLote}</div>`
-      : ''
-  }
-
-  <div class="lote-horario-box">
-    <span class="lote-label">HORA DE INGRESO:</span>
-    <span class="lote-horario-value">${l.desdeHora || '-'} → ${
-      l.hastaHora || '-'
-    }</span>
-  </div>
-
-  <div class="lote-badges">
-    ${badgeHoy}
-    ${generoBadge}
-    ${consumicionBadge}
-    ${badgeStock}
-  </div>
-
-  <div class="lote-costo-box">
-    <span class="lote-label">COSTO:</span>
-    ${precioHtml}
-  </div>
-
-  <div class="lote-footer-flex">
-    ${
-      !mostrarCTA
-        ? `<div class="lote-agotado-btn">${
-            esPasado ? 'NO VIGENTE' : 'AGOTADO'
-          }</div>`
-        : `<div class="lote-select-mini">ADQUIRIR</div>`
-    }
-  </div>
-</div>
-`
-  })
-  .join('')}
-
-        </div>
-      </div>
-    `,
-
-    showCancelButton: true,
-    cancelButtonText: 'Cerrar',
-    showConfirmButton: false,
-
-    didOpen: () => {
-      const cards = document.querySelectorAll('.lote-card')
-      cards.forEach(card => {
-        if (card.classList.contains('lote-sin-cupos')) return
-
-        const btn = card.querySelector('.lote-select-mini')
-        if (!btn) return
-
-        btn.onclick = () => {
-          window._swalValue = { loteId: card.dataset.id }
-          Swal.close()
-        }
-      })
-    },
-  }).then(res => {
-    if (res.dismiss === Swal.DismissReason.cancel) return { cancelado: true }
-    return window._swalValue
-  })
-}
-
-// ======================================================================
 // RESUMEN DE LOTE
 // ======================================================================
 export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
   const MySwal = crearSwalConTheme(theme)
 
-  const cuposReales = Number.isFinite(lote?.restantes)
-    ? Number(lote.restantes) // evento con lote
-    : Number(evento?.cupos) > 0
-    ? Number(evento.cupos) // evento sin lote pero con cupo global
-    : Infinity // evento sin límite de cupos
+  const cuposReales = Number.isFinite(lote?.cantidad)
+    ? Number(lote.cantidad)
+    : Infinity
 
   const {
     maxCantidad = 99,
