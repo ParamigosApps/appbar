@@ -27,6 +27,7 @@ function normalizarStatus(status) {
 
 export default function PagoResultado() {
   const { user } = useAuth()
+
   const params = useMemo(() => new URLSearchParams(window.location.search), [])
   const statusQuery = normalizarStatus(params.get('status'))
 
@@ -39,7 +40,7 @@ export default function PagoResultado() {
   const intervalRef = useRef(null)
 
   // --------------------------------------------------
-  // CARGAR + POLLING
+  // POLLING CONTROLADO
   // --------------------------------------------------
   useEffect(() => {
     if (!user?.uid) {
@@ -63,23 +64,24 @@ export default function PagoResultado() {
           return
         }
 
-        const docPago = { id: snap.docs[0].id, ...snap.docs[0].data() }
+        const docPago = {
+          id: snap.docs[0].id,
+          ...snap.docs[0].data(),
+        }
+
         setPago(docPago)
 
         const estado = (docPago.estado || '').toLowerCase()
 
-        if (estado === 'aprobado') {
-          setEstadoReal('aprobado')
+        // 🔐 Estados finales → detener polling
+        if (['aprobado', 'fallido', 'monto_invalido'].includes(estado)) {
+          setEstadoReal(estado)
           detenerPolling()
-        } else if (estado === 'monto_invalido') {
-          setEstadoReal('monto_invalido')
-          detenerPolling()
-        } else if (estado === 'fallido') {
-          setEstadoReal('fallido')
-          detenerPolling()
-        } else {
-          setEstadoReal('pendiente')
+          return
         }
+
+        // ⏳ Pendiente
+        setEstadoReal('pendiente')
 
         intentosRef.current += 1
         if (intentosRef.current >= MAX_INTENTOS) {
@@ -107,7 +109,7 @@ export default function PagoResultado() {
   }, [user])
 
   // --------------------------------------------------
-  // MENSAJE UX INICIAL (NO CONFIRMA)
+  // MENSAJE UX INICIAL (solo informativo)
   // --------------------------------------------------
   useEffect(() => {
     if (statusQuery === 'success') {
@@ -150,14 +152,15 @@ export default function PagoResultado() {
       return {
         titulo: 'Pago en verificación',
         texto:
-          'Tu pago está siendo verificado por el proveedor.\n\nEsto puede demorar unos minutos. No es necesario que vuelvas a pagar.',
+          'Tu pago está siendo verificado por el proveedor.\n\n' +
+          'Esto puede demorar unos minutos. No es necesario que vuelvas a pagar.',
       }
     }
 
     switch (estadoReal) {
       case 'cargando':
         return {
-          titulo: 'Cargando...',
+          titulo: 'Verificando pago',
           texto: 'Estamos verificando el estado de tu pago.',
         }
       case 'aprobado':
@@ -186,7 +189,8 @@ export default function PagoResultado() {
         return {
           titulo: 'Pago no encontrado',
           texto:
-            'No encontramos un pago reciente asociado a tu cuenta. Si pagaste, esperá unos segundos y revisá “Mis Entradas”.',
+            'No encontramos un pago reciente asociado a tu cuenta.\n\n' +
+            'Si pagaste, esperá unos segundos y revisá “Mis Entradas”.',
         }
     }
   })()
@@ -213,9 +217,12 @@ export default function PagoResultado() {
               <b>Total:</b> ${Number(pago.total || 0).toLocaleString('es-AR')}
             </div>
 
-            {pago.createdAt?.toDate && (
+            {(pago.approvedAt || pago.createdAt)?.toDate && (
               <div>
-                <b>Fecha:</b> {pago.createdAt.toDate().toLocaleString('es-AR')}
+                <b>Fecha:</b>{' '}
+                {(pago.approvedAt || pago.createdAt)
+                  .toDate()
+                  .toLocaleString('es-AR')}
               </div>
             )}
 
@@ -252,7 +259,7 @@ export default function PagoResultado() {
             Volver al inicio
           </button>
 
-          {estadoReal === 'pendiente' && (
+          {estadoReal === 'pendiente' && pollingFinalizado && (
             <button
               className="swal-btn-cancel"
               onClick={actualizarEstadoManual}

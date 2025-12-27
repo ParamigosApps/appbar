@@ -4,42 +4,41 @@ export default async function handler(req, res) {
   console.log('🔵 /api/crear-preferencia INICIADA')
 
   // ======================================================
-  // LEER RAW BODY (requerido en Vercel)
+  // VALIDAR BODY
   // ======================================================
-  let rawBody = ''
-  await new Promise(resolve => {
-    req.on('data', chunk => (rawBody += chunk))
-    req.on('end', resolve)
-  })
+  const body = req.body
 
-  let body
-  try {
-    body = JSON.parse(rawBody)
-  } catch (err) {
-    console.error('❌ JSON inválido:', err)
-    return res.status(400).json({ error: 'JSON inválido' })
+  if (!body || typeof body !== 'object') {
+    return res.status(400).json({ error: 'Body inválido' })
   }
 
   // ======================================================
-  // TOKEN MP (PRODUCCIÓN)
+  // external_reference OBLIGATORIA
+  // ======================================================
+  if (!body.external_reference) {
+    return res.status(400).json({
+      error: 'external_reference es obligatoria',
+    })
+  }
+
+  // ======================================================
+  // TOKEN MP
   // ======================================================
   const ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN
-
   if (!ACCESS_TOKEN) {
-    console.error('❌ MP_ACCESS_TOKEN no configurado')
     return res.status(500).json({
       error: 'MP_ACCESS_TOKEN no configurado',
     })
   }
 
   const client = new MercadoPagoConfig({
-    accessToken: ACCESS_TOKEN, // 🔑 APP_USR_...
+    accessToken: ACCESS_TOKEN,
   })
 
   const preference = new Preference(client)
 
   // ======================================================
-  // ITEMS (VALIDACIÓN FUERTE)
+  // ITEMS
   // ======================================================
   let items = Array.isArray(body.items) ? body.items : []
 
@@ -63,7 +62,6 @@ export default async function handler(req, res) {
     picture_url: i.picture_url || '',
   }))
 
-  // Validación final (evita errores silenciosos)
   for (const i of items) {
     if (
       !i.title ||
@@ -79,20 +77,25 @@ export default async function handler(req, res) {
     }
   }
 
-  console.log('📦 ITEMS PRODUCCIÓN:', items)
+  // ======================================================
+  // BASE URL (DINÁMICA POR ENTORNO)
+  // ======================================================
+  const baseUrl = process.env.PUBLIC_BASE_URL
 
-  const baseUrl =
-    'https://appbar-88phi9hta-ivan-ruizs-projects-c453caf9.vercel.app'
+  if (!baseUrl) {
+    return res.status(500).json({
+      error: 'PUBLIC_BASE_URL no configurada',
+    })
+  }
 
   // ======================================================
-  // CREAR PREFERENCIA (PRODUCCIÓN REAL)
+  // CREAR PREFERENCIA
   // ======================================================
   try {
     const pref = await preference.create({
       body: {
         items,
-
-        external_reference: body.external_reference || null,
+        external_reference: body.external_reference,
 
         back_urls: {
           success: `${baseUrl}/pago-resultado?status=success`,
@@ -104,12 +107,8 @@ export default async function handler(req, res) {
       },
     })
 
-    console.log('🟢 MP OK:', {
-      id: pref.id,
-      init_point: pref.init_point,
-    })
+    console.log('🟢 MP OK:', pref.id)
 
-    // 🔥 SOLO PRODUCCIÓN (NO sandbox)
     return res.status(200).json({
       id: pref.id,
       init_point: pref.init_point,

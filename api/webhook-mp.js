@@ -1,9 +1,10 @@
 // --------------------------------------------------
 // /api/webhook-mercadopago.js
-// WEBHOOK MERCADO PAGO — PRODUCCIÓN FINAL
+// WEBHOOK MERCADO PAGO — PRODUCCIÓN FINAL (CORREGIDO)
 // --------------------------------------------------
 
 import admin from 'firebase-admin'
+import { generarEntradasPagasDesdePago } from './_lib/generarEntradasPagasDesdePago.js'
 
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN
 
@@ -16,6 +17,7 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore()
+const { serverTimestamp } = admin.firestore.FieldValue
 
 export default async function handler(req, res) {
   // --------------------------------------------------
@@ -48,10 +50,8 @@ export default async function handler(req, res) {
     const mpRes = await fetch(
       `https://api.mercadopago.com/v1/payments/${paymentId}`,
       {
-        method: 'GET',
         headers: {
           Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
-          'Content-Type': 'application/json',
         },
       }
     )
@@ -86,10 +86,16 @@ export default async function handler(req, res) {
     const pago = pagoSnap.data()
 
     // --------------------------------------------------
-    // 🔐 IDEMPOTENCIA REAL (estados finales)
+    // 🔐 IDEMPOTENCIA DURA — ENTRADAS YA GENERADAS
+    // --------------------------------------------------
+    if (pago.entradasPagasGeneradas === true) {
+      return res.status(200).send('entradas ya generadas')
+    }
+
+    // --------------------------------------------------
+    // 🔐 IDEMPOTENCIA POR ESTADOS FINALES
     // --------------------------------------------------
     const ESTADOS_FINALES = ['aprobado', 'fallido', 'monto_invalido']
-
     if (ESTADOS_FINALES.includes(pago.estado)) {
       return res.status(200).send('ya procesado')
     }
@@ -106,11 +112,7 @@ export default async function handler(req, res) {
     }
 
     if (montoMP !== montoDB) {
-      console.error('❌ Monto no coincide', {
-        pagoId,
-        montoMP,
-        montoDB,
-      })
+      console.error('❌ Monto no coincide', { pagoId, montoMP, montoDB })
 
       await pagoRef.update({
         estado: 'monto_invalido',
@@ -119,7 +121,7 @@ export default async function handler(req, res) {
           ultimoEvento: 'mismatch_monto',
           mpMonto: montoMP,
           dbMonto: montoDB,
-          webhookAt: new Date(),
+          webhookAt: serverTimestamp(),
         },
       })
 
@@ -142,7 +144,7 @@ export default async function handler(req, res) {
         paymentId,
         log: {
           ultimoEvento: payment.status,
-          webhookAt: new Date(),
+          webhookAt: serverTimestamp(),
         },
       })
 
@@ -162,15 +164,20 @@ export default async function handler(req, res) {
     await pagoRef.update({
       estado: 'aprobado',
       paymentId,
-      approvedAt: new Date(),
+      approvedAt: serverTimestamp(),
       log: {
         ultimoEvento: 'approved',
-        webhookAt: new Date(),
         mpStatus: payment.status,
+        webhookAt: serverTimestamp(),
       },
     })
 
-    console.log('✅ Pago aprobado correctamente:', pagoId)
+    // --------------------------------------------------
+    // 🎟️ GENERAR ENTRADAS PAGAS (SOLO UNA VEZ)
+    // --------------------------------------------------
+    await generarEntradasPagasDesdePago(pagoId, pago)
+
+    console.log('✅ Pago aprobado y entradas generadas:', pagoId)
     return res.status(200).send('ok')
   } catch (err) {
     console.error('❌ Webhook MP error:', err)
