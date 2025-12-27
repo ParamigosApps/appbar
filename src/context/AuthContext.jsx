@@ -69,6 +69,25 @@ export function AuthProvider({ children }) {
   const confirmationRef = useRef(null)
 
   // ============================================================
+  // RESTAURAR ADMIN MANUAL DESDE LOCALSTORAGE
+  // ============================================================
+  useEffect(() => {
+    const raw = localStorage.getItem(LS_ADMIN)
+    if (!raw) return
+
+    try {
+      const admin = JSON.parse(raw)
+      if (admin?.manual && admin?.nivel) {
+        setAdminUser(admin)
+        setRolUsuario(Number(admin.nivel))
+      }
+    } catch (e) {
+      console.error('Error restaurando admin manual', e)
+      localStorage.removeItem(LS_ADMIN)
+    }
+  }, [])
+
+  // ============================================================
   // RESTAURAR SESIÓN
   // ============================================================
   useEffect(() => {
@@ -86,6 +105,9 @@ export function AuthProvider({ children }) {
           setUser(firebaseUser)
         }
       } else {
+        // ⚠️ IMPORTANTE:
+        // No hay usuario Firebase,
+        // pero puede haber admin manual restaurado desde localStorage
         setUser(null)
       }
 

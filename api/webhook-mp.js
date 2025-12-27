@@ -1,6 +1,6 @@
 // --------------------------------------------------
 // /api/webhook-mercadopago.js
-// WEBHOOK MERCADO PAGO — PRODUCCIÓN FINAL (CORREGIDO)
+// WEBHOOK MERCADO PAGO — PRODUCCIÓN FINAL (BLINDADO)
 // --------------------------------------------------
 
 import admin from 'firebase-admin'
@@ -20,9 +20,6 @@ const db = admin.firestore()
 const { serverTimestamp } = admin.firestore.FieldValue
 
 export default async function handler(req, res) {
-  // --------------------------------------------------
-  // 🔒 Solo POST (MP reintenta igual con 200)
-  // --------------------------------------------------
   if (req.method !== 'POST') {
     return res.status(200).send('method ignored')
   }
@@ -32,21 +29,11 @@ export default async function handler(req, res) {
     const tipo = body.type || body.topic
     const paymentId = body?.data?.id
 
-    // --------------------------------------------------
-    // ⛔ Ignorar eventos que no sean pagos
-    // --------------------------------------------------
-    if (tipo !== 'payment') {
+    if (tipo !== 'payment' || !paymentId) {
       return res.status(200).send('ignored')
     }
 
-    if (!paymentId) {
-      console.warn('⚠️ Webhook sin paymentId')
-      return res.status(200).send('payment id missing')
-    }
-
-    // --------------------------------------------------
-    // 🔎 Consultar estado REAL en Mercado Pago
-    // --------------------------------------------------
+    // 🔎 Consultar MP
     const mpRes = await fetch(
       `https://api.mercadopago.com/v1/payments/${paymentId}`,
       {
@@ -57,130 +44,99 @@ export default async function handler(req, res) {
     )
 
     if (!mpRes.ok) {
-      console.error('❌ Error consultando MP:', mpRes.status)
-      return res.status(200).send('mp fetch error')
+      console.error('❌ Error MP:', mpRes.status)
+      return res.status(200).send('mp error')
     }
 
     const payment = await mpRes.json()
-
-    // --------------------------------------------------
-    // 🔑 external_reference = pagoId Firestore
-    // --------------------------------------------------
     const pagoId = payment.external_reference
+
     if (!pagoId) {
-      console.error('❌ external_reference faltante')
-      return res.status(200).send('external_reference missing')
+      return res.status(200).send('no external_reference')
     }
 
-    // --------------------------------------------------
-    // 🔎 Buscar pago en Firestore
-    // --------------------------------------------------
     const pagoRef = db.collection('pagos').doc(pagoId)
     const pagoSnap = await pagoRef.get()
 
     if (!pagoSnap.exists) {
-      console.error('❌ Pago no encontrado:', pagoId)
-      return res.status(200).send('pago no encontrado')
+      return res.status(200).send('pago inexistente')
     }
 
     const pago = pagoSnap.data()
 
-    // --------------------------------------------------
-    // 🔐 IDEMPOTENCIA DURA — ENTRADAS YA GENERADAS
-    // --------------------------------------------------
-    if (pago.entradasPagasGeneradas === true) {
-      return res.status(200).send('entradas ya generadas')
-    }
-
-    // --------------------------------------------------
-    // 🔐 IDEMPOTENCIA POR ESTADOS FINALES
-    // --------------------------------------------------
-    const ESTADOS_FINALES = ['aprobado', 'fallido', 'monto_invalido']
-    if (ESTADOS_FINALES.includes(pago.estado)) {
+    // 🔐 Idempotencia
+    if (['aprobado', 'fallido', 'monto_invalido'].includes(pago.estado)) {
       return res.status(200).send('ya procesado')
     }
 
-    // --------------------------------------------------
-    // 💰 VALIDAR MONTO (ANTIFRAUDE)
-    // --------------------------------------------------
-    const montoMP = Number(payment.transaction_amount)
-    const montoDB = Number(pago.total)
-
-    if (!Number.isFinite(montoMP) || !Number.isFinite(montoDB)) {
-      console.error('❌ Monto inválido', { montoMP, montoDB })
-      return res.status(200).send('monto invalido')
-    }
-
-    if (montoMP !== montoDB) {
-      console.error('❌ Monto no coincide', { pagoId, montoMP, montoDB })
-
+    // 💰 Validar monto
+    if (Number(payment.transaction_amount) !== Number(pago.total)) {
       await pagoRef.update({
         estado: 'monto_invalido',
         paymentId,
         log: {
-          ultimoEvento: 'mismatch_monto',
-          mpMonto: montoMP,
-          dbMonto: montoDB,
-          webhookAt: serverTimestamp(),
+          error: 'monto mismatch',
+          mpMonto: payment.transaction_amount,
+          dbMonto: pago.total,
+          at: serverTimestamp(),
         },
       })
 
-      return res.status(200).send('monto mismatch')
+      return res.status(200).send('monto invalido')
     }
 
-    // --------------------------------------------------
-    // ⛔ Estados fallidos
-    // --------------------------------------------------
-    const ESTADOS_FALLIDOS = [
-      'rejected',
-      'cancelled',
-      'refunded',
-      'charged_back',
-    ]
-
-    if (ESTADOS_FALLIDOS.includes(payment.status)) {
+    // ❌ Estados fallidos
+    if (
+      ['rejected', 'cancelled', 'refunded', 'charged_back'].includes(
+        payment.status
+      )
+    ) {
       await pagoRef.update({
         estado: 'fallido',
         paymentId,
         log: {
-          ultimoEvento: payment.status,
-          webhookAt: serverTimestamp(),
+          status: payment.status,
+          at: serverTimestamp(),
         },
       })
 
-      return res.status(200).send('pago fallido')
+      return res.status(200).send('fallido')
     }
 
-    // --------------------------------------------------
-    // ⏳ Aún no aprobado
-    // --------------------------------------------------
+    // ⏳ Pendiente
     if (payment.status !== 'approved') {
-      return res.status(200).send('pago pendiente')
+      return res.status(200).send('pendiente')
     }
 
-    // --------------------------------------------------
-    // ✅ MARCAR PAGO COMO APROBADO
-    // --------------------------------------------------
+    // ✅ APROBAR PAGO (ESTO ES SAGRADO)
     await pagoRef.update({
       estado: 'aprobado',
       paymentId,
       approvedAt: serverTimestamp(),
       log: {
-        ultimoEvento: 'approved',
-        mpStatus: payment.status,
-        webhookAt: serverTimestamp(),
+        status: 'approved',
+        at: serverTimestamp(),
       },
     })
 
-    // --------------------------------------------------
-    // 🎟️ GENERAR ENTRADAS PAGAS (SOLO UNA VEZ)
-    // --------------------------------------------------
-    await generarEntradasPagasDesdePago(pagoId, pago)
+    // 🎟️ Generar entradas (NO BLOQUEANTE)
+    try {
+      await generarEntradasPagasDesdePago(pagoId, pago)
+    } catch (err) {
+      console.error('❌ Error generando entradas:', err)
 
-    console.log('✅ Pago aprobado y entradas generadas:', pagoId)
+      await pagoRef.update({
+        log: {
+          ...(pago.log || {}),
+          errorEntradas: err.message || 'error entradas',
+          errorEntradasAt: serverTimestamp(),
+        },
+      })
+    }
+
     return res.status(200).send('ok')
   } catch (err) {
-    console.error('❌ Webhook MP error:', err)
+    console.error('❌ Webhook fatal:', err)
     return res.status(200).send('error')
   }
 }
