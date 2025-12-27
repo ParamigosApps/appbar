@@ -110,7 +110,14 @@ export default function PagoResultado() {
   function irMisEntradas() {
     if (navegando) return
     setNavegando(true)
+
+    // 🔁 disparar ahora
     document.dispatchEvent(new Event('abrir-mis-entradas'))
+
+    // 🔁 y repetir luego por si el menú aún no estaba listo
+    setTimeout(() => {
+      document.dispatchEvent(new Event('abrir-mis-entradas'))
+    }, 300)
   }
 
   function irInicio() {

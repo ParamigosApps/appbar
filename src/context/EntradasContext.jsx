@@ -87,7 +87,7 @@ export function EntradasProvider({ children }) {
   // CARGAR EVENTOS
   // ----------------------------------------------------------
   useEffect(() => {
-    triggerLimpiezaPagos()
+    //triggerLimpiezaPagos()
 
     async function cargar() {
       try {
