@@ -178,14 +178,17 @@ export async function abrirSeleccionLotesMultiPro(
     <span class="lote-label">LOTE:</span> ${l.nombre.toUpperCase()}
   </div>
 
-  ${
-    descripcion
-      ? `<div class="lote-desc">
-           <span class="lote-label">DESCRIPCIÓN:</span>
-           ${descripcion}
-         </div>`
-      : ''
-  }
+${
+  descripcion
+    ? `<div class="lote-desc">
+         <span class="lote-label">DESCRIPCIÓN:</span>
+         ${descripcion}
+       </div>`
+    : `<div class="lote-desc">
+         <span class="lote-label">DESCRIPCIÓN:</span>
+         Sin descripción.
+       </div>`
+}
 
   <div class="lote-horario-box">
     <span class="lote-label">INGRESO PERMITIDO:</span>

@@ -1,27 +1,45 @@
 // --------------------------------------------------
 // /api/webhook-mercadopago.js
+// WEBHOOK MERCADO PAGO — PRODUCCIÓN FINAL
 // --------------------------------------------------
 
-import { doc, getDoc, updateDoc } from 'firebase/firestore'
-import { db } from '../src/Firebase.js'
-import { entregarEntradasGratisPostPago } from '../src/logic/entradas/entradasGratis.js'
+import admin from 'firebase-admin'
 
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN
 
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert(
+      JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+    ),
+  })
+}
+
+const db = admin.firestore()
+
 export default async function handler(req, res) {
+  // --------------------------------------------------
+  // 🔒 Solo POST (MP reintenta igual con 200)
+  // --------------------------------------------------
+  if (req.method !== 'POST') {
+    return res.status(200).send('method ignored')
+  }
+
   try {
-    const { type, data } = req.body
+    const body = req.body || {}
+    const tipo = body.type || body.topic
+    const paymentId = body?.data?.id
 
     // --------------------------------------------------
     // ⛔ Ignorar eventos que no sean pagos
     // --------------------------------------------------
-    if (type !== 'payment') {
+    if (tipo !== 'payment') {
       return res.status(200).send('ignored')
     }
 
-    const paymentId = data?.id
     if (!paymentId) {
-      return res.status(400).send('payment id missing')
+      console.warn('⚠️ Webhook sin paymentId')
+      return res.status(200).send('payment id missing')
     }
 
     // --------------------------------------------------
@@ -30,21 +48,86 @@ export default async function handler(req, res) {
     const mpRes = await fetch(
       `https://api.mercadopago.com/v1/payments/${paymentId}`,
       {
+        method: 'GET',
         headers: {
           Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
+          'Content-Type': 'application/json',
         },
       }
     )
 
     if (!mpRes.ok) {
-      throw new Error('No se pudo consultar Mercado Pago')
+      console.error('❌ Error consultando MP:', mpRes.status)
+      return res.status(200).send('mp fetch error')
     }
 
     const payment = await mpRes.json()
 
     // --------------------------------------------------
-    // ⛔ Estados fallidos → no entregar nada
-    // (los cupos se liberan por tu limpieza periódica)
+    // 🔑 external_reference = pagoId Firestore
+    // --------------------------------------------------
+    const pagoId = payment.external_reference
+    if (!pagoId) {
+      console.error('❌ external_reference faltante')
+      return res.status(200).send('external_reference missing')
+    }
+
+    // --------------------------------------------------
+    // 🔎 Buscar pago en Firestore
+    // --------------------------------------------------
+    const pagoRef = db.collection('pagos').doc(pagoId)
+    const pagoSnap = await pagoRef.get()
+
+    if (!pagoSnap.exists) {
+      console.error('❌ Pago no encontrado:', pagoId)
+      return res.status(200).send('pago no encontrado')
+    }
+
+    const pago = pagoSnap.data()
+
+    // --------------------------------------------------
+    // 🔐 IDEMPOTENCIA REAL (estados finales)
+    // --------------------------------------------------
+    const ESTADOS_FINALES = ['aprobado', 'fallido', 'monto_invalido']
+
+    if (ESTADOS_FINALES.includes(pago.estado)) {
+      return res.status(200).send('ya procesado')
+    }
+
+    // --------------------------------------------------
+    // 💰 VALIDAR MONTO (ANTIFRAUDE)
+    // --------------------------------------------------
+    const montoMP = Number(payment.transaction_amount)
+    const montoDB = Number(pago.total)
+
+    if (!Number.isFinite(montoMP) || !Number.isFinite(montoDB)) {
+      console.error('❌ Monto inválido', { montoMP, montoDB })
+      return res.status(200).send('monto invalido')
+    }
+
+    if (montoMP !== montoDB) {
+      console.error('❌ Monto no coincide', {
+        pagoId,
+        montoMP,
+        montoDB,
+      })
+
+      await pagoRef.update({
+        estado: 'monto_invalido',
+        paymentId,
+        log: {
+          ultimoEvento: 'mismatch_monto',
+          mpMonto: montoMP,
+          dbMonto: montoDB,
+          webhookAt: new Date(),
+        },
+      })
+
+      return res.status(200).send('monto mismatch')
+    }
+
+    // --------------------------------------------------
+    // ⛔ Estados fallidos
     // --------------------------------------------------
     const ESTADOS_FALLIDOS = [
       'rejected',
@@ -54,6 +137,15 @@ export default async function handler(req, res) {
     ]
 
     if (ESTADOS_FALLIDOS.includes(payment.status)) {
+      await pagoRef.update({
+        estado: 'fallido',
+        paymentId,
+        log: {
+          ultimoEvento: payment.status,
+          webhookAt: new Date(),
+        },
+      })
+
       return res.status(200).send('pago fallido')
     }
 
@@ -65,61 +157,23 @@ export default async function handler(req, res) {
     }
 
     // --------------------------------------------------
-    // 🔑 external_reference = ID del doc en Firestore
+    // ✅ MARCAR PAGO COMO APROBADO
     // --------------------------------------------------
-    const pagoId = payment.external_reference
-
-    if (!pagoId) {
-      return res.status(400).send('external_reference faltante')
-    }
-
-    // --------------------------------------------------
-    // 🔎 Buscar pago en Firestore
-    // --------------------------------------------------
-    const pagoRef = doc(db, 'pagos', pagoId)
-    const pagoSnap = await getDoc(pagoRef)
-
-    if (!pagoSnap.exists()) {
-      return res.status(404).send('pago no encontrado')
-    }
-
-    const pago = pagoSnap.data()
-
-    // --------------------------------------------------
-    // 🔐 IDEMPOTENCIA (MP reintenta webhooks)
-    // --------------------------------------------------
-    if (pago.gratisEntregadas) {
-      return res.status(200).send('ya procesado')
-    }
-
-    // --------------------------------------------------
-    // 🎟️ ENTREGAR ENTRADAS GRATIS POST-PAGO
-    // --------------------------------------------------
-    await entregarEntradasGratisPostPago({
-      eventoId: pago.eventoId,
-      usuarioId: pago.usuarioId,
-      usuarioNombre: pago.usuarioNombre,
-      usuarioEmail: pago.usuarioEmail,
-      entradasGratisPendientes: pago.entradasGratisPendientes,
-    })
-
-    // --------------------------------------------------
-    // ✅ MARCAR COMO PROCESADO
-    // --------------------------------------------------
-    await updateDoc(pagoRef, {
-      estado: 'approved',
-      gratisEntregadas: true,
+    await pagoRef.update({
+      estado: 'aprobado',
       paymentId,
       approvedAt: new Date(),
       log: {
         ultimoEvento: 'approved',
         webhookAt: new Date(),
+        mpStatus: payment.status,
       },
     })
 
+    console.log('✅ Pago aprobado correctamente:', pagoId)
     return res.status(200).send('ok')
   } catch (err) {
     console.error('❌ Webhook MP error:', err)
-    return res.status(500).send('error')
+    return res.status(200).send('error')
   }
 }

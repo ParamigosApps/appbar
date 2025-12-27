@@ -142,7 +142,7 @@
 
   transition: 0.2s;
   width: 100% !important;
-  height: 170px;
+  height: 185px;
 
   cursor: pointer;
   transition: filter 0.18s ease, transform 0.15s ease;
@@ -877,12 +877,13 @@
 
 .lote-cantidad-box {
   position: absolute;
-  top: 86px; /* ajustable */
+  top: 112px; /* ajustable */
   right: 12px; /* ajustable */
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 4px;
+  align-items: center !important;
 }
 
 .lote-select-cant {
@@ -933,7 +934,11 @@
   font-weight: 600;
   font-size: 0.82rem;
   color: #1f2937;
+  align-items: center !important; /* 🔑 centra vertical real */
+  gap: 4px;
+  line-height: 1;
 }
+
 .lote-card.lote-multi {
   position: relative;
 }

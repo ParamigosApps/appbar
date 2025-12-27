@@ -1,0 +1,166 @@
+/* ======================================================
+   MAIL ENTRADAS — APPBAR
+   ====================================================== */
+
+.mail-container {
+  font-family: Arial, sans-serif;
+  max-width: 560px;
+  margin: auto;
+  color: #222;
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 24px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* ---------------- HEADER ---------------- */
+
+.mail-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.mail-title {
+  margin: 0;
+  font-size: 22px;
+}
+
+.mail-subtitle {
+  margin: 6px 0 0;
+  color: #555;
+  font-size: 14px;
+}
+
+/* ---------------- TEXTOS ---------------- */
+
+.mail-text {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.mail-text-muted {
+  font-size: 14px;
+  color: #555;
+}
+
+/* ---------------- EVENTO ---------------- */
+
+.mail-event-box {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 14px;
+  margin: 16px 0;
+  background: #fafafa;
+}
+
+.mail-event-row {
+  margin: 4px 0;
+}
+
+/* ---------------- SECCIONES ---------------- */
+
+.mail-section-title {
+  margin-top: 24px;
+  font-size: 17px;
+}
+
+/* ---------------- LISTA LOTES ---------------- */
+
+.mail-list {
+  padding-left: 18px;
+  margin-top: 10px;
+}
+
+.mail-list-item {
+  margin-bottom: 12px;
+}
+
+.mail-sub-info {
+  font-size: 13px;
+  color: #555;
+  margin-top: 4px;
+}
+
+/* ---------------- DIVISOR ---------------- */
+
+.mail-hr {
+  margin: 24px 0;
+  border: none;
+  border-top: 1px solid #eee;
+}
+
+/* ---------------- QR ---------------- */
+
+.mail-qr-box {
+  text-align: center;
+  margin: 20px 0;
+  padding: 16px;
+  border: 1px dashed #ddd;
+  border-radius: 8px;
+}
+
+.mail-qr-title {
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.mail-qr-image {
+  border: 1px solid #ddd;
+  padding: 8px;
+  background: #fff;
+}
+
+.mail-qr-id {
+  font-size: 12px;
+  color: #666;
+  margin-top: 8px;
+  word-break: break-all;
+}
+
+/* ---------------- CTA ---------------- */
+
+.mail-cta-box {
+  text-align: center;
+  margin-top: 12px;
+}
+
+.mail-cta-button {
+  display: inline-block;
+  padding: 12px 18px;
+  background: #0d6efd;
+  color: #ffffff;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.mail-cta-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #666;
+}
+
+/* ---------------- FOOTER ---------------- */
+
+.mail-footer-text {
+  font-size: 14px;
+}
+
+.mail-status-ok {
+  color: #0a7;
+  font-weight: bold;
+}
+
+.mail-legal {
+  font-size: 13px;
+  color: #555;
+  line-height: 1.4;
+}
+
+.mail-brand {
+  font-size: 12px;
+  color: #aaa;
+  margin-top: 24px;
+  text-align: center;
+}

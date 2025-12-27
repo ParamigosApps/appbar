@@ -401,11 +401,6 @@ select:disabled {
   margin-top: 4px;
 }
 
-.lote-label {
-  font-weight: 700;
-  opacity: 0.85;
-}
-
 .lote-valor {
   font-weight: 600;
 }

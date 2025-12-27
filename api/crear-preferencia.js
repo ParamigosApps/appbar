@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   console.log('🔵 /api/crear-preferencia INICIADA')
 
   // ======================================================
-  // LEER RAW BODY (Vercel)
+  // LEER RAW BODY (requerido en Vercel)
   // ======================================================
   let rawBody = ''
   await new Promise(resolve => {
@@ -12,56 +12,49 @@ export default async function handler(req, res) {
     req.on('end', resolve)
   })
 
-  console.log('🟠 RAW BODY RECIBIDO:', rawBody)
-
   let body
   try {
     body = JSON.parse(rawBody)
-    console.log('📌 BODY PARSEADO:', body)
   } catch (err) {
-    console.error('❌ ERROR PARSEANDO JSON:', err)
+    console.error('❌ JSON inválido:', err)
     return res.status(400).json({ error: 'JSON inválido' })
   }
 
   // ======================================================
-  // VALIDAR TOKEN
+  // TOKEN MP (PRODUCCIÓN)
   // ======================================================
   const ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN
 
-  console.log('🔑 TOKEN PRESENTE?', !!ACCESS_TOKEN)
-
   if (!ACCESS_TOKEN) {
+    console.error('❌ MP_ACCESS_TOKEN no configurado')
     return res.status(500).json({
-      error: 'Falta MP_ACCESS_TOKEN en Vercel',
+      error: 'MP_ACCESS_TOKEN no configurado',
     })
   }
 
   const client = new MercadoPagoConfig({
-    accessToken: ACCESS_TOKEN,
+    accessToken: ACCESS_TOKEN, // 🔑 APP_USR_...
   })
 
   const preference = new Preference(client)
 
   // ======================================================
-  // ITEMS
+  // ITEMS (VALIDACIÓN FUERTE)
   // ======================================================
-  let items = body.items
+  let items = Array.isArray(body.items) ? body.items : []
 
-  if (!Array.isArray(items) || items.length === 0) {
-    console.log('⚠ items no válidos → generando item único')
-
+  if (items.length === 0) {
     items = [
       {
         title: body.title || 'Entrada',
         quantity: Number(body.quantity ?? 1),
         unit_price: Number(body.unit_price ?? body.price ?? 0),
         currency_id: 'ARS',
-        picture_url: body.picture_url ?? body.imagenEventoUrl ?? '',
+        picture_url: body.imagenEventoUrl || '',
       },
     ]
   }
 
-  // Validación fuerte (MP es estricto)
   items = items.map(i => ({
     title: String(i.title),
     quantity: Number(i.quantity),
@@ -70,56 +63,63 @@ export default async function handler(req, res) {
     picture_url: i.picture_url || '',
   }))
 
-  console.log('📦 ITEMS DEFINITIVOS:', items)
+  // Validación final (evita errores silenciosos)
+  for (const i of items) {
+    if (
+      !i.title ||
+      !Number.isInteger(i.quantity) ||
+      i.quantity <= 0 ||
+      !Number.isFinite(i.unit_price) ||
+      i.unit_price <= 0
+    ) {
+      return res.status(400).json({
+        error: 'Item inválido',
+        item: i,
+      })
+    }
+  }
 
-  const BASE_URL = 'https://appbar-react-final.vercel.app'
+  console.log('📦 ITEMS PRODUCCIÓN:', items)
+
+  const baseUrl =
+    'https://appbar-88phi9hta-ivan-ruizs-projects-c453caf9.vercel.app'
 
   // ======================================================
-  // CREAR PREFERENCIA
+  // CREAR PREFERENCIA (PRODUCCIÓN REAL)
   // ======================================================
   try {
-    console.log('🚀 Creando preferencia en Mercado Pago…')
-
-    const result = await preference.create({
+    const pref = await preference.create({
       body: {
         items,
 
         external_reference: body.external_reference || null,
 
-        payer:
-          body.payer && typeof body.payer === 'object'
-            ? body.payer
-            : { email: 'test_user_123456@test.com' },
-
         back_urls: {
-          success: `${BASE_URL}/pago-exitoso.html`,
-          failure: `${BASE_URL}/pago-fallido.html`,
-          pending: `${BASE_URL}/pago-pendiente.html`,
+          success: `${baseUrl}/pago-resultado?status=success`,
+          failure: `${baseUrl}/pago-resultado?status=failure`,
+          pending: `${baseUrl}/pago-resultado?status=pending`,
         },
 
         auto_return: 'approved',
       },
     })
 
-    const pref = result
-
-    console.log('🟦 RESULTADO MP REAL:', {
+    console.log('🟢 MP OK:', {
       id: pref.id,
       init_point: pref.init_point,
-      sandbox_init_point: pref.sandbox_init_point,
     })
 
+    // 🔥 SOLO PRODUCCIÓN (NO sandbox)
     return res.status(200).json({
       id: pref.id,
       init_point: pref.init_point,
-      sandbox_init_point: pref.sandbox_init_point,
     })
   } catch (error) {
-    console.error('❌ ERROR AL CREAR PREFERENCIA MP:', error)
+    console.error('❌ ERROR MERCADO PAGO:', error)
 
     return res.status(500).json({
-      error: error.message || 'Error Mercado Pago',
-      detalles: error,
+      error: 'Error al crear preferencia Mercado Pago',
+      detalle: error?.message || null,
     })
   }
 }

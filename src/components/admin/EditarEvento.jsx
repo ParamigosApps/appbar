@@ -226,6 +226,22 @@ export default function EditarEvento({ editarId, setSeccion }) {
     setLotes(prev => prev.filter(l => l.id !== id))
   }
 
+  function validarLotesEditados() {
+    for (const l of lotes) {
+      const vendidas = l._originalCantidadInicial - l.cantidad
+
+      if (l.cantidadInicial < vendidas) {
+        Swal.fire(
+          'Error',
+          `El lote "${l.nombre}" no puede tener menos capacidad que entradas ya vendidas (${vendidas}).`,
+          'error'
+        )
+        return false
+      }
+    }
+    return true
+  }
+
   // --------------------------------------------------------------
   // SUBMIT
   // --------------------------------------------------------------
@@ -243,6 +259,8 @@ export default function EditarEvento({ editarId, setSeccion }) {
       Swal.fire('Error', 'Completá nombre, fecha y lugar.', 'error')
       return
     }
+
+    if (!validarLotesEditados()) return
 
     if (!validarImagen(imagen)) return
 
@@ -472,22 +490,27 @@ export default function EditarEvento({ editarId, setSeccion }) {
                 type="number"
                 className="form-control form-control-sm"
                 value={lote.cantidadInicial}
-                disabled={tieneVentas}
                 min={vendidas}
                 onChange={e => {
                   const nuevaCapacidad = Number(e.target.value) || 0
                   if (nuevaCapacidad < vendidas) return
 
+                  const diferencia = nuevaCapacidad - lote.cantidadInicial
+
                   actualizarLote(lote.id, 'cantidadInicial', nuevaCapacidad)
+
+                  // 🔑 Ajustar restantes proporcionalmente
                   actualizarLote(
                     lote.id,
                     'cantidad',
-                    Math.max(nuevaCapacidad - vendidas, 0)
+                    Math.max(lote.cantidad + diferencia, 0)
                   )
                 }}
                 required
               />
-
+              <small className="text-muted">
+                Vendidas: {vendidas} · Capacidad mínima permitida
+              </small>
               {tieneVentas ? (
                 <small className="text-danger">
                   ⚠️ Este lote tiene {vendidas} entradas vendidas. No se puede

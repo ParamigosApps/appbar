@@ -44,3 +44,8 @@
    TOASTIFY 
 ------------------------- */
 @import './toastify.css';
+
+/* -------------------------
+   Mails Css
+------------------------- */
+@import './mailEntradas.css';

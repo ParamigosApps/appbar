@@ -58,7 +58,9 @@
 .lote-label {
   color: #4b5563;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
+  opacity: 0.85;
+  text-align: center;
 }
 .lote-horario-value {
   background: #dbeafe;
@@ -261,9 +263,7 @@
 
 @media (max-width: 400px) {
   .lote-label {
-    color: #4b5563;
     font-size: 0.7rem;
-    font-weight: 600;
   }
 
   .badge-consu-ok,

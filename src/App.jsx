@@ -27,6 +27,7 @@ import AdminConfiguracion from './components/admin/AdminConfiguracion.jsx'
 import AdminEmpleados from './components/admin/AdminEmpleados.jsx'
 import LectorQr from './components/qr/LectorQr.jsx'
 import { ToastContainer } from 'react-toastify'
+import PagoResultado from './pages/PagoResultado.jsx'
 
 export default function App() {
   return (
@@ -99,6 +100,8 @@ export default function App() {
         <Route element={<AdminRoute modulo="config" />}>
           <Route path="/admin/config" element={<AdminConfiguracion />} />
         </Route>
+
+        <Route path="/pago-resultado" element={<PagoResultado />} />
       </Routes>
       {/* Toasts GLOBAL */}
       <ToastContainer

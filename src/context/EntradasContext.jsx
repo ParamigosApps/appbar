@@ -160,6 +160,15 @@ export function EntradasProvider({ children }) {
     })
   }, [user])
 
+  function construirDescripcionEntradas(detalles) {
+    return detalles
+      .map(d => {
+        const total = d.precio * d.cantidad
+        return `${d.cantidad} ${d.nombre} ($${total.toLocaleString('es-AR')})`
+      })
+      .join('\n')
+  }
+
   async function recargarPendientes(uid) {
     const snap = await getDocs(
       query(collection(db, 'entradasPendientes'), where('usuarioId', '==', uid))
@@ -422,6 +431,7 @@ export function EntradasProvider({ children }) {
           </div>
         </div>
       `
+        const descripcionEntradas = construirDescripcionEntradas(detallesPagos)
 
         const metodoPago = await Swal.fire({
           title: '',
@@ -432,6 +442,9 @@ export function EntradasProvider({ children }) {
       gratis,
       pagas: detallesPagos,
     })}
+<p style="white-space: pre-line; font-weight: 500; margin-top: 12px;">
+  ${descripcionEntradas}
+</p>
 
     <p class="total-box">
       Total a pagar: <b>$${totalPagos.toLocaleString('es-AR')}</b>
@@ -475,8 +488,15 @@ export function EntradasProvider({ children }) {
             evento,
             usuarioId,
             eventoId: evento.id,
-            entradasGratisPendientes,
-            detallesPagos, // ✅ enviar lotes reales
+            loteSel: {
+              id: 'multi',
+              nombre: 'Entradas',
+              detalles: detallesPagos.map(d => ({
+                nombre: d.nombre,
+                cantidad: d.cantidad,
+                precio: d.precio,
+              })),
+            },
           })
         }
 
@@ -496,7 +516,7 @@ export function EntradasProvider({ children }) {
           usuarioNombre,
           eventoId: evento.id,
           entradasGratisPendientes,
-          detallesPagos, // ✅ enviar lotes reales
+          detallesPagos,
         })
       }
 

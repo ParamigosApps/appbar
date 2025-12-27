@@ -101,7 +101,7 @@ export async function manejarMercadoPago({
       }
 
       return {
-        title: `${d.nombre} — ${evento.nombre}`,
+        title: `${d.cantidad} ${d.nombre} — ${evento.nombre}`,
         quantity: cantidadSegura, // ✅ FIX: entero seguro
         unit_price: precioSeguro, // ✅ FIX: number seguro para MP
         currency_id: 'ARS',
@@ -164,6 +164,14 @@ export async function manejarMercadoPago({
       // 🔑 ESTO ES LO QUE PREGUNTABAS
       // ----------------------------
       itemsPagados: loteSel?.detalles ?? [],
+
+      descripcion: (loteSel?.detalles ?? [])
+        .map(d => {
+          const total = Number(d.precio) * Number(d.cantidad)
+          return `${d.cantidad} ${d.nombre} ($${total.toLocaleString('es-AR')})`
+        })
+        .join('\n'),
+
       total: items.reduce((acc, i) => acc + i.unit_price * i.quantity, 0),
 
       // ----------------------------
@@ -176,6 +184,7 @@ export async function manejarMercadoPago({
       // FECHA
       // ----------------------------
       createdAt: serverTimestamp(),
+      paymentStartedAt: serverTimestamp(),
     })
 
     // 🔑 ESTE ID ES CLAVE PARA EL WEBHOOK

@@ -17,6 +17,38 @@ import { generarEntradaQr } from '../../services/generarQrService.js'
 import { formatearSoloFecha } from '../../utils/utils.js'
 import Swal from 'sweetalert2'
 
+function descargarQr({ ticketId, nombreEvento, loteNombre, index }) {
+  const canvas = document.querySelector(`#qr_${ticketId} canvas`)
+  if (!canvas) {
+    Swal.fire('Error', 'No se pudo generar el QR', 'error')
+    return
+  }
+
+  const dataUrl = canvas.toDataURL('image/png')
+
+  // Normalizar texto para filename
+  const slug = str =>
+    str
+      ?.toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '')
+
+  const nombreArchivo =
+    [
+      slug(nombreEvento).toUpperCase(),
+      slug(loteNombre || 'entrada').toUpperCase(),
+      `#${index + 1}`,
+    ].join('-') + '.png'
+  const link = document.createElement('a')
+  link.href = dataUrl
+  link.download = nombreArchivo
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
 // ============================================================
 // BADGE
 // ============================================================
@@ -294,7 +326,7 @@ export default function MisEntradas() {
                     const porcentaje = calcularPorcentajeDisponible(l)
                     const mostrarBarra = porcentaje !== null && porcentaje <= 30
 
-                    const todasDisponlibles = aprobadas > 0 && usadas === 0
+                    const todasDisponibles = aprobadas > 0 && usadas === 0
                     const algunasDisponibles =
                       aprobadas > 0 &&
                       usadas < aprobadas &&
@@ -303,6 +335,10 @@ export default function MisEntradas() {
                     const algunasUsadas = usadas > 0 && usadas < aprobadas
                     const textoUsadas =
                       usadas === 1 ? 'Entrada usada' : 'Entradas usadas'
+                    const textoAlgunasDisponibles =
+                      aprobadas - usadas === 1
+                        ? 'Entrada disponible'
+                        : 'Entradas disponibles'
 
                     const puedeAbrirQr = aprobadas > 0
                     return (
@@ -350,7 +386,7 @@ export default function MisEntradas() {
 
                           <div className="ticket-info text-muted">
                             Cantidad: <strong>{total}</strong>
-                            {todasDisponlibles &&
+                            {todasDisponibles &&
                               algunasUsadas == 0 &&
                               pendientes == 0 && (
                                 <span className="ms-2 text-success fw-semibold">
@@ -367,9 +403,9 @@ export default function MisEntradas() {
                                 · {usadas} {textoUsadas}
                               </span>
                             )}
-                            {algunasDisponibles && !todasDisponlibles && (
+                            {algunasDisponibles && !todasDisponibles && (
                               <span className="ms-2 text-success fw-semibold">
-                                · {lenghDisponibles} Entradas disponibles
+                                · {lenghDisponibles} {textoAlgunasDisponibles}
                               </span>
                             )}
                             {pendientes > 0 && (
@@ -467,8 +503,16 @@ export default function MisEntradas() {
                   <button
                     className="btn swal-btn-confirm mt-1"
                     disabled={t.usado}
+                    onClick={() =>
+                      descargarQr({
+                        ticketId: t.id,
+                        nombreEvento: qrModal.nombreEvento,
+                        loteNombre: qrModal.lote?.nombre,
+                        index: i,
+                      })
+                    }
                   >
-                    Descargar QR: #{i + 1}
+                    Descargar QR #{i + 1}
                   </button>
                 </div>
               ))}
