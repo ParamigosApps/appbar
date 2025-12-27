@@ -1,12 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  orderBy,
-  limit,
-} from 'firebase/firestore'
+import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../Firebase.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import Swal from 'sweetalert2'
@@ -30,6 +23,7 @@ export default function PagoResultado() {
 
   const params = useMemo(() => new URLSearchParams(window.location.search), [])
   const statusQuery = normalizarStatus(params.get('status'))
+  const pagoId = params.get('external_reference') // 🔑 CLAVE
 
   const [estadoReal, setEstadoReal] = useState('cargando')
   const [pago, setPago] = useState(null)
@@ -43,45 +37,32 @@ export default function PagoResultado() {
   // POLLING CONTROLADO
   // --------------------------------------------------
   useEffect(() => {
-    if (!user?.uid) {
+    if (!user?.uid || !pagoId) {
       setEstadoReal('desconocido')
       return
     }
 
     async function cargarEstadoPago() {
       try {
-        const q = query(
-          collection(db, 'pagos'),
-          where('usuarioId', '==', user.uid),
-          orderBy('createdAt', 'desc'),
-          limit(1)
-        )
+        const pagoRef = doc(db, 'pagos', pagoId)
+        const pagoSnap = await getDoc(pagoRef)
 
-        const snap = await getDocs(q)
+        if (!pagoSnap.exists()) {
+          setEstadoReal('pendiente')
+        } else {
+          const docPago = { id: pagoSnap.id, ...pagoSnap.data() }
+          setPago(docPago)
 
-        if (snap.empty) {
-          setEstadoReal('desconocido')
-          return
+          const estado = (docPago.estado || '').toLowerCase()
+
+          if (['aprobado', 'fallido', 'monto_invalido'].includes(estado)) {
+            setEstadoReal(estado)
+            detenerPolling()
+            return
+          }
+
+          setEstadoReal('pendiente')
         }
-
-        const docPago = {
-          id: snap.docs[0].id,
-          ...snap.docs[0].data(),
-        }
-
-        setPago(docPago)
-
-        const estado = (docPago.estado || '').toLowerCase()
-
-        // 🔐 Estados finales → detener polling
-        if (['aprobado', 'fallido', 'monto_invalido'].includes(estado)) {
-          setEstadoReal(estado)
-          detenerPolling()
-          return
-        }
-
-        // ⏳ Pendiente
-        setEstadoReal('pendiente')
 
         intentosRef.current += 1
         if (intentosRef.current >= MAX_INTENTOS) {
@@ -89,9 +70,9 @@ export default function PagoResultado() {
           detenerPolling()
         }
       } catch (err) {
-        console.error('❌ Error polling pago:', err)
-        detenerPolling()
+        console.error('❌ Error cargando pago:', err)
         setEstadoReal('desconocido')
+        detenerPolling()
       }
     }
 
@@ -106,7 +87,7 @@ export default function PagoResultado() {
     intervalRef.current = setInterval(cargarEstadoPago, POLL_INTERVAL)
 
     return detenerPolling
-  }, [user])
+  }, [user, pagoId])
 
   // --------------------------------------------------
   // MENSAJE UX INICIAL (solo informativo)
@@ -205,7 +186,6 @@ export default function PagoResultado() {
 
         <p style={{ marginTop: 12, whiteSpace: 'pre-line' }}>{ui.texto}</p>
 
-        {/* ---------------- DETALLE DEL PAGO ---------------- */}
         {pago && (
           <div style={{ marginTop: 14, fontSize: 14, opacity: 0.9 }}>
             <div>
@@ -225,29 +205,9 @@ export default function PagoResultado() {
                   .toLocaleString('es-AR')}
               </div>
             )}
-
-            {pago.paymentId && (
-              <div
-                style={{ cursor: 'pointer' }}
-                onClick={() => {
-                  navigator.clipboard.writeText(pago.paymentId)
-                  Swal.fire({
-                    toast: true,
-                    position: 'bottom',
-                    icon: 'success',
-                    title: 'Referencia copiada',
-                    showConfirmButton: false,
-                    timer: 1500,
-                  })
-                }}
-              >
-                <b>Referencia MP:</b> {pago.paymentId} 📋
-              </div>
-            )}
           </div>
         )}
 
-        {/* ---------------- ACCIONES ---------------- */}
         <div
           style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}
         >
@@ -265,21 +225,6 @@ export default function PagoResultado() {
               onClick={actualizarEstadoManual}
             >
               Actualizar estado
-            </button>
-          )}
-
-          {(estadoReal === 'monto_invalido' ||
-            (estadoReal === 'pendiente' && pollingFinalizado)) && (
-            <button
-              className="swal-btn-cancel"
-              onClick={() =>
-                window.open(
-                  'https://wa.me/549XXXXXXXXXX?text=Hola, tengo un pago en revisión.',
-                  '_blank'
-                )
-              }
-            >
-              Contactar soporte
             </button>
           )}
         </div>
