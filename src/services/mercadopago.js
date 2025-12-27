@@ -1,55 +1,4 @@
-export async function crearPreferenciaEntrada({
-  usuarioId,
-  eventoId,
-  items,
-  imagenEventoUrl,
-}) {
-  try {
-    if (!Array.isArray(items) || !items.length) {
-      throw new Error('Items inválidos para Mercado Pago')
-    }
-
-    const body = {
-      items: items.map(i => {
-        if (
-          !Number.isFinite(i.unit_price) ||
-          i.unit_price <= 0 ||
-          !Number.isInteger(i.quantity) ||
-          i.quantity <= 0
-        ) {
-          throw new Error('Item inválido enviado a MP')
-        }
-
-        return {
-          title: i.title,
-          quantity: i.quantity,
-          unit_price: i.unit_price,
-          currency_id: 'ARS',
-          picture_url: imagenEventoUrl || '',
-        }
-      }),
-      external_reference: `${usuarioId}_${eventoId}`,
-    }
-
-    const res = await fetch('/api/crear-preferencia', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    })
-
-    if (!res.ok) {
-      const err = await res.json()
-      console.error('❌ Error backend MP:', err)
-      return null
-    }
-
-    const data = await res.json()
-    return data?.init_point || null
-  } catch (err) {
-    console.error('❌ Error crearPreferenciaEntrada:', err)
-    return null
-  }
-}
+// src/services/mercadoPagoEntradas.js
 
 function normalizarPrecio(valor) {
   if (!valor) return 0
@@ -61,6 +10,33 @@ function normalizarPrecio(valor) {
   return Number(valor) || 0
 }
 
+export async function crearPreferenciaEntrada({
+  usuarioId,
+  eventoId,
+  pagoId,
+  items,
+  imagenEventoUrl,
+}) {
+  const body = {
+    items,
+    imagenEventoUrl,
+    external_reference: pagoId,
+  }
+
+  const res = await fetch('/api/crear-preferencia', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) {
+    const raw = await res.text()
+    console.error('❌ Backend MP error:', raw)
+    return null
+  }
+
+  return await res.json()
+}
 export async function crearPreferenciaCompra({ carrito, ticketId }) {
   try {
     const items = carrito.map(p => {

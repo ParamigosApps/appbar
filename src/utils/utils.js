@@ -2,7 +2,6 @@
 // src/utils/utils.js
 // --------------------------------------------------------------
 import Toastify from 'toastify-js'
-import 'toastify-js/src/toastify.css'
 // Formatea una fecha a: "23/11/2025, 07:35HS"
 export function formatearFecha(fecha = new Date()) {
   try {

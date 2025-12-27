@@ -26,8 +26,14 @@ export default async function handler(req, res) {
 
   try {
     const body = req.body || {}
-    const tipo = body.type || body.topic
-    const paymentId = body?.data?.id
+    const tipo = body.type || body.topic || req.query.topic
+    const paymentId = body?.data?.id || req.query.id
+    console.log('💳 PAYMENT MP', {
+      id: payment.id,
+      status: payment.status,
+      amount: payment.transaction_amount,
+      external_reference: payment.external_reference,
+    })
 
     if (tipo !== 'payment' || !paymentId) {
       return res.status(200).send('ignored')
@@ -42,6 +48,12 @@ export default async function handler(req, res) {
         },
       }
     )
+    console.log('💳 PAYMENT MP', {
+      id: payment.id,
+      status: payment.status,
+      amount: payment.transaction_amount,
+      external_reference: payment.external_reference,
+    })
 
     if (!mpRes.ok) {
       console.error('❌ Error MP:', mpRes.status)

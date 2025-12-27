@@ -215,24 +215,25 @@ export async function crearPedido({ carrito, total, lugar, pagado, evento }) {
     // --------------------------------------------------
     // 2️⃣ GENERAR QR VISUAL (SIEMPRE)
     // --------------------------------------------------
+    if (pagado === true) {
+      const qrDiv = await generarCompraQr({
+        compraId: ref.id,
+        numeroPedido,
+        usuarioId,
+      })
 
-    const qrDiv = await generarCompraQr({
-      compraId: ref.id,
-      numeroPedido,
-      usuarioId,
-    })
+      const qrUrl = await subirQrGeneradoAFirebase({
+        qrDiv,
+        path: `qr/compras/${ref.id}.png`,
+      })
 
-    const qrUrl = await subirQrGeneradoAFirebase({
-      qrDiv,
-      path: `qr/compras/${ref.id}.png`,
-    })
-
-    // --------------------------------------------------
-    // 3️⃣ GUARDAR QR EN FIRESTORE
-    // --------------------------------------------------
-    await updateDoc(doc(db, 'compras', ref.id), {
-      qrUrl,
-    })
+      // --------------------------------------------------
+      // 3️⃣ GUARDAR QR EN FIRESTORE
+      // --------------------------------------------------
+      await updateDoc(doc(db, 'compras', ref.id), {
+        qrUrl,
+      })
+    }
 
     return {
       id: ref.id,

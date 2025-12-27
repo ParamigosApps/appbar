@@ -4,7 +4,7 @@
 // --------------------------------------------------------------
 
 import Swal from 'sweetalert2'
-import { crearPreferenciaEntrada } from '../../services/mercadoPagoEntradas.js'
+import { crearPreferenciaEntrada } from '../../services/mercadoPago.js'
 import {
   obtenerDatosBancarios,
   obtenerContacto,

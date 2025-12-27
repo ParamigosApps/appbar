@@ -3,7 +3,7 @@ import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../Firebase.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import Swal from 'sweetalert2'
-
+import { useNavigate } from 'react-router-dom'
 // --------------------------------------------------
 // CONFIG
 // --------------------------------------------------
@@ -32,6 +32,8 @@ export default function PagoResultado() {
 
   const intentosRef = useRef(0)
   const intervalRef = useRef(null)
+
+  const navigate = useNavigate()
 
   // --------------------------------------------------
   // POLLING CONTROLADO
@@ -105,31 +107,39 @@ export default function PagoResultado() {
   }, [statusQuery])
 
   // --------------------------------------------------
+
   // ACTIONS
   // --------------------------------------------------
   function irMisEntradas() {
     if (navegando) return
     setNavegando(true)
 
-    // 🔁 disparar ahora
-    document.dispatchEvent(new Event('abrir-mis-entradas'))
+    // navegación real
+    navigate('/mis-entradas')
 
-    // 🔁 y repetir luego por si el menú aún no estaba listo
+    // fallback por si el router aún no estaba listo
     setTimeout(() => {
-      document.dispatchEvent(new Event('abrir-mis-entradas'))
+      navigate('/mis-entradas')
     }, 300)
   }
 
   function irInicio() {
     if (navegando) return
     setNavegando(true)
-    window.location.href = '/'
+    navigate('/')
   }
 
   function actualizarEstadoManual() {
     intentosRef.current = 0
     setPollingFinalizado(false)
     setEstadoReal('cargando')
+
+    // reiniciar polling manual
+    if (!intervalRef.current) {
+      intervalRef.current = setInterval(() => {
+        intentosRef.current += 1
+      }, POLL_INTERVAL)
+    }
   }
 
   // --------------------------------------------------
@@ -218,11 +228,19 @@ export default function PagoResultado() {
         <div
           style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}
         >
-          <button className="swal-btn-confirm" onClick={irMisEntradas}>
+          <button
+            className="swal-btn-confirm"
+            onClick={irMisEntradas}
+            disabled={navegando}
+          >
             Ver Mis Entradas
           </button>
 
-          <button className="swal-btn-cancel" onClick={irInicio}>
+          <button
+            className="swal-btn-cancel"
+            onClick={irInicio}
+            disabled={navegando}
+          >
             Volver al inicio
           </button>
 

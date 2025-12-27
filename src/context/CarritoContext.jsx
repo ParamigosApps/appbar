@@ -14,7 +14,7 @@ import {
   validarLimitePendientes,
   crearPedido,
 } from '../services/comprasService.js'
-import { crearPreferenciaCompra } from '../services/mercadopago.js'
+import { crearPreferenciaCompra } from '../services/mercadoPago.js'
 import { mostrarQrCompraReact } from '../components/qr/ModalQrCompra.jsx'
 
 import { abrirLoginGlobal } from '../utils/utils'
