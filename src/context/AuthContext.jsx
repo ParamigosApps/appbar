@@ -58,25 +58,46 @@ export function AuthProvider({ children }) {
   const [permisos, setPermisos] = useState({})
   const [loading, setLoading] = useState(true)
   const { validarEventoVigente, limpiarEvento } = useEvento()
-  const eventoCtx = useEvento()
-  console.log('EVENTO CTX:', eventoCtx)
+
   // 🔑 FLAGS REALES
   const [authListo, setAuthListo] = useState(false)
   const [permisosListos, setPermisosListos] = useState(false)
 
-  const [loginSettings] = useState({
-    google: true,
-    facebook: true,
-    phone: true,
-  })
-
   const recaptchaRef = useRef(null)
   const confirmationRef = useRef(null)
+  const [loginSettings, setLoginSettings] = useState(null)
 
   const EMAIL_LINK_SETTINGS = {
     url: 'https://appbar-rose.vercel.app/',
     handleCodeInApp: true,
   }
+
+  function esAdminTotal() {
+    return getNivel() === 4
+  }
+
+  useEffect(() => {
+    async function initSeguridad() {
+      // 🔓 ADMIN TOTAL → permisos fijos
+      if (esAdminTotal()) {
+        setPermisos({
+          admin: true,
+          eventos: true,
+          compras: true,
+          entradas: true,
+          productos: true,
+          empleados: true,
+        })
+        setPermisosListos(true)
+        return
+      }
+
+      // 👤 Usuario normal
+      await cargarPermisosSistema()
+    }
+
+    initSeguridad()
+  }, [adminUser, user])
 
   useEffect(() => {
     async function completarLoginEmailLink() {
@@ -158,7 +179,7 @@ export function AuthProvider({ children }) {
       const admin = JSON.parse(raw)
       if (admin?.manual && admin?.nivel) {
         setAdminUser(admin)
-        setRolUsuario(Number(admin.nivel))
+        setRolUsuario(admin.nivel)
       }
     } catch (e) {
       console.error('Error restaurando admin manual', e)
@@ -255,16 +276,51 @@ export function AuthProvider({ children }) {
     window.addEventListener('perfil-actualizado', handler)
     return () => window.removeEventListener('perfil-actualizado', handler)
   }, [])
-  useEffect(() => {
-    cargarPermisosSistema()
-  }, [])
 
-  // 🔑 cerrar loading solo cuando TODO esté listo
   useEffect(() => {
-    if (authListo && permisosListos) {
+    if (authListo && permisosListos && loginSettings) {
       setLoading(false)
     }
-  }, [authListo, permisosListos])
+  }, [authListo, permisosListos, loginSettings])
+  function getNivel() {
+    return Number(adminUser?.nivel || 0)
+  }
+  function tienePermiso(clave) {
+    if (esAdminTotal()) return true
+    if (!permisos) return false
+    return permisos[clave] === true
+  }
+
+  useEffect(() => {
+    cargarAuthConfig()
+  }, [])
+
+  async function cargarAuthConfig() {
+    try {
+      const ref = doc(db, 'configuracion', 'auth')
+      const snap = await getDoc(ref)
+
+      if (snap.exists()) {
+        setLoginSettings(snap.data())
+      } else {
+        // fallback seguro
+        setLoginSettings({
+          google: true,
+          email: true,
+          phone: false,
+          facebook: false,
+        })
+      }
+    } catch (err) {
+      console.error('❌ Error cargando auth config', err)
+      setLoginSettings({
+        google: true,
+        email: true,
+        phone: false,
+        facebook: false,
+      })
+    }
+  }
 
   // ============================================================
   // PERMISOS DEL SISTEMA
@@ -470,9 +526,16 @@ export function AuthProvider({ children }) {
 
       Swal.fire({
         icon: 'success',
-        title: 'Enlace enviado',
-        text: 'Abrí el link desde este mismo dispositivo para iniciar sesión.',
-        confirmButtonText: 'Entendido',
+        title: 'Link enviado',
+        text: 'Si no ves el correo, revisá la carpeta de Spam o Promociones.',
+        confirmButtonText: 'Revisaré mi mail',
+        buttonsStyling: false,
+        customClass: {
+          popup: 'swal-popup-custom',
+          title: 'swal-title',
+          htmlContainer: 'swal-text',
+          confirmButton: 'swal-btn-confirm',
+        },
       })
     } catch (err) {
       console.error('❌ Error enviando email link:', err)
@@ -515,7 +578,6 @@ export function AuthProvider({ children }) {
       const snap = await getDoc(ref)
 
       const esPrimerLogin = !snap.exists()
-      let smsEnviado = false
 
       let nombre = snap.exists() ? snap.data().nombre : ''
       let nombreConfirmado = snap.exists()
@@ -754,6 +816,8 @@ export function AuthProvider({ children }) {
         permisos,
         loading,
         loginSettings,
+
+        // auth
         loginGoogle,
         loginFacebook,
         loginTelefonoEnviarCodigo,
@@ -761,7 +825,12 @@ export function AuthProvider({ children }) {
         loginEmailEnviarLink,
         loginAdminManual,
         logout,
+
+        // helpers
         puedeEditarPerfil,
+        tienePermiso,
+        esAdminTotal,
+        getNivel,
       }}
     >
       {children}

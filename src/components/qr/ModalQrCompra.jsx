@@ -20,12 +20,6 @@ export async function mostrarQrCompraReact(pedido, onClose) {
       qrUrl,
     } = pedido
 
-    const estadosPretty = {
-      pagado: 'PAGADO',
-      pendiente: 'PENDIENTE',
-      retirado: 'RETIRADO',
-    }
-
     const badgeEstado = estado => {
       const map = {
         pendiente: { text: 'Pendiente', bg: '#f59e0b', color: '#111' },
@@ -39,6 +33,8 @@ export async function mostrarQrCompraReact(pedido, onClose) {
         bg: '#6b7280',
         color: '#fff',
       }
+
+      const codigoValidacion = ticketId || numeroPedido
 
       return `
     <span style="
@@ -54,6 +50,7 @@ export async function mostrarQrCompraReact(pedido, onClose) {
     </span>
   `
     }
+    const codigoValidacion = ticketId || numeroPedido
 
     await Swal.fire({
       title: '🧾 Ticket de Compra',
@@ -114,11 +111,28 @@ export async function mostrarQrCompraReact(pedido, onClose) {
                 </div>
               `
               : `
-                <p style="text-align:center;color:#999;margin-top:12px">
-                  QR no disponible
-                </p>
+            <p style="text-align:center;color:#999;margin:60px 0">
+              QR no disponible
+            </p>
+
               `
           }
+
+<p style="font-size:12px;color:#666">
+  ID código ingreso manual: 
+  
+  <span style="
+    font-size:14px;
+    font-weight:700;
+    letter-spacing:0.7px;
+    display:inline-block;
+    margin-top:4px;
+  ">
+    ${codigoValidacion}
+  </span>
+</p>
+
+
 
           ${
             estado !== 'retirado'
@@ -138,19 +152,31 @@ export async function mostrarQrCompraReact(pedido, onClose) {
 
       didOpen: () => {
         document.getElementById('btnWsp')?.addEventListener('click', () => {
-          let msg = `🧾 *Ticket de compra*\\n`
-          msg += `Pedido #${numeroPedido ?? ticketId}\\n`
-          msg += `Estado: ${estado.toUpperCase()}\\n`
-          msg += `Total: $${total}\\n`
-          msg += `Fecha: ${fechaHumana}\\n`
+          const detalleProductos = carrito
+            .map(p => `• ${p.nombre} ×${p.enCarrito}`)
+            .join('\n')
 
+          const codigoValidacion = ticketId || numeroPedido
+
+          const msg =
+            `- *Ticket de compra*\n` +
+            `Pedido #${numeroPedido ?? codigoValidacion}\n` +
+            `Estado: ${estado.toUpperCase()}\n` +
+            `Fecha: ${fechaHumana}\n` +
+            `*Detalle del pedido:*\n` +
+            `${detalleProductos}\n` +
+            `- *Total:* $${total}\n\n` +
+            (qrUrl
+              ? `*Link al QR para retirar el pedido:*\n${qrUrl}\n\n`
+              : '') +
+            `Si el QR no escanea, informá este código al personal.\n` +
+            `- *Código de validación:* ${codigoValidacion}`
           window.open(
             `https://wa.me/?text=${encodeURIComponent(msg)}`,
             '_blank'
           )
         })
       },
-
       willClose: () => onClose && onClose(),
     })
   } catch (err) {

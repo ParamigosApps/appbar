@@ -22,7 +22,7 @@ import { escucharCantidadEntradasPendientes } from '../services/entradasAdmin.js
 
 export default function AdminPage() {
   const navigate = useNavigate()
-  const { user, rolUsuario, permisos, logout } = useAuth()
+  const { user, logout, esAdminTotal, tienePermiso } = useAuth()
 
   const [seccion, setSeccion] = useState('menu')
   const [editarId, setEditarId] = useState(null)
@@ -30,27 +30,20 @@ export default function AdminPage() {
 
   const [entradasPendientes, setEntradasPendientes] = useState(0)
 
-  // --------------------------------------------------------------
-  // Helper permisos
-  // --------------------------------------------------------------
   function acceso(mod) {
-    if (!permisos || !rolUsuario) return false
-    const lista = permisos[`nivel${rolUsuario}`]
-    if (!lista) return false
-    if (lista.includes('*')) return true
-    return lista.includes(mod)
+    // 🔓 Admin total ve TODO
+    if (esAdminTotal()) return true
+
+    // 👤 Empleado: permiso puntual
+    return tienePermiso(mod)
   }
 
-  // --------------------------------------------------------------
-  // Badge entradas pendientes (REALTIME)
-  // --------------------------------------------------------------
   useEffect(() => {
     if (!acceso('entradas')) return
 
     const unsub = escucharCantidadEntradasPendientes(setEntradasPendientes)
-
     return () => unsub && unsub()
-  }, [rolUsuario, permisos])
+  }, [entradasPendientes])
 
   // --------------------------------------------------------------
   // Render dinámico
@@ -108,7 +101,9 @@ export default function AdminPage() {
           <div className="user-name">
             {user?.displayName || user?.email || 'Usuario'}
           </div>
-          <div className="user-role">Rol: {rolUsuario || 'invitado'}</div>
+          <div className="user-role">
+            Rol: {esAdminTotal() ? 'Administrador' : 'Empleado'}
+          </div>
         </div>
 
         {acceso('eventos') && (

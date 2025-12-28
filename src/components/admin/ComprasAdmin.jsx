@@ -35,6 +35,20 @@ function formatearFecha(ts) {
   }
 }
 
+function formatearFechaEvento(fecha) {
+  try {
+    if (!fecha) return null
+
+    if (typeof fecha.toDate === 'function') {
+      return fecha.toDate().toLocaleDateString('es-AR')
+    }
+
+    return new Date(fecha).toLocaleDateString('es-AR')
+  } catch {
+    return null
+  }
+}
+
 // Inferir método de pago si no viene seteado
 function obtenerMetodoPago(pedido) {
   const metodo = pedido.metodoPago
@@ -54,7 +68,7 @@ function obtenerMetodoPago(pedido) {
 const lugaresConfig = {
   Tienda: {
     color: '#0d6efd',
-    label: 'Tienda',
+    label: 'Barra Tienda',
   },
   'Barra 1': {
     color: '#fd7e14',
@@ -76,7 +90,8 @@ const lugaresConfig = {
 
 // CSV por lugar
 function exportarCSVCompras(lugar, compras) {
-  let csv = 'numeroPedido,usuario,metodoPago,estado,lugar,total,fecha,items\n'
+  const SEP = ';'
+  let csv = `numeroPedido${SEP}usuario${SEP}metodoPago${SEP}estado${SEP}lugar${SEP}total${SEP}fecha${SEP}items\n`
 
   compras.forEach(p => {
     const fecha = formatearFecha(p.creadoEn || p.fecha)
@@ -87,11 +102,11 @@ function exportarCSVCompras(lugar, compras) {
           .join(' | ')
       : '-'
 
-    csv += `${p.numeroPedido || '-'},${p.usuarioNombre || '-'},${
+    csv += `${p.numeroPedido || '-'}${SEP}${p.usuarioNombre || '-'}${SEP}${
       metodo || '-'
-    },${p.estado || '-'},${p.lugar || '-'},${
+    }${SEP}${p.estado || '-'}${SEP}${p.lugar || '-'}${SEP}${
       p.total || 0
-    },${fecha},"${itemsTexto}"\n`
+    }${SEP}${fecha}${SEP}"${itemsTexto}"\n`
   })
 
   const totalRecaudado = compras.reduce((acc, p) => acc + (p.total || 0), 0)
@@ -104,9 +119,9 @@ function exportarCSVCompras(lugar, compras) {
   }, 0)
 
   csv += `\nRESUMEN DEL LUGAR: ${lugar}\n`
-  csv += `Total recaudado,, , , ,${totalRecaudado}\n`
-  csv += `Cantidad de pedidos,, , , ,${compras.length}\n`
-  csv += `Productos vendidos,, , , ,${totalProductos}\n`
+  csv += `Total recaudado${SEP}${SEP}${SEP}${SEP}${SEP}${totalRecaudado}\n`
+  csv += `Cantidad de pedidos${SEP}${SEP}${SEP}${SEP}${SEP}${compras.length}\n`
+  csv += `Productos vendidos${SEP}${SEP}${SEP}${SEP}${SEP}${totalProductos}\n`
 
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
   const link = document.createElement('a')
@@ -427,9 +442,11 @@ export default function ComprasAdmin() {
               onClick={() => setOpenLugar(isOpen ? null : lugarKey)}
             >
               <div className="d-flex justify-content-between">
-                <strong style={{ color: cfg.color, fontSize: '1.05rem' }}>
-                  {cfg.label}
-                </strong>
+                {comprasLugar[0]?.nombreEvento && (
+                  <div style={{ fontSize: '.75rem', color: '#555' }}>
+                    Evento: <b>{comprasLugar[0].nombreEvento}</b>
+                  </div>
+                )}
                 <span>{isOpen ? '▲' : '▼'}</span>
               </div>
 
@@ -485,6 +502,22 @@ export default function ComprasAdmin() {
                         >
                           Pedido #{p.numeroPedido || '-'}
                         </div>
+
+                        {p.nombreEvento && (
+                          <div
+                            style={{
+                              fontSize: '.8rem',
+                              color: '#666',
+                              marginTop: 2,
+                            }}
+                          >
+                            🎉 {p.nombreEvento}
+                            {formatearFechaEvento(p.fechaEvento) && (
+                              <> — {formatearFechaEvento(p.fechaEvento)}</>
+                            )}
+                          </div>
+                        )}
+
                         <div style={{ fontSize: '.8rem', color: '#555' }}>
                           Cliente:{' '}
                           <span style={{ fontWeight: 500 }}>

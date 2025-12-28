@@ -36,7 +36,7 @@ export function QrCompraProvider({ children }) {
 
     console.log('✅ QR Compra generado')
   }, [visible, data])
-
+  caca
   return (
     <QrCompraContext.Provider value={{ mostrarQrCompra, cerrarQrCompra }}>
       {children}

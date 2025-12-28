@@ -5,10 +5,14 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
-import googleIcon from '../assets/img/google.png'
-
 export default function LoginEmpleado() {
-  const { loginAdminManual, user, rolUsuario } = useAuth()
+  const {
+    loginAdminManual,
+    adminUser,
+    esAdminTotal,
+    loading: authLoading,
+  } = useAuth()
+
   const navigate = useNavigate()
 
   const [usuario, setUsuario] = useState('')
@@ -16,6 +20,9 @@ export default function LoginEmpleado() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // ------------------------------------------------------------
+  // LOGIN ADMIN LOCAL
+  // ------------------------------------------------------------
   async function loginLocal(e) {
     e.preventDefault()
     setError('')
@@ -36,16 +43,24 @@ export default function LoginEmpleado() {
       return
     }
 
+    // ✅ LOGIN ADMIN OK
     navigate('/admin', { replace: true })
   }
 
-  // 🔁 Si ya está logueado como admin
+  // ------------------------------------------------------------
+  // 🔁 SI YA ESTÁ LOGUEADO COMO ADMIN → REDIRIGIR
+  // ------------------------------------------------------------
   useEffect(() => {
-    if (user && rolUsuario > 0) {
+    if (authLoading) return
+
+    if (esAdminTotal() || adminUser) {
       navigate('/admin', { replace: true })
     }
-  }, [user, rolUsuario, navigate])
+  }, [authLoading, adminUser, esAdminTotal, navigate])
 
+  // ------------------------------------------------------------
+  // RENDER
+  // ------------------------------------------------------------
   return (
     <div className="login-wrapper">
       <h2 className="login-title">PANEL ADMIN</h2>
@@ -63,6 +78,7 @@ export default function LoginEmpleado() {
             setUsuario(e.target.value)
             setError('')
           }}
+          autoComplete="username"
         />
 
         <input
@@ -74,9 +90,10 @@ export default function LoginEmpleado() {
             setPass(e.target.value)
             setError('')
           }}
+          autoComplete="current-password"
         />
 
-        {/* ❌ ERROR EN ROJO */}
+        {/* ERROR */}
         {error && (
           <div className="text-danger text-center small mb-2">{error}</div>
         )}

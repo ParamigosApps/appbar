@@ -71,8 +71,8 @@ export default function AdminConfiguracion() {
     banco: false,
     redes: false,
     ubicacion: false,
+    auth: false, // 👈 FALTABA
   })
-
   const toggle = key => setOpen(o => ({ ...o, [key]: !o[key] }))
 
   const [permisos, setPermisos] = useState(null)
@@ -97,15 +97,30 @@ export default function AdminConfiguracion() {
     mapsLink: '',
   })
 
-  // ============================================================
-  // CARGA INICIAL
-  // ============================================================
-  useEffect(() => {
-    cargarPermisos()
-    cargarDatosBancarios()
-    cargarRedes()
-    cargarUbicacion()
-  }, [])
+  const [authConfig, setAuthConfig] = useState({
+    google: true,
+    email: true,
+    phone: false,
+    facebook: false,
+  })
+
+  async function cargarAuthConfig() {
+    const ref = doc(db, 'configuracion', 'auth')
+    const snap = await getDoc(ref)
+
+    if (snap.exists()) {
+      setAuthConfig(snap.data())
+    } else {
+      const base = {
+        google: true,
+        email: true,
+        phone: false,
+        facebook: false,
+      }
+      await setDoc(ref, base)
+      setAuthConfig(base)
+    }
+  }
 
   async function cargarPermisos() {
     const ref = doc(db, 'configuracion', 'permisos')
@@ -141,8 +156,28 @@ export default function AdminConfiguracion() {
   }
 
   // ============================================================
+  // CARGA INICIAL
+  // ============================================================
+  useEffect(() => {
+    cargarAuthConfig()
+    cargarPermisos()
+    cargarDatosBancarios()
+    cargarRedes()
+    cargarUbicacion()
+  }, [])
+
+  // ============================================================
   // GUARDAR
   // ============================================================
+  async function guardarAuthConfig() {
+    await setDoc(doc(db, 'configuracion', 'auth'), authConfig)
+
+    swalSuccess({
+      title: 'Métodos de inicio de sesión',
+      text: 'Configuración actualizada correctamente',
+    })
+  }
+
   async function guardarPermisos() {
     await updateDoc(doc(db, 'configuracion', 'permisos'), permisos)
     swalSuccess({
@@ -333,6 +368,57 @@ export default function AdminConfiguracion() {
         <div className="mt-1 d-flex justify-content-center">
           <button className="btn swal-btn-confirm" onClick={guardarRedes}>
             Guardar datos
+          </button>
+        </div>
+      </Seccion>
+
+      {/* ===================================================== */}
+
+      <Seccion
+        title="Métodos de inicio de sesión"
+        open={open.auth}
+        onToggle={() => toggle('auth')}
+        completo={authConfig.google && authConfig.email}
+      >
+        <p className="text-muted mb-3" style={{ fontSize: 13 }}>
+          Definí qué métodos pueden usar los clientes para iniciar sesión.
+          <br />
+          Se recomienda mantener Google y correo electrónico habilitados.
+        </p>
+
+        {[
+          ['google', 'Google'],
+          ['email', 'Correo electrónico'],
+          ['phone', 'Teléfono (SMS)'],
+          ['facebook', 'Facebook'],
+        ].map(([key, label]) => (
+          <div key={key} className="form-check mb-2">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              checked={authConfig[key]}
+              onChange={e =>
+                setAuthConfig({
+                  ...authConfig,
+                  [key]: e.target.checked,
+                })
+              }
+              disabled={key === 'google' || key === 'email'}
+            />
+            <label className="form-check-label">
+              {label}
+              {(key === 'google' || key === 'email') && (
+                <span className="badge bg-success ms-2">Obligatorio</span>
+              )}
+            </label>
+          </div>
+        ))}
+
+        <div className="form-divider my-3" />
+
+        <div className="d-flex justify-content-center">
+          <button className="btn swal-btn-confirm" onClick={guardarAuthConfig}>
+            Guardar configuración
           </button>
         </div>
       </Seccion>

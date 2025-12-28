@@ -23,7 +23,7 @@ export const useCarrito = () => useContext(CarritoContext)
 import { swalRequiereLogin } from '../utils/swalUtils'
 import { showLoading, hideLoading } from '../services/loadingService'
 import { useEvento } from './EventosContext.jsx'
-import { renderEventoHtml, formatearEventoLinea } from '../utils/eventoUI'
+import { renderEventoHtml } from '../utils/eventoUI'
 
 // --------------------------------------------------------------
 // HELPERS
@@ -154,6 +154,15 @@ export function CarritoProvider({ children }) {
   // --------------------------------------------------------------
   async function finalizarCompra() {
     try {
+      if (!user) {
+        const res = await swalRequiereLogin()
+
+        if (res.isConfirmed) {
+          abrirLoginGlobal()
+        }
+
+        return
+      }
       // VALIDACIONES PREVIAS
       const limite = await validarLimitePendientes(user.uid)
       if (limite) {
@@ -165,16 +174,6 @@ export function CarritoProvider({ children }) {
 
         abrirCarrito()
         abrirPendientes?.()
-        return
-      }
-
-      if (!user) {
-        const res = await swalRequiereLogin()
-
-        if (res.isConfirmed) {
-          abrirLoginGlobal()
-        }
-
         return
       }
 
