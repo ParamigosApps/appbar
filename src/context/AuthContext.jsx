@@ -19,6 +19,11 @@ import {
   getDocs,
   serverTimestamp,
 } from 'firebase/firestore'
+import {
+  sendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink,
+} from 'firebase/auth'
 
 import { toast } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
@@ -67,6 +72,80 @@ export function AuthProvider({ children }) {
 
   const recaptchaRef = useRef(null)
   const confirmationRef = useRef(null)
+
+  const EMAIL_LINK_SETTINGS = {
+    url: 'https://appbar-rose.vercel.app/',
+    handleCodeInApp: true,
+  }
+
+  useEffect(() => {
+    async function completarLoginEmailLink() {
+      if (!isSignInWithEmailLink(auth, window.location.href)) return
+
+      let email = localStorage.getItem('emailForSignIn')
+
+      if (!email) {
+        const res = await Swal.fire({
+          title: 'Confirmá tu email',
+          input: 'email',
+          inputLabel: 'Email',
+          inputPlaceholder: 'tu@email.com',
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          confirmButtonText: 'Confirmar',
+        })
+
+        if (!res.value) return
+        email = res.value
+      }
+
+      try {
+        showLoading({
+          title: 'Iniciando sesión',
+          text: 'Validando enlace...',
+        })
+
+        const res = await signInWithEmailLink(auth, email, window.location.href)
+
+        const u = res.user
+        const ref = doc(db, 'usuarios', u.uid)
+        const snap = await getDoc(ref)
+        const esPrimerLogin = !snap.exists()
+
+        await setDoc(
+          ref,
+          {
+            uid: u.uid,
+            email: u.email,
+            nombre: u.email,
+            provider: 'email-link',
+            creadoEn: serverTimestamp(),
+          },
+          { merge: true }
+        )
+
+        localStorage.removeItem('emailForSignIn')
+        hideLoading()
+
+        if (esPrimerLogin && u.email) {
+          enviarMail({
+            to: u.email,
+            subject: '👋 Bienvenido a AppBar',
+            html: mailLogin({
+              nombre: u.email,
+              provider: 'Correo electrónico',
+            }),
+          }).catch(() => {})
+        }
+      } catch (err) {
+        console.error('❌ Error completando email link:', err)
+        hideLoading()
+        toast.error('El enlace no es válido o expiró')
+      }
+    }
+
+    completarLoginEmailLink()
+  }, [])
 
   // ============================================================
   // RESTAURAR ADMIN MANUAL DESDE LOCALSTORAGE
@@ -211,7 +290,7 @@ export function AuthProvider({ children }) {
 
   function puedeEditarPerfil(user) {
     if (!user?.provider) return false
-
+    if (user.provider === 'email-link') return true
     // ❌ Google y Facebook: NO pueden editar nombre/email
     if (user.provider === 'google' || user.provider === 'facebook') {
       return false
@@ -371,6 +450,37 @@ export function AuthProvider({ children }) {
     }
   }
 
+  async function loginEmailEnviarLink(email) {
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+      toast.error('Ingresá un email válido')
+      return
+    }
+
+    try {
+      showLoading({
+        title: 'Enviando enlace',
+        text: 'Revisá tu correo electrónico',
+      })
+
+      await sendSignInLinkToEmail(auth, email, EMAIL_LINK_SETTINGS)
+
+      localStorage.setItem('emailForSignIn', email)
+
+      hideLoading()
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Enlace enviado',
+        text: 'Abrí el link desde este mismo dispositivo para iniciar sesión.',
+        confirmButtonText: 'Entendido',
+      })
+    } catch (err) {
+      console.error('❌ Error enviando email link:', err)
+      hideLoading()
+      toast.error('No se pudo enviar el enlace')
+    }
+  }
+
   function normalizarTelefonoAR(phone) {
     let p = phone.replace(/\D/g, '')
 
@@ -405,6 +515,7 @@ export function AuthProvider({ children }) {
       const snap = await getDoc(ref)
 
       const esPrimerLogin = !snap.exists()
+      let smsEnviado = false
 
       let nombre = snap.exists() ? snap.data().nombre : ''
       let nombreConfirmado = snap.exists()
@@ -454,6 +565,7 @@ export function AuthProvider({ children }) {
         toast.error('Demasiados intentos. Esperá unos minutos.')
       } else {
         toast.error('No se pudo validar el código')
+        return false
       }
     }
   }
@@ -461,7 +573,7 @@ export function AuthProvider({ children }) {
   async function loginTelefonoEnviarCodigo(phoneRaw) {
     if (!phoneRaw) {
       toast.error('Ingresá un teléfono')
-      return
+      return 'inexistente'
     }
 
     try {
@@ -497,6 +609,7 @@ export function AuthProvider({ children }) {
       confirmationRef.current = confirmation
 
       toast.success('Código enviado por SMS')
+      return true // 👈 CLAVE
     } catch (err) {
       console.error('ERROR ENVIANDO SMS:', err)
 
@@ -516,6 +629,7 @@ export function AuthProvider({ children }) {
         toast.error('Error de verificación. Reintentá.')
       } else {
         toast.error('No se pudo enviar el código')
+        return false // 👈 CLAVE
       }
     }
   }
@@ -644,6 +758,7 @@ export function AuthProvider({ children }) {
         loginFacebook,
         loginTelefonoEnviarCodigo,
         loginTelefonoValidarCodigo,
+        loginEmailEnviarLink,
         loginAdminManual,
         logout,
         puedeEditarPerfil,

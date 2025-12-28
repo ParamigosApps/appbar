@@ -18,6 +18,7 @@ import facebookIcon from '../../assets/img/facebook.png'
 import { db } from '../../Firebase.js'
 import { doc, getDoc } from 'firebase/firestore'
 
+import { swalConfirmWarning } from '../../utils/swalUtils.js'
 // --------------------------------------------------------------
 // ÍCONOS DE CATEGORÍAS
 // --------------------------------------------------------------
@@ -46,7 +47,11 @@ export default function MenuAcordeon() {
     mapsEmbedUrl: '',
     mapsLink: '',
   })
+
   const [ubicacionCargada, setUbicacionCargada] = useState(false)
+
+  const [smsEnviado, setSmsEnviado] = useState(false)
+  const [smsError, setSmsError] = useState(false)
 
   const toggle = key => setAbierto(prev => (prev === key ? null : key))
 
@@ -70,6 +75,7 @@ export default function MenuAcordeon() {
     loginSettings,
     loginGoogle,
     loginFacebook,
+    loginEmailEnviarLink,
     loginTelefonoEnviarCodigo,
     loginTelefonoValidarCodigo,
     logout,
@@ -86,6 +92,8 @@ export default function MenuAcordeon() {
     const handler = () => {
       setAbierto('usuario') // 🔒 abrir SIEMPRE
       setMostrarTelefono(false) // opcional, limpia estado
+      setSmsEnviado(false)
+      setSmsError(false)
     }
 
     document.addEventListener('abrir-login', handler)
@@ -526,6 +534,8 @@ export default function MenuAcordeon() {
                 onClick={() => {
                   toggle('usuario')
                   setMostrarTelefono(false)
+                  setSmsEnviado(false)
+                  setSmsError(false)
                 }}
               >
                 👤 Login / Usuario
@@ -547,7 +557,12 @@ export default function MenuAcordeon() {
                       {loginSettings.google && (
                         <button
                           className="google-btn d-block mx-auto mb-2"
-                          onClick={loginGoogle}
+                          onClick={() => {
+                            setMostrarTelefono(false)
+                            setSmsEnviado(false)
+                            setSmsError(false)
+                            loginGoogle()
+                          }}
                         >
                           <img src={googleIcon} alt="Google" />
                           <span>Iniciar sesión con Google</span>
@@ -557,7 +572,12 @@ export default function MenuAcordeon() {
                       {loginSettings.facebook && (
                         <button
                           className="facebook-btn-small d-block mx-auto mb-3"
-                          onClick={loginFacebook}
+                          onClick={() => {
+                            setMostrarTelefono(false)
+                            setSmsEnviado(false)
+                            setSmsError(false)
+                            loginFacebook()
+                          }}
                         >
                           <span className="facebook-icon-box">
                             <img src={facebookIcon} alt="Facebook" />
@@ -570,10 +590,60 @@ export default function MenuAcordeon() {
                         <span>o</span>
                       </div>
 
+                      {/* 📧 LOGIN EMAIL LINK */}
+                      <button
+                        className="btn btn-outline-dark d-block mx-auto mb-2"
+                        id="btn-correoelectronico"
+                        onClick={async () => {
+                          setMostrarTelefono(false)
+                          setSmsEnviado(false)
+                          setSmsError(false)
+                          const res = await swalConfirmWarning({
+                            title: 'Ingresá tu correo electrónico',
+                            html: `
+                            <input
+                              id="swal-email-login"
+                              class="swal2-input"
+                              type="email"
+                              placeholder="tuemail@email.com"
+                            />
+                            <p style="font-size:12px;color:#777">
+                              Te enviaremos un enlace para iniciar sesión.
+                            </p>
+                          `,
+                            confirmText: 'Enviar enlace',
+                            cancelText: 'Cancelar',
+                            width: 380,
+                          })
+
+                          if (!res.isConfirmed) return
+
+                          const email = document
+                            .getElementById('swal-email-login')
+                            ?.value.trim()
+
+                          if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+                            await swalError({
+                              title: 'Email inválido',
+                              text: 'Ingresá un correo electrónico válido.',
+                            })
+                            return
+                          }
+
+                          loginEmailEnviarLink(email)
+                        }}
+                      >
+                        Correo electrónico / Contraseña
+                      </button>
+
                       {loginSettings.phone && (
                         <button
-                          className="btn btn-outline-dark"
-                          onClick={() => setMostrarTelefono(prev => !prev)}
+                          className="btn btn-outline-dark d-block mx-auto mb-2"
+                          id="btn-telefono"
+                          onClick={async () => {
+                            setMostrarTelefono(prev => !prev)
+                            setSmsError(false)
+                          }}
                         >
                           Iniciar sesión con Teléfono
                         </button>
@@ -583,40 +653,79 @@ export default function MenuAcordeon() {
 
                   {/* 📞 LOGIN TELÉFONO */}
                   {!loading && !user && mostrarTelefono && (
-                    <section className="auth-telefono-container mt-3 telefono-row mx-auto">
-                      <input
-                        id="phoneInput"
-                        type="text"
-                        placeholder="+5491123456789"
-                      />
+                    <section
+                      className="auth-telefono-container mt-3 mx-auto p-3 rounded-3 border"
+                      style={{ maxWidth: 360 }}
+                    >
+                      <h6 className="fw-semibold mb-3 text-center">
+                        Verificación por teléfono
+                      </h6>
+                      <div className="d-grid gap-2">
+                        <input
+                          id="phoneInput"
+                          type="text"
+                          className="form-control"
+                          placeholder="+5491123456789"
+                        />
 
-                      <button
-                        className="btn btn-outline-dark"
-                        onClick={() =>
-                          loginTelefonoEnviarCodigo(
-                            document.getElementById('phoneInput').value
-                          )
-                        }
-                      >
-                        Enviar código
-                      </button>
+                        <button
+                          className="btn btn-outline-dark"
+                          onClick={async () => {
+                            const ok = await loginTelefonoEnviarCodigo(
+                              document.getElementById('phoneInput').value
+                            )
 
-                      <input
-                        id="codeInput"
-                        type="text"
-                        placeholder="Código SMS"
-                      />
+                            if (ok == true) setSmsEnviado(true)
+                            else if (ok != 'inexistente') setSmsError(true)
+                          }}
+                        >
+                          Enviar código SMS
+                        </button>
 
-                      <button
-                        className="btn btn-outline-dark"
-                        onClick={() =>
-                          loginTelefonoValidarCodigo(
-                            document.getElementById('codeInput').value
-                          )
-                        }
-                      >
-                        Validar código
-                      </button>
+                        {smsEnviado && (
+                          <>
+                            <input
+                              id="codeInput"
+                              type="text"
+                              className="form-control"
+                              placeholder="Código recibido"
+                            />
+
+                            <button
+                              className="btn btn-outline-dark"
+                              onClick={() =>
+                                loginTelefonoValidarCodigo(
+                                  document.getElementById('codeInput').value
+                                )
+                              }
+                            >
+                              Validar código
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      {!smsError && (
+                        <p
+                          className="small text-warning text-center mb-0"
+                          style={{ fontSize: '11px' }}
+                        >
+                          ⚠️ En algunos celulares el SMS puede demorar o no
+                          llegar.
+                          <br />
+                          Recomendamos usar correo electrónico o Google.
+                        </p>
+                      )}
+
+                      {smsError && (
+                        <p
+                          className="small text-danger text-center mb-0"
+                          style={{ fontSize: '11px' }}
+                        >
+                          ¡Atención! No se pudo enviar el SMS a este número.
+                          <br />
+                          Por favor, prueba iniciar sesión con otro metodo.
+                        </p>
+                      )}
                     </section>
                   )}
 

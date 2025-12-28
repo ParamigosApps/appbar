@@ -194,6 +194,14 @@
   z-index: 1;
 }
 
+#btn-correoelectronico,
+#btn-telefono {
+  font-size: 0.85rem;
+  height: 35px;
+  width: 65% !important;
+  min-width: 237px;
+}
+
 /* ------------------------------------------------------------
    RESPONSIVE ESPECÍFICO
 ------------------------------------------------------------ */
