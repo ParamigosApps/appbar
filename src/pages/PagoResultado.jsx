@@ -3,6 +3,8 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../Firebase.js'
 
+import BasePagoLayout from './pago/BasePagoLayout'
+
 export default function PagoResultado() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
@@ -11,6 +13,9 @@ export default function PagoResultado() {
   const [estado, setEstado] = useState('verificando')
   const [intentos, setIntentos] = useState(0)
 
+  // --------------------------------------------------
+  // VERIFICAR PAGO
+  // --------------------------------------------------
   useEffect(() => {
     if (!pagoId) {
       setEstado('rechazado')
@@ -20,17 +25,18 @@ export default function PagoResultado() {
     const check = async () => {
       const ref = doc(db, 'pagos', pagoId)
       const snap = await getDoc(ref)
-
       if (!snap.exists()) return
 
       const pago = snap.data()
 
       if (pago.estado === 'aprobado') {
+        localStorage.setItem('avisoPostPago', 'aprobado')
         setEstado('aprobado')
         return
       }
 
       if (['fallido', 'monto_invalido'].includes(pago.estado)) {
+        localStorage.setItem('avisoPostPago', 'rechazado')
         setEstado('rechazado')
         return
       }
@@ -39,13 +45,15 @@ export default function PagoResultado() {
     }
 
     const interval = setInterval(check, 2000)
-
     return () => clearInterval(interval)
   }, [pagoId])
 
-  // ⏳ Timeout de verificación (ej: 20s)
+  // --------------------------------------------------
+  // TIMEOUT → PENDIENTE
+  // --------------------------------------------------
   useEffect(() => {
     if (intentos >= 10 && estado === 'verificando') {
+      localStorage.setItem('avisoPostPago', 'pendiente')
       setEstado('pendiente')
     }
   }, [intentos, estado])
@@ -98,7 +106,6 @@ export default function PagoResultado() {
     )
   }
 
-  // ❌ rechazado
   return (
     <BasePagoLayout
       icon="❌"

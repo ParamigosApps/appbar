@@ -1,3 +1,4 @@
+// src/pages/pago/BasePagoLayout.jsx
 export default function BasePagoLayout({ icon, title, description, children }) {
   return (
     <div className="pago-page">
