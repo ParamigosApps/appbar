@@ -87,8 +87,6 @@ const lugaresConfig = {
     label: 'Otros / Sin lugar',
   },
 }
-
-// CSV por lugar
 function exportarCSVCompras(lugar, compras) {
   const SEP = ';'
   let csv = `numeroPedido${SEP}usuario${SEP}metodoPago${SEP}estado${SEP}lugar${SEP}total${SEP}fecha${SEP}items\n`
@@ -110,6 +108,7 @@ function exportarCSVCompras(lugar, compras) {
   })
 
   const totalRecaudado = compras.reduce((acc, p) => acc + (p.total || 0), 0)
+
   const totalProductos = compras.reduce((acc, p) => {
     if (!Array.isArray(p.items)) return acc
     return (
@@ -123,7 +122,9 @@ function exportarCSVCompras(lugar, compras) {
   csv += `Cantidad de pedidos${SEP}${SEP}${SEP}${SEP}${SEP}${compras.length}\n`
   csv += `Productos vendidos${SEP}${SEP}${SEP}${SEP}${SEP}${totalProductos}\n`
 
-  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
+  const blob = new Blob(['\ufeff' + csv], {
+    type: 'text/csv;charset=utf-8;',
+  })
   const link = document.createElement('a')
   link.href = URL.createObjectURL(blob)
   link.download = `compras_${lugar.replace(/\s+/g, '_')}.csv`
@@ -190,6 +191,14 @@ function ChipMetodo({ metodo }) {
     </span>
   )
 }
+function getEventoKey(p) {
+  if (p.eventoId) return p.eventoId
+
+  const nombre = p.nombreEvento || 'sin-evento'
+  const fecha = formatearFechaEvento(p.fechaEvento) || 'sin-fecha'
+
+  return `${nombre}__${fecha}`
+}
 
 // --------------------------------------------------------------
 // COMPONENTE PRINCIPAL
@@ -215,106 +224,98 @@ export default function ComprasAdmin() {
   // --------------------------------------------------------------
   // PROCESAR DATOS
   // --------------------------------------------------------------
-  const { resumenGlobal, porLugar, statsPorLugar } = useMemo(() => {
+  const { resumenGlobal, porLugar } = useMemo(() => {
     let arr = [...compras]
 
     const b = normalizarTexto(busqueda)
 
-    // Búsqueda por cliente, número de pedido o lugar
     if (b !== '') {
       arr = arr.filter(p => {
         const nombre = normalizarTexto(p.usuarioNombre)
         const lugar = normalizarTexto(p.lugar)
         const nro = String(p.numeroPedido || '').toLowerCase()
-        return (
-          nombre.includes(b) ||
-          lugar.includes(b) ||
-          nro.includes(b.toLowerCase())
-        )
+        return nombre.includes(b) || lugar.includes(b) || nro.includes(b)
       })
     }
 
-    // Filtro estado
     if (filtroEstado !== 'todos') {
       arr = arr.filter(p => (p.estado || '').toLowerCase() === filtroEstado)
     }
 
-    // Filtro método
     if (filtroMetodo !== 'todos') {
       arr = arr.filter(p => obtenerMetodoPago(p) === filtroMetodo)
     }
 
-    // Filtro lugar
     if (filtroLugar !== 'todos') {
       arr = arr.filter(p => (p.lugar || 'Otro') === filtroLugar)
     }
 
-    // Orden: más recientes primero
     arr.sort((a, b) => {
       const fa =
         a.creadoEn?.toDate?.() ?? a.fecha?.toDate?.() ?? new Date(a.fecha || 0)
       const fb =
         b.creadoEn?.toDate?.() ?? b.fecha?.toDate?.() ?? new Date(b.fecha || 0)
-
       return fb - fa
     })
 
-    // Resumen global
-    const totalRecaudado = arr.reduce((acc, p) => acc + (p.total || 0), 0)
-    const totalPedidos = arr.length
-    const totalProductos = arr.reduce((acc, p) => {
-      if (!Array.isArray(p.items)) return acc
-      return (
-        acc +
-        p.items.reduce(
-          (a, it) => a + Number(it.enCarrito || it.cantidad || 0),
-          0
-        )
-      )
-    }, 0)
-
     const resumenGlobal = {
-      totalRecaudado,
-      totalPedidos,
-      totalProductos,
+      totalRecaudado: arr.reduce((a, p) => a + (p.total || 0), 0),
+      totalPedidos: arr.length,
+      totalProductos: arr.reduce((acc, p) => {
+        if (!Array.isArray(p.items)) return acc
+        return (
+          acc +
+          p.items.reduce(
+            (a, it) => a + Number(it.enCarrito || it.cantidad || 0),
+            0
+          )
+        )
+      }, 0),
     }
 
-    // Agrupar por lugar
     const porLugar = {}
-    const statsPorLugar = {}
 
     arr.forEach(p => {
       const lugarKey = p.lugar || 'Otro'
-      if (!porLugar[lugarKey]) porLugar[lugarKey] = []
-      porLugar[lugarKey].push(p)
+      const eventoKey = getEventoKey(p)
 
-      if (!statsPorLugar[lugarKey]) {
-        statsPorLugar[lugarKey] = {
-          pedidos: 0,
-          total: 0,
-          productos: 0,
-          mp: 0,
-          caja: 0,
+      if (!porLugar[lugarKey]) porLugar[lugarKey] = {}
+
+      if (!porLugar[lugarKey][eventoKey]) {
+        porLugar[lugarKey][eventoKey] = {
+          eventoId: p.eventoId || null,
+          nombreEvento: p.nombreEvento || 'Sin evento',
+          fechaEvento: p.fechaEvento || null,
+          pedidos: [],
+          stats: {
+            pedidos: 0,
+            total: 0,
+            productos: 0,
+            mp: 0,
+            caja: 0,
+          },
         }
       }
 
-      const s = statsPorLugar[lugarKey]
-      s.pedidos += 1
-      s.total += p.total || 0
+      const grupo = porLugar[lugarKey][eventoKey]
+      grupo.pedidos.push(p)
+
+      grupo.stats.pedidos += 1
+      grupo.stats.total += p.total || 0
 
       if (Array.isArray(p.items)) {
-        s.productos += p.items.reduce(
+        grupo.stats.productos += p.items.reduce(
           (a, it) => a + Number(it.enCarrito || it.cantidad || 0),
           0
         )
       }
 
       const metodo = obtenerMetodoPago(p)
-      if (metodo === 'mercadopago') s.mp += p.total || 0
-      if (metodo === 'caja') s.caja += p.total || 0
+      if (metodo === 'mercadopago') grupo.stats.mp += p.total || 0
+      if (metodo === 'caja') grupo.stats.caja += p.total || 0
     })
 
-    return { resumenGlobal, porLugar, statsPorLugar }
+    return { resumenGlobal, porLugar }
   }, [compras, busqueda, filtroEstado, filtroMetodo, filtroLugar])
 
   const lugaresOrden = ['Tienda', 'Barra 1', 'Barra 2', 'Barra 3', 'Otro']
@@ -415,25 +416,17 @@ export default function ComprasAdmin() {
 
       {/* LISTA POR LUGAR */}
       {lugaresOrden.map(lugarKey => {
-        const comprasLugar = porLugar[lugarKey]
-        if (!comprasLugar || comprasLugar.length === 0) return null
+        const eventosLugar = porLugar[lugarKey]
+        if (!eventosLugar) return null
 
         const cfg = lugaresConfig[lugarKey] || lugaresConfig.Otro
-        const stats = statsPorLugar[lugarKey] || {
-          pedidos: 0,
-          total: 0,
-          productos: 0,
-          mp: 0,
-          caja: 0,
-        }
-
         const isOpen = openLugar === lugarKey
 
         return (
           <Fragment key={lugarKey}>
             {/* HEADER LUGAR */}
             <div
-              className="rounded p-3 mb-2"
+              className="rounded px-3 py-2 mb-2"
               style={{
                 background: '#eef2f5',
                 cursor: 'pointer',
@@ -442,156 +435,95 @@ export default function ComprasAdmin() {
               onClick={() => setOpenLugar(isOpen ? null : lugarKey)}
             >
               <div className="d-flex justify-content-between">
-                {comprasLugar[0]?.nombreEvento && (
-                  <div style={{ fontSize: '.75rem', color: '#555' }}>
-                    Evento: <b>{comprasLugar[0].nombreEvento}</b>
-                  </div>
-                )}
+                <strong style={{ color: cfg.color }}>{cfg.label}</strong>
                 <span>{isOpen ? '▲' : '▼'}</span>
               </div>
-
-              <div style={{ fontSize: '.85rem' }}>
-                <b>{stats.pedidos}</b> pedidos • <b>{stats.productos}</b>{' '}
-                productos • <b>${stats.total}</b> recaudado
-              </div>
-
-              <div style={{ fontSize: '.78rem', marginTop: 4, color: '#555' }}>
-                MP: <b>${stats.mp}</b> • Caja: <b>${stats.caja}</b>
-              </div>
-
-              <button
-                className="btn btn-sm btn-outline-success mt-2"
-                onClick={e => {
-                  e.stopPropagation()
-                  exportarCSVCompras(cfg.label, comprasLugar)
-                }}
-              >
-                Exportar CSV
-              </button>
             </div>
 
-            {/* PEDIDOS DEL LUGAR */}
+            {/* EVENTOS */}
             {isOpen &&
-              comprasLugar.map(p => {
-                const metodo = obtenerMetodoPago(p)
-                const fecha = formatearFecha(p.creadoEn || p.fecha)
-
-                const totalProductos = Array.isArray(p.items)
-                  ? p.items.reduce(
-                      (a, it) => a + Number(it.enCarrito || it.cantidad || 0),
-                      0
-                    )
-                  : 0
+              Object.values(eventosLugar).map(evento => {
+                const { nombreEvento, fechaEvento, pedidos, stats } = evento
 
                 return (
                   <div
-                    key={p.id}
-                    className="p-3 mb-3 rounded"
+                    key={`${nombreEvento}-${fechaEvento}`}
+                    className="mb-3 ms-2 p-3 rounded"
                     style={{
-                      background: '#ffffff',
-                      border: `1px solid ${cfg.color}30`,
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.03)',
+                      background: '#f8f9fa',
+                      border: `1px solid ${cfg.color}40`,
                     }}
                   >
-                    {/* HEADER PEDIDO */}
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                      <div>
-                        <div
-                          className="fw-bold"
-                          style={{ fontSize: '1rem', color: '#111' }}
-                        >
-                          Pedido #{p.numeroPedido || '-'}
-                        </div>
-
-                        {p.nombreEvento && (
-                          <div
-                            style={{
-                              fontSize: '.8rem',
-                              color: '#666',
-                              marginTop: 2,
-                            }}
-                          >
-                            🎉 {p.nombreEvento}
-                            {formatearFechaEvento(p.fechaEvento) && (
-                              <> — {formatearFechaEvento(p.fechaEvento)}</>
-                            )}
-                          </div>
-                        )}
-
-                        <div style={{ fontSize: '.8rem', color: '#555' }}>
-                          Cliente:{' '}
-                          <span style={{ fontWeight: 500 }}>
-                            {p.usuarioNombre || 'Usuario'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="text-end">
-                        <BadgeEstado estado={p.estado} />
-                        <div
-                          className="fw-bold"
-                          style={{
-                            fontSize: '1.05rem',
-                            color: '#000',
-                            marginTop: 4,
-                          }}
-                        >
-                          Total: ${p.total || 0}
-                        </div>
-                      </div>
+                    <div style={{ fontSize: '.85rem', color: '#555' }}>
+                      🎉 <b>{nombreEvento}</b>
+                      {formatearFechaEvento(fechaEvento) && (
+                        <> — {formatearFechaEvento(fechaEvento)}</>
+                      )}
                     </div>
 
-                    {/* META INFO */}
-                    <div
-                      className="d-flex flex-wrap align-items-center gap-2 mb-2"
-                      style={{ fontSize: '.8rem', color: '#555' }}
-                    >
-                      <span>Fecha: {fecha}</span>
-                      <span>•</span>
-                      <span>Productos: {totalProductos}</span>
-                      <span>•</span>
-                      <ChipMetodo metodo={metodo} />
+                    <div style={{ fontSize: '.8rem' }}>
+                      <b>{stats.pedidos}</b> pedidos • <b>{stats.productos}</b>{' '}
+                      productos • <b>${stats.total}</b> recaudado
                     </div>
 
-                    {/* ITEMS */}
-                    {Array.isArray(p.items) && p.items.length > 0 && (
+                    <div style={{ fontSize: '.75rem', color: '#555' }}>
+                      MP: <b>${stats.mp}</b> • Caja: <b>${stats.caja}</b>
+                    </div>
+
+                    <hr style={{ opacity: 0.15 }} />
+
+                    {pedidos.map(p => (
                       <div
-                        className="mt-2"
-                        style={{ fontSize: '.85rem', color: '#333' }}
+                        key={p.id}
+                        className="p-3 mb-2 rounded"
+                        style={{
+                          background: '#ffffff',
+                          border: '1px solid #e5e7eb',
+                        }}
                       >
-                        {p.items.map((it, idx) => {
-                          const cant = Number(it.enCarrito || it.cantidad || 0)
-                          const subtotal = cant * (it.precio || 0)
-                          return (
+                        <div className="d-flex justify-content-between align-items-start gap-3">
+                          <div>
                             <div
-                              key={idx}
-                              className="d-flex justify-content-between py-1 border-top"
-                              style={{
-                                borderColor: '#f0f2f5',
-                              }}
+                              className="fw-bold"
+                              style={{ fontSize: '.85rem' }}
                             >
-                              <div>
-                                {it.nombre || 'Producto'}{' '}
-                                <span className="text-muted">×{cant}</span>
-                              </div>
-                              <div className="fw-semibold">${subtotal}</div>
+                              Pedido #{p.numeroPedido || '-'}
                             </div>
-                          )
-                        })}
+
+                            <div style={{ fontSize: '.75rem', color: '#555' }}>
+                              {p.usuarioNombre || 'Cliente sin nombre'}
+                            </div>
+
+                            <div style={{ fontSize: '.7rem', color: '#777' }}>
+                              {formatearFecha(p.creadoEn || p.fecha)}
+                            </div>
+                          </div>
+
+                          <div className="text-end">
+                            <div
+                              className="fw-bold"
+                              style={{ fontSize: '.9rem' }}
+                            >
+                              ${p.total || 0}
+                            </div>
+
+                            <div className="mt-1">
+                              <ChipMetodo metodo={obtenerMetodoPago(p)} />
+                            </div>
+
+                            <div className="mt-1">
+                              <BadgeEstado estado={p.estado} />
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    )}
+                    ))}
                   </div>
                 )
               })}
           </Fragment>
         )
       })}
-
-      {Object.keys(porLugar).length === 0 && (
-        <p className="text-muted mt-3">
-          No hay compras para los filtros seleccionados.
-        </p>
-      )}
     </div>
   )
 }

@@ -135,7 +135,7 @@
   flex-direction: column;
   position: relative;
 
-  background: #f9fafb;
+  background: linear-gradient(180deg, #ffffff 0%, #f5f7f9 100%);
   border: 1px solid #e5e7eb;
   border-radius: 14px;
   padding: 2px 8px 32px !important; /* espacio p/ botón */

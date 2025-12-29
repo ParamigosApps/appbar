@@ -52,7 +52,7 @@
 .lote-horario-box {
   display: flex;
   gap: 6px;
-  margin-bottom: 4px !important;
+  margin-bottom: 2px !important;
   align-items: center;
 }
 .lote-label {

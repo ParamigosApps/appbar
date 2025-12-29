@@ -192,7 +192,7 @@ ${
 
   <div class="lote-horario-box">
     <span class="lote-label">INGRESO PERMITIDO:</span>
-   <span>
+   <span class="lote-horario-box">
   <strong class="lote-hora">
     ${l.desdeHora ? `${l.desdeHora}hs` : '-'}
     →
