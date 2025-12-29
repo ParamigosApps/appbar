@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
-import { db } from '../../Firebase'
-import BasePagoLayout from './BasePagoLayout'
-import '../../styles/pago.css'
+import { db } from '../Firebase.js'
 
 export default function PagoResultado() {
   const [params] = useSearchParams()
