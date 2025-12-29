@@ -209,8 +209,7 @@ export default function ComprasAdmin() {
   const [filtroEstado, setFiltroEstado] = useState('todos')
   const [filtroMetodo, setFiltroMetodo] = useState('todos')
   const [filtroLugar, setFiltroLugar] = useState('todos')
-  const [openLugar, setOpenLugar] = useState(null)
-
+  const [openEvento, setOpenEvento] = useState(null)
   // Listener tiempo real a TODAS las compras
   useEffect(() => {
     const unsub = onSnapshot(collection(db, 'compras'), snap => {
@@ -224,7 +223,7 @@ export default function ComprasAdmin() {
   // --------------------------------------------------------------
   // PROCESAR DATOS
   // --------------------------------------------------------------
-  const { resumenGlobal, porLugar } = useMemo(() => {
+  const { resumenGlobal, porEvento } = useMemo(() => {
     let arr = [...compras]
 
     const b = normalizarTexto(busqueda)
@@ -273,16 +272,13 @@ export default function ComprasAdmin() {
       }, 0),
     }
 
-    const porLugar = {}
+    const porEvento = {}
 
     arr.forEach(p => {
-      const lugarKey = p.lugar || 'Otro'
       const eventoKey = getEventoKey(p)
 
-      if (!porLugar[lugarKey]) porLugar[lugarKey] = {}
-
-      if (!porLugar[lugarKey][eventoKey]) {
-        porLugar[lugarKey][eventoKey] = {
+      if (!porEvento[eventoKey]) {
+        porEvento[eventoKey] = {
           eventoId: p.eventoId || null,
           nombreEvento: p.nombreEvento || 'Sin evento',
           fechaEvento: p.fechaEvento || null,
@@ -293,11 +289,12 @@ export default function ComprasAdmin() {
             productos: 0,
             mp: 0,
             caja: 0,
+            porLugar: {},
           },
         }
       }
 
-      const grupo = porLugar[lugarKey][eventoKey]
+      const grupo = porEvento[eventoKey]
       grupo.pedidos.push(p)
 
       grupo.stats.pedidos += 1
@@ -313,9 +310,13 @@ export default function ComprasAdmin() {
       const metodo = obtenerMetodoPago(p)
       if (metodo === 'mercadopago') grupo.stats.mp += p.total || 0
       if (metodo === 'caja') grupo.stats.caja += p.total || 0
+
+      const lugar = p.lugar || 'Otro'
+      grupo.stats.porLugar[lugar] =
+        (grupo.stats.porLugar[lugar] || 0) + (p.total || 0)
     })
 
-    return { resumenGlobal, porLugar }
+    return { resumenGlobal, porEvento }
   }, [compras, busqueda, filtroEstado, filtroMetodo, filtroLugar])
 
   const lugaresOrden = ['Tienda', 'Barra 1', 'Barra 2', 'Barra 3', 'Otro']
@@ -326,7 +327,6 @@ export default function ComprasAdmin() {
   return (
     <div>
       <h4 className="fw-bold mb-3">Compras — Panel General</h4>
-
       {/* RESUMEN GLOBAL */}
       <div className="row g-3 mb-3">
         <div className="col-12 col-md-4">
@@ -365,7 +365,6 @@ export default function ComprasAdmin() {
           </div>
         </div>
       </div>
-
       {/* FILTROS */}
       <div className="d-flex flex-wrap gap-2 mb-3">
         <input
@@ -413,115 +412,99 @@ export default function ComprasAdmin() {
           <option value="Otro">Otros / Sin lugar</option>
         </select>
       </div>
-
-      {/* LISTA POR LUGAR */}
-      {lugaresOrden.map(lugarKey => {
-        const eventosLugar = porLugar[lugarKey]
-        if (!eventosLugar) return null
-
-        const cfg = lugaresConfig[lugarKey] || lugaresConfig.Otro
-        const isOpen = openLugar === lugarKey
+      {/* LISTA POR EVENTO (replegable) */}
+      {Object.entries(porEvento).map(([eventoKey, evento]) => {
+        const { nombreEvento, fechaEvento, pedidos, stats } = evento
+        const isOpen = openEvento === eventoKey
 
         return (
-          <Fragment key={lugarKey}>
-            {/* HEADER LUGAR */}
+          <div key={eventoKey} className="mb-3">
+            {/* HEADER EVENTO */}
             <div
-              className="rounded px-3 py-2 mb-2"
+              onClick={() => setOpenEvento(isOpen ? null : eventoKey)}
+              className="d-flex justify-content-between align-items-center px-3 py-2 rounded"
               style={{
                 background: '#eef2f5',
                 cursor: 'pointer',
-                borderLeft: `6px solid ${cfg.color}`,
+                borderLeft: '6px solid #0d6efd',
               }}
-              onClick={() => setOpenLugar(isOpen ? null : lugarKey)}
             >
-              <div className="d-flex justify-content-between">
-                <strong style={{ color: cfg.color }}>{cfg.label}</strong>
-                <span>{isOpen ? '▲' : '▼'}</span>
+              <div>
+                <strong>🎉 {nombreEvento}</strong>
+                {formatearFechaEvento(fechaEvento) && (
+                  <span style={{ fontSize: '.8rem', color: '#555' }}>
+                    {' '}
+                    — {formatearFechaEvento(fechaEvento)}
+                  </span>
+                )}
               </div>
+
+              <span style={{ fontSize: '.8rem' }}>{isOpen ? '▲' : '▼'}</span>
             </div>
 
-            {/* EVENTOS */}
-            {isOpen &&
-              Object.values(eventosLugar).map(evento => {
-                const { nombreEvento, fechaEvento, pedidos, stats } = evento
+            {/* CONTENIDO (solo si está abierto) */}
+            {isOpen && (
+              <div
+                className="mt-2 p-3 rounded"
+                style={{
+                  background: '#f8f9fa',
+                  border: '1px solid #e5e7eb',
+                }}
+              >
+                <div style={{ fontSize: '.8rem', color: '#555' }}>
+                  <b>{stats.pedidos}</b> pedidos • <b>{stats.productos}</b>{' '}
+                  productos • <b>${stats.total}</b>
+                </div>
 
-                return (
+                <div style={{ fontSize: '.75rem', color: '#555' }}>
+                  MP: <b>${stats.mp}</b> • Caja: <b>${stats.caja}</b>
+                </div>
+
+                {/* Resumen por lugar */}
+                <div style={{ fontSize: '.7rem', color: '#777' }}>
+                  {Object.entries(stats.porLugar).map(([l, t]) => (
+                    <span key={l} style={{ marginRight: 8 }}>
+                      {l}: <b>${t}</b>
+                    </span>
+                  ))}
+                </div>
+
+                <hr />
+
+                {/* PEDIDOS */}
+                {pedidos.map(p => (
                   <div
-                    key={`${nombreEvento}-${fechaEvento}`}
-                    className="mb-3 ms-2 p-3 rounded"
+                    key={p.id}
+                    className="p-3 mb-2 rounded"
                     style={{
-                      background: '#f8f9fa',
-                      border: `1px solid ${cfg.color}40`,
+                      background: '#ffffff',
+                      border: '1px solid #e5e7eb',
                     }}
                   >
-                    <div style={{ fontSize: '.85rem', color: '#555' }}>
-                      🎉 <b>{nombreEvento}</b>
-                      {formatearFechaEvento(fechaEvento) && (
-                        <> — {formatearFechaEvento(fechaEvento)}</>
-                      )}
-                    </div>
-
-                    <div style={{ fontSize: '.8rem' }}>
-                      <b>{stats.pedidos}</b> pedidos • <b>{stats.productos}</b>{' '}
-                      productos • <b>${stats.total}</b> recaudado
-                    </div>
-
-                    <div style={{ fontSize: '.75rem', color: '#555' }}>
-                      MP: <b>${stats.mp}</b> • Caja: <b>${stats.caja}</b>
-                    </div>
-
-                    <hr style={{ opacity: 0.15 }} />
-
-                    {pedidos.map(p => (
-                      <div
-                        key={p.id}
-                        className="p-3 mb-2 rounded"
-                        style={{
-                          background: '#ffffff',
-                          border: '1px solid #e5e7eb',
-                        }}
-                      >
-                        <div className="d-flex justify-content-between align-items-start gap-3">
-                          <div>
-                            <div
-                              className="fw-bold"
-                              style={{ fontSize: '.85rem' }}
-                            >
-                              Pedido #{p.numeroPedido || '-'}
-                            </div>
-
-                            <div style={{ fontSize: '.75rem', color: '#555' }}>
-                              {p.usuarioNombre || 'Cliente sin nombre'}
-                            </div>
-
-                            <div style={{ fontSize: '.7rem', color: '#777' }}>
-                              {formatearFecha(p.creadoEn || p.fecha)}
-                            </div>
-                          </div>
-
-                          <div className="text-end">
-                            <div
-                              className="fw-bold"
-                              style={{ fontSize: '.9rem' }}
-                            >
-                              ${p.total || 0}
-                            </div>
-
-                            <div className="mt-1">
-                              <ChipMetodo metodo={obtenerMetodoPago(p)} />
-                            </div>
-
-                            <div className="mt-1">
-                              <BadgeEstado estado={p.estado} />
-                            </div>
-                          </div>
+                    <div className="d-flex justify-content-between">
+                      <div>
+                        <div className="fw-bold" style={{ fontSize: '.85rem' }}>
+                          Pedido #{p.numeroPedido || '-'}
+                        </div>
+                        <div style={{ fontSize: '.75rem', color: '#555' }}>
+                          {p.usuarioNombre || 'Cliente sin nombre'}
+                        </div>
+                        <div style={{ fontSize: '.7rem', color: '#777' }}>
+                          {formatearFecha(p.creadoEn || p.fecha)}
                         </div>
                       </div>
-                    ))}
+
+                      <div className="text-end">
+                        <div className="fw-bold">${p.total || 0}</div>
+                        <ChipMetodo metodo={obtenerMetodoPago(p)} />
+                        <BadgeEstado estado={p.estado} />
+                      </div>
+                    </div>
                   </div>
-                )
-              })}
-          </Fragment>
+                ))}
+              </div>
+            )}
+          </div>
         )
       })}
     </div>

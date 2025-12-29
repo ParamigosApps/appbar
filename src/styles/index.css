@@ -49,3 +49,8 @@
    Mails Css
 ------------------------- */
 @import './mailEntradas.css';
+
+/* -------------------------
+   Mp resultados Css
+------------------------- */
+@import './pago.css';
