@@ -110,18 +110,21 @@ export async function devolverStock(items) {
 // --------------------------------------------------------------
 // 🧾 CREAR PEDIDO (QR SIEMPRE)
 // --------------------------------------------------------------
-export async function crearPedido({ carrito, total, lugar, pagado, evento }) {
+export async function crearPedido({
+  carrito,
+  total,
+  lugar,
+  evento,
+  origenPago,
+}) {
   if (!auth.currentUser) {
     throw new Error('Usuario no autenticado')
   }
 
   const usuarioId = auth.currentUser.uid
 
-  // 🔥 Límite de 3 pendientes
-  if (!pagado) {
-    if (await validarLimitePendientes(usuarioId)) {
-      throw new Error('Límite de pedidos alcanzado (máximo 3 pendientes)')
-    }
+  if (await validarLimitePendientes(usuarioId)) {
+    throw new Error('Límite de pedidos alcanzado (máximo 3 pendientes)')
   }
   showLoading({
     title: 'Generando ticket',
@@ -138,14 +141,12 @@ export async function crearPedido({ carrito, total, lugar, pagado, evento }) {
     ticketId,
   })
 
-  // 🔥 Reservar stock si es pendiente
-  if (!pagado) {
-    await reservarStock(carrito)
-  }
+  await reservarStock(carrito)
 
-  const expiraEn = pagado
-    ? null
-    : Timestamp.fromDate(new Date(Date.now() + 15 * 60 * 1000))
+  const expiraEn =
+    origenPago === 'mp' || origenPago === 'caja'
+      ? Timestamp.fromDate(new Date(Date.now() + 15 * 60 * 1000))
+      : null
   // --------------------------------------------------
   // 1️⃣ CREAR PEDIDO EN FIRESTORE
   // --------------------------------------------------
@@ -185,10 +186,10 @@ export async function crearPedido({ carrito, total, lugar, pagado, evento }) {
     // -----------------------------
     // 💰 ESTADO
     // -----------------------------
-    pagado: Boolean(pagado),
-    estado: pagado ? 'pagado' : 'pendiente',
+    pagado: false,
+    estado: 'pendiente',
+    origenPago, // 'mp' | 'caja'
 
-    origenPago: pagado ? 'online' : 'caja',
     // -----------------------------
     // 🎫 TICKET / CAJA
     // -----------------------------
@@ -212,9 +213,6 @@ export async function crearPedido({ carrito, total, lugar, pagado, evento }) {
     expiraEn: expiraEn || null,
   })
   try {
-    // --------------------------------------------------
-    // 2️⃣ GENERAR QR VISUAL (SIEMPRE)
-    // --------------------------------------------------
     // --------------------------------------------------
     // 2️⃣ GENERAR QR VISUAL (SIEMPRE)
     // --------------------------------------------------

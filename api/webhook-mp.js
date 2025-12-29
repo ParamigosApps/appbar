@@ -85,6 +85,7 @@ export default async function handler(req, res) {
         },
       })
 
+      // ❌ NO TOCAR compras
       return res.status(200).send('monto invalido')
     }
 
@@ -123,6 +124,21 @@ export default async function handler(req, res) {
         at: serverTimestamp(),
       },
     })
+
+    // 🔗 MARCAR COMPRA COMO PAGADA
+    const compraSnap = await db
+      .collection('compras')
+      .where('ticketId', '==', pagoId)
+      .limit(1)
+      .get()
+
+    if (!compraSnap.empty) {
+      await compraSnap.docs[0].ref.update({
+        estado: 'pagado',
+        pagado: true,
+        pagadoAt: serverTimestamp(),
+      })
+    }
 
     // 🎟️ Generar entradas (NO BLOQUEANTE)
     try {

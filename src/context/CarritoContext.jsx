@@ -348,7 +348,8 @@ export function CarritoProvider({ children }) {
           carrito,
           total,
           lugar: 'Tienda',
-          pagado: false,
+          pagado: false, // 🔒 siempre pendiente
+          origenPago: 'caja', // ✅ explícito
           evento: eventoActivo,
         })
 
@@ -391,7 +392,8 @@ export function CarritoProvider({ children }) {
           carrito,
           total,
           lugar: 'Tienda',
-          pagado: true,
+          pagado: false,
+          origenPago: 'mp',
           evento: eventoActivo,
         })
 
@@ -409,41 +411,39 @@ export function CarritoProvider({ children }) {
           })
           return
         }
-      }
-
-      // 📧 Generar y enviar ticket con PDF adjunto
-      try {
-        console.log('MAIL DEBUG →', {
-          pedidoId: pedido.id,
-          usuarioEmail: pedido.usuarioEmail,
-          userEmail: user?.email,
+        const initPoint = await crearPreferenciaCompra({
+          carrito,
+          ticketId: pedido.ticketId,
         })
-        if (pedido.usuarioEmail) {
-          await fetch('/api/confirmar-pedido', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              pedidoId: pedido.id,
-              to: pedido.usuarioEmail,
-              nombre: pedido.usuarioNombre,
-            }),
-          })
-        } else {
-          console.warn('⚠️ Pedido sin email, no se envía comprobante')
-        }
-      } catch (err) {
-        console.warn('⚠️ No se pudo enviar el mail:', err)
+        setCarrito([])
+        syncLocalStorage([])
+
+        window.location.href = initPoint
       }
 
-      const initPoint = await crearPreferenciaCompra({
-        carrito,
-        ticketId: pedido.ticketId,
-      })
-
-      setCarrito([])
-      syncLocalStorage([])
-
-      window.location.href = initPoint
+      //       // 📧 Generar y enviar ticket con PDF adjunto
+      // try {
+      //   console.log('MAIL DEBUG →', {
+      //     pedidoId: pedido.id,
+      //     usuarioEmail: pedido.usuarioEmail,
+      //     userEmail: user?.email,
+      //   })
+      //   if (pedido.usuarioEmail) {
+      //     await fetch('/api/confirmar-pedido', {
+      //       method: 'POST',
+      //       headers: { 'Content-Type': 'application/json' },
+      //       body: JSON.stringify({
+      //         pedidoId: pedido.id,
+      //         to: pedido.usuarioEmail,
+      //         nombre: pedido.usuarioNombre,
+      //       }),
+      //     })
+      //   } else {
+      //     console.warn('⚠️ Pedido sin email, no se envía comprobante')
+      //   }
+      // } catch (err) {
+      //   console.warn('⚠️ No se pudo enviar el mail:', err)
+      // }
     } catch (err) {
       console.error('❌ Error finalizar compra:', err)
       Swal.fire('Error', err.message || 'Ocurrió un error', 'error')

@@ -1,8 +1,6 @@
 import { MercadoPagoConfig, Preference } from 'mercadopago'
 
 export default async function handler(req, res) {
-  console.log('🔵 /api/crear-preferencia INICIADA')
-
   // ======================================================
   // VALIDAR BODY
   // ======================================================
