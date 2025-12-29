@@ -96,17 +96,6 @@ export function mailPedido(payload = {}) {
       <p><b>Lugar:</b> ${lugar}</p>
       <p><b>Fecha:</b> ${fechaStr}</p>
 
-      <hr/>
-      <p><b>Código de retiro:</b>
-        <span style="
-          font-size:16px;
-          font-weight:bold;
-          letter-spacing:0.5px;
-        ">
-          ${ticketId}
-        </span>
-      </p>
-
       ${
         qrUrl
           ? `
@@ -118,6 +107,20 @@ export function mailPedido(payload = {}) {
             />
             <p style="font-size:13px;color:#555;margin-top:8px">
               Presentá este QR en caja para retirar tu compra.
+            </p>
+
+            <p style="font-size:12px;color:#666">
+              ID código ingreso manual: 
+              
+              <span style="
+                font-size:14px;
+                font-weight:700;
+                letter-spacing:0.7px;f
+                display:inline-block;
+                margin-top:4px;
+              ">
+                ${ticketId}
+              </span>
             </p>
           </div>
         `
@@ -131,11 +134,14 @@ export function mailPedido(payload = {}) {
 
       <hr/>
 
-      <p style="font-size:13px;color:#555;line-height:1.4">
-        <b>Importante:</b> este ticket es válido <b>únicamente para el evento
-        o compra correspondiente a este pedido</b>.
-        No puede utilizarse en otros eventos, fechas o locales.
+      <p style="font-size:13px;color:#555;line-height:1.45">
+        <strong>Importante:</strong> este ticket es válido <strong>únicamente para el evento
+        o compra correspondiente a este pedido</strong>.  
+        El <strong>código QR es personal y de un solo uso</strong>.  
+        Cualquier <strong>uso indebido, copia o difusión</strong> podrá invalidar el ticket
+        automáticamente.
       </p>
+
 
       <p style="font-size:12px;color:#999;margin-top:24px;text-align:center">
         AppBar 🍻 — Sistema de pedidos

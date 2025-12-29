@@ -4,10 +4,8 @@ import { db } from '../Firebase.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import Swal from 'sweetalert2'
 import { useNavigate } from 'react-router-dom'
-// --------------------------------------------------
-// CONFIG
-// --------------------------------------------------
-const POLL_INTERVAL = 3000 // 3s
+
+const POLL_INTERVAL = 3000
 const MAX_INTENTOS = 10
 
 function normalizarStatus(status) {
@@ -20,10 +18,11 @@ function normalizarStatus(status) {
 
 export default function PagoResultado() {
   const { user } = useAuth()
+  const navigate = useNavigate()
 
   const params = useMemo(() => new URLSearchParams(window.location.search), [])
   const statusQuery = normalizarStatus(params.get('status'))
-  const pagoId = params.get('external_reference') // 🔑 CLAVE
+  const pagoId = params.get('external_reference')
 
   const [estadoReal, setEstadoReal] = useState('cargando')
   const [pago, setPago] = useState(null)
@@ -33,10 +32,26 @@ export default function PagoResultado() {
   const intentosRef = useRef(0)
   const intervalRef = useRef(null)
 
-  const navigate = useNavigate()
+  // --------------------------------------------------
+  // REGISTRAR PAGO PENDIENTE (si MP no confirmó)
+  // --------------------------------------------------
+  useEffect(() => {
+    if (!user?.uid || !pagoId) return
+
+    if (statusQuery === 'pending' || statusQuery === 'success') {
+      fetch('/api/registrar-pago-pendiente', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pagoId,
+          userId: user.uid,
+        }),
+      }).catch(() => {})
+    }
+  }, [user, pagoId, statusQuery])
 
   // --------------------------------------------------
-  // POLLING CONTROLADO
+  // POLLING FIRESTORE
   // --------------------------------------------------
   useEffect(() => {
     if (!user?.uid || !pagoId) {
@@ -46,13 +61,12 @@ export default function PagoResultado() {
 
     async function cargarEstadoPago() {
       try {
-        const pagoRef = doc(db, 'pagos', pagoId)
-        const pagoSnap = await getDoc(pagoRef)
+        const snap = await getDoc(doc(db, 'pagos', pagoId))
 
-        if (!pagoSnap.exists()) {
+        if (!snap.exists()) {
           setEstadoReal('pendiente')
         } else {
-          const docPago = { id: pagoSnap.id, ...pagoSnap.data() }
+          const docPago = { id: snap.id, ...snap.data() }
           setPago(docPago)
 
           const estado = (docPago.estado || '').toLowerCase()
@@ -92,7 +106,7 @@ export default function PagoResultado() {
   }, [user, pagoId])
 
   // --------------------------------------------------
-  // MENSAJE UX INICIAL (solo informativo)
+  // UX INICIAL
   // --------------------------------------------------
   useEffect(() => {
     if (statusQuery === 'success') {
@@ -107,20 +121,12 @@ export default function PagoResultado() {
   }, [statusQuery])
 
   // --------------------------------------------------
-
   // ACTIONS
   // --------------------------------------------------
   function irMisEntradas() {
     if (navegando) return
     setNavegando(true)
-
-    // navegación real
     navigate('/mis-entradas')
-
-    // fallback por si el router aún no estaba listo
-    setTimeout(() => {
-      navigate('/mis-entradas')
-    }, 300)
   }
 
   function irInicio() {
@@ -133,13 +139,6 @@ export default function PagoResultado() {
     intentosRef.current = 0
     setPollingFinalizado(false)
     setEstadoReal('cargando')
-
-    // reiniciar polling manual
-    if (!intervalRef.current) {
-      intervalRef.current = setInterval(() => {
-        intentosRef.current += 1
-      }, POLL_INTERVAL)
-    }
   }
 
   // --------------------------------------------------
@@ -150,17 +149,14 @@ export default function PagoResultado() {
       return {
         titulo: 'Pago en verificación',
         texto:
-          'Tu pago está siendo verificado por el proveedor.\n\n' +
-          'Esto puede demorar unos minutos. No es necesario que vuelvas a pagar.',
+          'Tu pago está pendiente de confirmación.\n\n' +
+          'Si ya pagaste, no vuelvas a hacerlo. El sistema lo validará automáticamente.',
       }
     }
 
     switch (estadoReal) {
       case 'cargando':
-        return {
-          titulo: 'Verificando pago',
-          texto: 'Estamos verificando el estado de tu pago.',
-        }
+        return { titulo: 'Verificando pago', texto: 'Procesando pago…' }
       case 'aprobado':
         return {
           titulo: 'Pago aprobado',
@@ -170,25 +166,18 @@ export default function PagoResultado() {
         return {
           titulo: 'Pago en revisión',
           texto:
-            'Detectamos una inconsistencia con el monto. El equipo lo revisará y te contactará si es necesario.',
+            'Detectamos una inconsistencia con el monto. El equipo lo revisará.',
         }
       case 'fallido':
         return {
           titulo: 'Pago rechazado',
-          texto: 'El pago no se pudo completar. Podés intentarlo nuevamente.',
-        }
-      case 'pendiente':
-        return {
-          titulo: 'Pago en proceso',
-          texto:
-            'Tu pago todavía está siendo confirmado. Esta pantalla se actualizará automáticamente.',
+          texto: 'El pago no se pudo completar.',
         }
       default:
         return {
           titulo: 'Pago no encontrado',
           texto:
-            'No encontramos un pago reciente asociado a tu cuenta.\n\n' +
-            'Si pagaste, esperá unos segundos y revisá “Mis Entradas”.',
+            'No encontramos un pago reciente.\nSi pagaste, revisá “Mis Entradas”.',
         }
     }
   })()
@@ -199,59 +188,16 @@ export default function PagoResultado() {
   return (
     <div style={{ maxWidth: 520, margin: '40px auto', padding: 16 }}>
       <div className="swal-popup-custom" style={{ padding: 22 }}>
-        <h2 style={{ margin: 0, fontSize: 22 }}>{ui.titulo}</h2>
+        <h2>{ui.titulo}</h2>
+        <p style={{ whiteSpace: 'pre-line' }}>{ui.texto}</p>
 
-        <p style={{ marginTop: 12, whiteSpace: 'pre-line' }}>{ui.texto}</p>
-
-        {pago && (
-          <div style={{ marginTop: 14, fontSize: 14, opacity: 0.9 }}>
-            <div>
-              <b>Método:</b>{' '}
-              {pago.metodo === 'mp' ? 'Mercado Pago' : pago.metodo || '—'}
-            </div>
-
-            <div>
-              <b>Total:</b> ${Number(pago.total || 0).toLocaleString('es-AR')}
-            </div>
-
-            {(pago.approvedAt || pago.createdAt)?.toDate && (
-              <div>
-                <b>Fecha:</b>{' '}
-                {(pago.approvedAt || pago.createdAt)
-                  .toDate()
-                  .toLocaleString('es-AR')}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div
-          style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}
-        >
-          <button
-            className="swal-btn-confirm"
-            onClick={irMisEntradas}
-            disabled={navegando}
-          >
+        <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+          <button className="swal-btn-confirm" onClick={irMisEntradas}>
             Ver Mis Entradas
           </button>
-
-          <button
-            className="swal-btn-cancel"
-            onClick={irInicio}
-            disabled={navegando}
-          >
+          <button className="swal-btn-cancel" onClick={irInicio}>
             Volver al inicio
           </button>
-
-          {estadoReal === 'pendiente' && pollingFinalizado && (
-            <button
-              className="swal-btn-cancel"
-              onClick={actualizarEstadoManual}
-            >
-              Actualizar estado
-            </button>
-          )}
         </div>
 
         <p style={{ marginTop: 14, fontSize: 12, opacity: 0.6 }}>

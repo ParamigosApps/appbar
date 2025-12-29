@@ -2,7 +2,7 @@ import admin from 'firebase-admin'
 import crypto from 'crypto'
 
 const db = admin.firestore()
-const { serverTimestamp } = admin.firestore.FieldValue
+const serverTimestamp = admin.firestore.FieldValue.serverTimestamp
 
 // --------------------------------------------------
 // 🔥 GENERAR ENTRADAS PAGAS DESDE PAGO APROBADO
@@ -10,8 +10,10 @@ const { serverTimestamp } = admin.firestore.FieldValue
 export async function generarEntradasPagasDesdePago(pagoId, pago) {
   const pagoRef = db.collection('pagos').doc(pagoId)
 
-  // 🔐 Idempotencia FUERTE (lock transaccional)
-  await db.runTransaction(async tx => {
+  // --------------------------------------------------
+  // 🔐 LOCK TRANSACCIONAL (IDEMPOTENCIA FUERTE)
+  // --------------------------------------------------
+  const lockResult = await db.runTransaction(async tx => {
     const snap = await tx.get(pagoRef)
 
     if (!snap.exists) {
@@ -20,108 +22,129 @@ export async function generarEntradasPagasDesdePago(pagoId, pago) {
 
     const data = snap.data()
 
+    // Ya generado → salir silenciosamente
     if (data.entradasPagasGeneradas === true) {
-      throw new Error('ENTRADAS_YA_GENERADAS')
+      return { yaGeneradas: true }
+    }
+
+    // Lock activo pero viejo → permitir reintento
+    if (
+      data.entradasPagasGeneradas === 'procesando' &&
+      data.entradasPagasLockAt?.toDate
+    ) {
+      const lockAge = Date.now() - data.entradasPagasLockAt.toDate().getTime()
+
+      // 2 minutos de timeout
+      if (lockAge < 2 * 60 * 1000) {
+        return { locked: true }
+      }
     }
 
     tx.update(pagoRef, {
       entradasPagasGeneradas: 'procesando',
       entradasPagasLockAt: serverTimestamp(),
     })
+
+    return { locked: false }
   })
 
+  if (lockResult?.yaGeneradas) return
+  if (lockResult?.locked) return
+
+  // --------------------------------------------------
+  // VALIDACIÓN DE DATOS
+  // --------------------------------------------------
   const { usuarioId, eventoId, itemsPagados = [] } = pago
 
   if (!usuarioId || !eventoId || !Array.isArray(itemsPagados)) {
+    await pagoRef.update({
+      entradasPagasGeneradas: 'error',
+      entradasPagasError: 'Pago inválido para generar entradas',
+      entradasPagasErrorAt: serverTimestamp(),
+    })
     throw new Error('Pago inválido para generar entradas')
   }
 
   let batch = db.batch()
   let operaciones = 0
 
-  for (const item of itemsPagados) {
-    const cantidad = Number(item.cantidad) || 1
-    const precio = Number(item.precio) || 0
+  try {
+    for (const item of itemsPagados) {
+      const cantidad = Number(item.cantidad) || 1
+      const precio = Number(item.precio) || 0
 
-    const loteIndice = Number.isFinite(item.loteIndice)
-      ? item.loteIndice
-      : Number.isFinite(item.index)
-      ? item.index
-      : null
+      const loteIndice = Number.isFinite(item.loteIndice)
+        ? item.loteIndice
+        : Number.isFinite(item.index)
+        ? item.index
+        : null
 
-    for (let i = 0; i < cantidad; i++) {
-      const entradaRef = db.collection('entradas').doc()
+      for (let i = 0; i < cantidad; i++) {
+        const entradaRef = db.collection('entradas').doc()
 
-      // 🔐 Firma QR REAL (antifraude)
-      const firma = crypto
-        .createHash('sha256')
-        .update(`${entradaRef.id}|${pagoId}|${eventoId}`)
-        .digest('hex')
-        .slice(0, 12)
+        // 🔐 FIRMA QR ANTIFRAUDE
+        const firma = crypto
+          .createHash('sha256')
+          .update(`${entradaRef.id}|${pagoId}|${eventoId}`)
+          .digest('hex')
+          .slice(0, 12)
 
-      const qrData = `E|${entradaRef.id}|${firma}`
+        const qrData = `E|${entradaRef.id}|${firma}`
 
-      batch.set(entradaRef, {
-        // -----------------------------
-        // RELACIONES
-        // -----------------------------
-        usuarioId,
-        eventoId,
-        pagoId,
+        batch.set(entradaRef, {
+          usuarioId,
+          eventoId,
+          pagoId,
 
-        // -----------------------------
-        // LOTE
-        // -----------------------------
-        lote: {
-          id: item.lote?.id ?? null,
-          nombre: item.nombre ?? 'Entrada',
-          precio,
-        },
-        loteIndice,
+          lote: {
+            id: item.lote?.id ?? null,
+            nombre: item.nombre ?? 'Entrada',
+            precio,
+          },
+          loteIndice,
 
-        // -----------------------------
-        // ECONOMÍA
-        // -----------------------------
-        metodo: 'mp',
-        precioUnitario: precio,
+          metodo: 'mp',
+          precioUnitario: precio,
 
-        // -----------------------------
-        // ESTADO
-        // -----------------------------
-        estado: 'aprobada',
-        aprobadoPor: 'mercadopago',
-        usado: false,
+          estado: 'aprobada',
+          aprobadoPor: 'mercadopago',
+          usado: false,
 
-        // -----------------------------
-        // QR
-        // -----------------------------
-        qr: qrData,
+          qr: qrData,
 
-        // -----------------------------
-        // METADATA
-        // -----------------------------
-        creadoEn: serverTimestamp(),
-      })
+          creadoEn: serverTimestamp(),
+        })
 
-      operaciones++
+        operaciones++
 
-      // 🔒 Commit parcial si se acerca al límite
-      if (operaciones >= 450) {
-        await batch.commit()
-        batch = db.batch()
-        operaciones = 0
+        if (operaciones >= 450) {
+          await batch.commit()
+          batch = db.batch()
+          operaciones = 0
+        }
       }
     }
-  }
 
-  // Último commit
-  if (operaciones > 0) {
-    await batch.commit()
-  }
+    if (operaciones > 0) {
+      await batch.commit()
+    }
 
-  // 🔒 Marcar pago como FINALIZADO
-  await pagoRef.update({
-    entradasPagasGeneradas: true,
-    entradasPagasAt: serverTimestamp(),
-  })
+    // --------------------------------------------------
+    // ✅ FINALIZAR
+    // --------------------------------------------------
+    await pagoRef.update({
+      entradasPagasGeneradas: true,
+      entradasPagasAt: serverTimestamp(),
+    })
+  } catch (err) {
+    console.error('❌ Error generando entradas:', err)
+
+    await pagoRef.update({
+      entradasPagasGeneradas: 'error',
+      entradasPagasError: err.message || 'Error desconocido',
+      entradasPagasErrorAt: serverTimestamp(),
+    })
+
+    throw err
+  }
 }

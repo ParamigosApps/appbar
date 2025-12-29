@@ -1,8 +1,3 @@
-// --------------------------------------------------
-// /api/webhook-mercadopago.js
-// WEBHOOK MERCADO PAGO — PRODUCCIÓN FINAL (BLINDADO)
-// --------------------------------------------------
-
 import admin from 'firebase-admin'
 import { generarEntradasPagasDesdePago } from './_lib/generarEntradasPagasDesdePago.js'
 
@@ -17,7 +12,7 @@ if (!admin.apps.length) {
 }
 
 const db = admin.firestore()
-const { serverTimestamp } = admin.firestore.FieldValue
+const serverTimestamp = admin.firestore.FieldValue.serverTimestamp
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -28,12 +23,6 @@ export default async function handler(req, res) {
     const body = req.body || {}
     const tipo = body.type || body.topic || req.query.topic
     const paymentId = body?.data?.id || req.query.id
-    console.log('💳 PAYMENT MP', {
-      id: payment.id,
-      status: payment.status,
-      amount: payment.transaction_amount,
-      external_reference: payment.external_reference,
-    })
 
     if (tipo !== 'payment' || !paymentId) {
       return res.status(200).send('ignored')
@@ -48,21 +37,23 @@ export default async function handler(req, res) {
         },
       }
     )
-    console.log('💳 PAYMENT MP', {
-      id: payment.id,
-      status: payment.status,
-      amount: payment.transaction_amount,
-      external_reference: payment.external_reference,
-    })
 
     if (!mpRes.ok) {
-      console.error('❌ Error MP:', mpRes.status)
+      console.error('❌ Error MP status:', mpRes.status)
       return res.status(200).send('mp error')
     }
 
     const payment = await mpRes.json()
-    const pagoId = payment.external_reference
 
+    console.log('💳 PAYMENT MP', {
+      id: payment.id,
+      status: payment.status,
+      status_detail: payment.status_detail,
+      amount: payment.transaction_amount,
+      external_reference: payment.external_reference,
+    })
+
+    const pagoId = payment.external_reference
     if (!pagoId) {
       return res.status(200).send('no external_reference')
     }
@@ -108,6 +99,7 @@ export default async function handler(req, res) {
         paymentId,
         log: {
           status: payment.status,
+          status_detail: payment.status_detail,
           at: serverTimestamp(),
         },
       })
@@ -120,13 +112,14 @@ export default async function handler(req, res) {
       return res.status(200).send('pendiente')
     }
 
-    // ✅ APROBAR PAGO (ESTO ES SAGRADO)
+    // ✅ APROBAR PAGO
     await pagoRef.update({
       estado: 'aprobado',
       paymentId,
       approvedAt: serverTimestamp(),
       log: {
         status: 'approved',
+        status_detail: payment.status_detail,
         at: serverTimestamp(),
       },
     })

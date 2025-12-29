@@ -118,19 +118,19 @@ export async function mostrarQrCompraReact(pedido, onClose) {
               `
           }
 
-<p style="font-size:12px;color:#666">
-  ID código ingreso manual: 
-  
-  <span style="
-    font-size:14px;
-    font-weight:700;
-    letter-spacing:0.7px;
-    display:inline-block;
-    margin-top:4px;
-  ">
-    ${codigoValidacion}
-  </span>
-</p>
+        <p style="font-size:12px;color:#666">
+          ID código ingreso manual: 
+          
+          <span style="
+            font-size:14px;
+            font-weight:700;
+            letter-spacing:0.7px;
+            display:inline-block;
+            margin-top:4px;
+          ">
+            ${codigoValidacion}
+          </span>
+        </p>
 
 
 

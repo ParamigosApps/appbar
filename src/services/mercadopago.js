@@ -39,6 +39,9 @@ export async function crearPreferenciaEntrada({
 }
 export async function crearPreferenciaCompra({ carrito, ticketId }) {
   try {
+    // ============================
+    // VALIDAR Y ARMAR ITEMS
+    // ============================
     const items = carrito.map(p => {
       const precioNum = normalizarPrecio(p.precio)
       const cantidadNum = Number(p.enCarrito)
@@ -53,13 +56,16 @@ export async function crearPreferenciaCompra({ carrito, ticketId }) {
       }
 
       return {
-        title: p.nombre,
+        title: String(p.nombre),
         quantity: cantidadNum,
         unit_price: precioNum,
         currency_id: 'ARS',
       }
     })
 
+    // ============================
+    // FETCH
+    // ============================
     const res = await fetch('/api/crear-preferencia', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -69,13 +75,15 @@ export async function crearPreferenciaCompra({ carrito, ticketId }) {
       }),
     })
 
+    // ============================
+    // LEER JSON UNA SOLA VEZ
+    // ============================
+    const data = await res.json()
+
     if (!res.ok) {
-      const err = await res.json()
-      console.error('❌ Error backend MP:', err)
+      console.error('❌ Backend MP error:', data)
       return null
     }
-
-    const data = await res.json()
 
     if (!data?.init_point) {
       console.error('❌ MP sin init_point:', data)
