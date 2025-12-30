@@ -61,12 +61,12 @@ export default function Home() {
             Tu pedido quedó pendiente ⏳
           </p>
           <p style="font-size:14px;text-align:center;color:#555;">
-            El stock fue reservado.<br />
-            No vuelvas a pagar.
+            Comunicate con un administrador.<br />
+            
           </p>
         `,
         icon: 'warning',
-        confirmButtonText: 'Ver mis pedidos',
+        confirmButtonText: 'Entendido',
         customClass: {
           confirmButton: 'swal-btn-confirm',
         },

@@ -34,7 +34,7 @@ import {
   Timestamp,
 } from 'firebase/firestore'
 
-import { logTicket } from '../../services/logsService'
+import { logTicket } from '../../services/logsService.js'
 
 async function extenderExpiracionCompraSimple(pedido) {
   if (!pedido?.id || !pedido.expiraEn?.seconds) {

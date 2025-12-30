@@ -28,6 +28,10 @@ export default async function handler(req, res) {
       error: 'MP_ACCESS_TOKEN no configurado',
     })
   }
+  console.log('📩 WEBHOOK MP RECIBIDO', {
+    body: req.body,
+    query: req.query,
+  })
 
   const client = new MercadoPagoConfig({
     accessToken: ACCESS_TOKEN,
@@ -94,6 +98,8 @@ export default async function handler(req, res) {
       body: {
         items,
         external_reference: body.external_reference,
+
+        notification_url: `${baseUrl}/api/webhook-mp`,
 
         back_urls: {
           success: `${baseUrl}/pago-resultado?status=success`,
