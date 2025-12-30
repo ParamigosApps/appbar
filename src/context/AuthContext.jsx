@@ -527,7 +527,7 @@ export function AuthProvider({ children }) {
       Swal.fire({
         icon: 'success',
         title: 'Link enviado',
-        text: 'Si no ves el correo, revisá la carpeta de Spam o Promociones.',
+        text: 'Si no ves el correo, revisá la carpeta de SPAM o Promociones.',
         confirmButtonText: 'Revisaré mi mail',
         buttonsStyling: false,
         customClass: {
