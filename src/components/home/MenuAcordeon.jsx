@@ -726,6 +726,25 @@ export default function MenuAcordeon() {
                           Por favor, prueba iniciar sesión con otro metodo.
                         </p>
                       )}
+                      <p className="recaptcha-legal">
+                        Este sitio está protegido por reCAPTCHA y se aplican la{' '}
+                        <a
+                          href="https://policies.google.com/privacy"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Política de Privacidad
+                        </a>{' '}
+                        y los{' '}
+                        <a
+                          href="https://policies.google.com/terms"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Términos del Servicio
+                        </a>{' '}
+                        de Google.
+                      </p>
                     </section>
                   )}
 

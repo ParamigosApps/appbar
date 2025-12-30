@@ -210,3 +210,22 @@
     padding: 0.6rem;
   }
 }
+
+/* Ocultar badge visual de reCAPTCHA */
+.grecaptcha-badge {
+  visibility: hidden;
+}
+
+/* Texto legal reCAPTCHA */
+.recaptcha-legal {
+  font-size: 11px;
+  color: #6b7280;
+  text-align: center;
+  margin-top: 10px;
+  line-height: 1.4;
+}
+
+.recaptcha-legal a {
+  color: #6b7280;
+  text-decoration: underline;
+}

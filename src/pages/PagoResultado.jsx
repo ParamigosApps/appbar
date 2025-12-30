@@ -94,12 +94,9 @@ export default function PagoResultado() {
       <BasePagoLayout
         icon="⚠️"
         title="Pago pendiente"
-        description="El pago no se confirmó aún. Tu pedido quedó pendiente y el stock reservado."
+        description="El pago no se confirmó aún. Tu compra quedó pendiente."
       >
-        <button className="btn primary" onClick={() => navigate('/historial')}>
-          Ver mis pedidos
-        </button>
-        <button className="btn secondary" onClick={() => navigate('/')}>
+        <button className="swal-btn-confirm" onClick={() => navigate('/')}>
           Volver al inicio
         </button>
       </BasePagoLayout>

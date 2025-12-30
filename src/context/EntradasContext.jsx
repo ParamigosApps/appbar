@@ -357,11 +357,11 @@ export function EntradasProvider({ children }) {
             title: 'Entradas gratis generadas',
             html: `
       <p>
-        Se genero correctamente <b>${totalGratis}</b>
+        Se generaron <b>${totalGratis}</b>
         ${totalGratis === 1 ? 'entrada gratuita' : 'entradas gratuitas'}.
       </p>
       <p class="mt-2">
-        A continuación podrás continuar con el pago de las entradas restantes.
+        A continuación podrás realizar el pago de las entradas restantes.
       </p>
     `,
             icon: 'success',
