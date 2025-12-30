@@ -20,7 +20,7 @@ export async function crearEntradaBase({
   metodo = 'free', // free | mp | transferencia
   precioUnitario = 0,
   cantidad = 1,
-  estado = 'aprobada', // aprobada | pendiente | cancelada
+  estado = 'aprobado', // aprobada | pendiente | cancelada
   qr = '',
 
   usado = false,

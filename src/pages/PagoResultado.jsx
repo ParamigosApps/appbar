@@ -1,117 +1,89 @@
-import { useEffect, useState } from 'react'
+// src/pages/PagoResultado.jsx
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../Firebase.js'
 
-import BasePagoLayout from './pago/BasePagoLayout'
+import { showLoading, hideLoading } from '../services/loadingService.js'
+
+const POLL_INTERVAL = 2000
+const MAX_INTENTOS = 10
 
 export default function PagoResultado() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
   const pagoId = params.get('external_reference')
 
-  const [estado, setEstado] = useState('verificando')
+  const intervalRef = useRef(null)
   const [intentos, setIntentos] = useState(0)
 
-  // --------------------------------------------------
-  // VERIFICAR PAGO
-  // --------------------------------------------------
   useEffect(() => {
+    showLoading({
+      title: 'Confirmando pago',
+      text: 'Estamos verificando tu pago…',
+    })
+
     if (!pagoId) {
-      setEstado('rechazado')
+      localStorage.setItem('avisoPostPago', 'rechazado')
+      hideLoading()
+      navigate('/')
       return
     }
 
     const check = async () => {
-      const ref = doc(db, 'pagos', pagoId)
-      const snap = await getDoc(ref)
-      if (!snap.exists()) return
+      try {
+        const ref = doc(db, 'pagos', pagoId)
+        const snap = await getDoc(ref)
 
-      const pago = snap.data()
+        if (!snap.exists()) {
+          setIntentos(i => i + 1)
+          return
+        }
 
-      if (pago.estado === 'aprobado') {
-        localStorage.setItem('avisoPostPago', 'aprobado')
-        setEstado('aprobado')
-        return
+        const pago = snap.data()
+
+        if (pago.estado === 'aprobado') {
+          localStorage.setItem('avisoPostPago', 'aprobado')
+          clearInterval(intervalRef.current)
+          hideLoading()
+          navigate('/')
+          return
+        }
+
+        if (['fallido', 'monto_invalido'].includes(pago.estado)) {
+          localStorage.setItem('avisoPostPago', 'rechazado')
+          clearInterval(intervalRef.current)
+          hideLoading()
+          navigate('/')
+          return
+        }
+
+        setIntentos(i => i + 1)
+      } catch (err) {
+        console.error('❌ Error verificando pago:', err)
+        setIntentos(i => i + 1)
       }
-
-      if (['fallido', 'monto_invalido'].includes(pago.estado)) {
-        localStorage.setItem('avisoPostPago', 'rechazado')
-        setEstado('rechazado')
-        return
-      }
-
-      setIntentos(i => i + 1)
     }
 
-    const interval = setInterval(check, 2000)
-    return () => clearInterval(interval)
-  }, [pagoId])
+    intervalRef.current = setInterval(check, POLL_INTERVAL)
+    check() // ejecutar inmediato
 
-  // --------------------------------------------------
-  // TIMEOUT → PENDIENTE
-  // --------------------------------------------------
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      hideLoading()
+    }
+  }, [pagoId, navigate])
+
+  // ⏳ Timeout → pendiente
   useEffect(() => {
-    if (intentos >= 10 && estado === 'verificando') {
+    if (intentos >= MAX_INTENTOS) {
       localStorage.setItem('avisoPostPago', 'pendiente')
-      setEstado('pendiente')
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      hideLoading()
+      navigate('/')
     }
-  }, [intentos, estado])
+  }, [intentos, navigate])
 
-  // --------------------------------------------------
-  // RENDER
-  // --------------------------------------------------
-
-  if (estado === 'verificando') {
-    return (
-      <BasePagoLayout
-        icon="⏳"
-        title="Confirmando pago"
-        description="Estamos verificando tu pago con Mercado Pago."
-      />
-    )
-  }
-
-  if (estado === 'aprobado') {
-    return (
-      <BasePagoLayout
-        icon="✅"
-        title="Pago confirmado"
-        description="Tu compra fue realizada con éxito."
-      >
-        <button className="btn primary" onClick={() => navigate('/historial')}>
-          Ver mis entradas
-        </button>
-        <button className="btn secondary" onClick={() => navigate('/')}>
-          Volver al inicio
-        </button>
-      </BasePagoLayout>
-    )
-  }
-
-  if (estado === 'pendiente') {
-    return (
-      <BasePagoLayout
-        icon="⚠️"
-        title="Pago pendiente"
-        description="El pago no se confirmó aún. Tu compra quedó pendiente."
-      >
-        <button className="swal-btn-confirm" onClick={() => navigate('/')}>
-          Volver al inicio
-        </button>
-      </BasePagoLayout>
-    )
-  }
-
-  return (
-    <BasePagoLayout
-      icon="❌"
-      title="Pago rechazado"
-      description="No se pudo completar el pago. No se realizó ningún cargo."
-    >
-      <button className="btn primary" onClick={() => navigate('/')}>
-        Intentar nuevamente
-      </button>
-    </BasePagoLayout>
-  )
+  // 👉 No renderiza nada
+  return null
 }

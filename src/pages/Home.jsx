@@ -34,7 +34,22 @@ export default function Home() {
           confirmButton: 'swal-btn-confirm',
         },
       }).then(() => {
-        navigate('/historial')
+        navigate('/')
+      })
+    }
+
+    if (aviso === 'rechazado') {
+      Swal.fire({
+        icon: 'error',
+        title: 'Pago rechazado',
+        text: 'No se realizó ningún cargo.',
+        confirmButtonText: 'OK',
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: 'swal-btn-confirm',
+        },
+      }).then(() => {
+        navigate('/')
       })
     }
 
@@ -56,7 +71,7 @@ export default function Home() {
           confirmButton: 'swal-btn-confirm',
         },
       }).then(() => {
-        navigate('/historial')
+        navigate('/')
       })
     }
   }, [navigate])

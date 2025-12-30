@@ -182,7 +182,7 @@ export async function aprobarEntrada(entrada) {
         aprobadaPor: 'admin',
         operacionId,
 
-        estado: 'aprobada',
+        estado: 'aprobado',
         metodo: 'transferencia',
         pagado: pagadoFinal,
         usado: false,
