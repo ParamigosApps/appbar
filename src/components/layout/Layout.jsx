@@ -8,9 +8,6 @@ import CarritoOverlay from '../CarritoOverlay.jsx'
 export default function Layout() {
   return (
     <>
-      {/* HEADER SIEMPRE ARRIBA */}
-      <Header />
-
       {/* CONTENIDO PRINCIPAL */}
       <main className="mt-3">
         <Outlet />

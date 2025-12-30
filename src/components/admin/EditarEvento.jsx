@@ -12,6 +12,7 @@ import Swal from 'sweetalert2'
 // TipTap
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+
 export default function EditarEvento({ editarId, setSeccion }) {
   const [cargando, setCargando] = useState(true)
 
@@ -58,23 +59,111 @@ export default function EditarEvento({ editarId, setSeccion }) {
   }
 
   // --------------------------------------------------------------
+  // HELPER — convertir HH:MM a minutos
+  // --------------------------------------------------------------
+  function horaAMinutos(hora) {
+    if (!hora || typeof hora !== 'string') return null
+    const [h, m] = hora.split(':').map(Number)
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return null
+    if (h < 0 || h > 23 || m < 0 || m > 59) return null
+    return h * 60 + m
+  }
+  function esEventoNocturno() {
+    const ini = horaAMinutos(form.horaInicio)
+    const fin = horaAMinutos(form.horaFin)
+    if (ini === null || fin === null) return false
+    return fin < ini
+  }
+
+  function normalizarRangoNocturno(desdeMin, hastaMin) {
+    if (desdeMin === null || hastaMin === null) return null
+
+    // Si cruza medianoche (23:00 → 01:30)
+    if (hastaMin < desdeMin) {
+      return {
+        desde: desdeMin,
+        hasta: hastaMin + 24 * 60,
+      }
+    }
+
+    return {
+      desde: desdeMin,
+      hasta: hastaMin,
+    }
+  }
+
+  function validarHorasLotesVsInicioEvento() {
+    const inicioEventoMin = horaAMinutos(form.horaInicio)
+    const finEventoMin = horaAMinutos(form.horaFin)
+
+    if (inicioEventoMin === null || finEventoMin === null) return true
+
+    // Evento nocturno
+    const finEventoReal =
+      finEventoMin < inicioEventoMin ? finEventoMin + 24 * 60 : finEventoMin
+
+    for (const l of lotes) {
+      const desdeMin = horaAMinutos(l.desdeHora)
+      const hastaMin = horaAMinutos(l.hastaHora)
+
+      if (desdeMin === null || hastaMin === null) continue
+
+      const rango = normalizarRangoNocturno(desdeMin, hastaMin)
+      if (!rango) continue
+
+      // ❌ NO puede empezar antes del inicio del evento
+      if (rango.desde < inicioEventoMin) {
+        Swal.fire(
+          'Horario inválido',
+          `El lote "${
+            l.nombre || 'Sin nombre'
+          }" comienza antes del inicio del evento (${form.horaInicio}).`,
+          'error'
+        )
+        return false
+      }
+
+      // ❌ NO puede terminar después del fin del evento
+      if (rango.hasta > finEventoReal) {
+        const finEventoTexto =
+          finEventoMin < inicioEventoMin
+            ? `${form.horaFin} (día siguiente)`
+            : form.horaFin
+
+        Swal.fire(
+          'Horario inválido',
+          `El lote "${
+            l.nombre || 'Sin nombre'
+          }" finaliza después del horario permitido del evento.\n\n` +
+            `⏰ Fin del evento: ${finEventoTexto}\n` +
+            `⛔ Fin del lote: ${l.hastaHora}`,
+          'error'
+        )
+        return false
+      }
+    }
+
+    return true
+  }
+
+  // --------------------------------------------------------------
   // TIPTAP
   // --------------------------------------------------------------
   const editor = useEditor({
     extensions: [StarterKit],
     content: '',
     onUpdate({ editor }) {
-      const fullText = editor.getText() || ''
-      if (fullText.length <= MAX_DESC) {
-        setDescripcionPlano(fullText)
-        setDescripcionHtml(editor.getHTML())
-      } else {
-        const truncated = fullText.slice(0, MAX_DESC)
-        setDescripcionPlano(truncated)
-        setDescripcionHtml(truncated)
-      }
+      setDescripcionPlano(editor.getText() || '')
+      setDescripcionHtml(editor.getHTML())
     },
   })
+
+  useEffect(() => {
+    if (!editor) return
+    if (descripcionHtml) return // evita pisar lo que escribe el usuario
+
+    editor.commands.setContent(descripcionHtml || '')
+  }, [editor])
 
   // --------------------------------------------------------------
   // 1) CARGAR EVENTO EXISTENTE
@@ -93,8 +182,6 @@ export default function EditarEvento({ editarId, setSeccion }) {
         setSeccion('eventos-lista')
         return
       }
-
-      data.fecha
 
       setForm({
         nombre: data.nombre || '',
@@ -123,13 +210,17 @@ export default function EditarEvento({ editarId, setSeccion }) {
               const cantidadInicial = Number(
                 l.cantidadInicial ?? l.cantidad ?? 0
               )
+              const cantidad = Number(l.cantidad ?? cantidadInicial)
 
+              // vendidas = cantidadInicial - cantidad (restantes)
+              // Guardamos original para poder validar contra vendidas reales
               return {
                 id: idx + '-' + Date.now(),
                 ...l,
                 cantidadInicial,
-                cantidad: Number(l.cantidad ?? cantidadInicial),
+                cantidad,
                 _originalCantidadInicial: cantidadInicial,
+                _originalCantidad: cantidad,
               }
             })
           : []
@@ -160,7 +251,7 @@ export default function EditarEvento({ editarId, setSeccion }) {
   }, [imagen])
 
   // --------------------------------------------------------------
-  // VALIDACIONES
+  // VALIDACIONES (TUS FUNCIONES, SIN QUITAR)
   // --------------------------------------------------------------
   function validarHorario(h) {
     if (!h) return true
@@ -207,11 +298,14 @@ export default function EditarEvento({ editarId, setSeccion }) {
         nombre: '',
         genero: 'todos',
         precio: '',
-        cantidad: '',
+        cantidadInicial: 0,
+        cantidad: 0,
         desdeHora: '',
         hastaHora: '',
         incluyeConsumicion: false,
         maxPorUsuario: 0,
+        _originalCantidadInicial: 0,
+        _originalCantidad: 0,
       },
     ])
   }
@@ -226,14 +320,23 @@ export default function EditarEvento({ editarId, setSeccion }) {
     setLotes(prev => prev.filter(l => l.id !== id))
   }
 
+  // ✅ CORREGIDA: vendidas reales y validación correcta
   function validarLotesEditados() {
     for (const l of lotes) {
-      const vendidas = l._originalCantidadInicial - l.cantidad
+      const oi = Number(l._originalCantidadInicial ?? 0)
+      const oc = Number(l._originalCantidad ?? 0)
 
-      if (l.cantidadInicial < vendidas) {
+      // Si en tu modelo "cantidad" = restantes:
+      // vendidas = originalInicial - originalRestantes
+      const vendidas = Math.max(oi - oc, 0)
+
+      const nuevaCapacidad = Number(l.cantidadInicial ?? 0)
+      if (nuevaCapacidad < vendidas) {
         Swal.fire(
           'Error',
-          `El lote "${l.nombre}" no puede tener menos capacidad que entradas ya vendidas (${vendidas}).`,
+          `El lote "${
+            l.nombre || 'Sin nombre'
+          }" no puede tener menos capacidad que entradas ya vendidas (${vendidas}).`,
           'error'
         )
         return false
@@ -256,14 +359,39 @@ export default function EditarEvento({ editarId, setSeccion }) {
       !form.horaFin ||
       !form.lugar
     ) {
-      Swal.fire('Error', 'Completá nombre, fecha y lugar.', 'error')
+      Swal.fire(
+        'Error',
+        'Completá fechas, horarios y lugar del evento.',
+        'error'
+      )
       return
     }
 
+    if (descripcionPlano.length > MAX_DESC) {
+      Swal.fire(
+        'Descripción demasiado larga',
+        `La descripción del evento no puede superar los ${MAX_DESC} caracteres.`,
+        'error'
+      )
+      return
+    }
+
+    // 1️⃣ Formato horario evento
+    if (!validarHorario(form.horaInicio) || !validarHorario(form.horaFin)) {
+      Swal.fire('Error', 'Horario inválido. Formato HH:MM.', 'error')
+      return
+    }
+
+    // 2️⃣ Horas de lotes vs inicio del evento
+    if (!validarHorasLotesVsInicioEvento()) return
+
+    // 3️⃣ Capacidades vs vendidas
     if (!validarLotesEditados()) return
 
+    // 4️⃣ Imagen
     if (!validarImagen(imagen)) return
 
+    // 5️⃣ Capacidad total
     const max = Number(form.entradasMaximas)
     if (!validarLotes(max)) return
 
@@ -287,6 +415,7 @@ export default function EditarEvento({ editarId, setSeccion }) {
         genero: l.genero || 'todos',
         precio: Number(l.precio) || 0,
 
+        // Guardamos ambos
         cantidadInicial: Number(l.cantidadInicial) || 0,
         cantidad: Number(l.cantidad) || 0,
 
@@ -350,6 +479,7 @@ export default function EditarEvento({ editarId, setSeccion }) {
           type="text"
           name="nombre"
           className="form-control mb-3"
+          placeholder="Ej: Neon Party"
           value={form.nombre}
           onChange={handleInput}
         />
@@ -359,10 +489,15 @@ export default function EditarEvento({ editarId, setSeccion }) {
         <input
           type="date"
           name="fechaInicio"
-          className="form-control mb-2"
+          className="form-control"
           value={form.fechaInicio}
           onChange={handleInput}
         />
+        <p className="text-muted small mt-1">
+          <span className="text-danger">¡Atención!</span> En eventos nocturnos.
+          Por ej: (23:00hs → 06:00hs) deben finalizar en la{' '}
+          <strong>fecha del día siguiente</strong>.
+        </p>
 
         <input
           type="time"
@@ -384,10 +519,15 @@ export default function EditarEvento({ editarId, setSeccion }) {
         <input
           type="time"
           name="horaFin"
-          className="form-control mb-3"
+          className="form-control"
           value={form.horaFin}
           onChange={handleInput}
         />
+        <p className="text-muted small mt-1">
+          <span className="text-danger">Atención:</span> Si el evento es
+          nocturno, la <strong>fecha de fin</strong> debe ser el
+          <strong> día siguiente</strong>.
+        </p>
 
         {/* ------------------- Lugar ------------------- */}
         <label className="fw-semibold">Lugar*</label>
@@ -395,6 +535,7 @@ export default function EditarEvento({ editarId, setSeccion }) {
           type="text"
           name="lugar"
           className="form-control mb-3"
+          placeholder="Dirección o nombre del local"
           value={form.lugar}
           onChange={handleInput}
         />
@@ -404,30 +545,43 @@ export default function EditarEvento({ editarId, setSeccion }) {
         <input
           type="number"
           name="precio"
-          className="form-control mb-3"
+          className="form-control"
           value={form.precio}
           onChange={handleInput}
         />
+        <p className="text-muted small mt-1">
+          <span className="text-danger">¡Atención!</span> Utilizá el valor $0
+          para indicar evento gratuito.{' '}
+          <strong>Solo se aplica cuando no existen lotes configurados.</strong>
+        </p>
 
         {/* ------------------- Capacidad ------------------- */}
         <label className="fw-semibold">Capacidad total*</label>
         <input
           type="number"
           name="entradasMaximas"
-          className="form-control mb-3"
+          className="form-control"
           value={form.entradasMaximas}
           onChange={handleInput}
         />
+        <p className="text-muted small mt-1">
+          <span className="text-danger">¡Atención!</span> El total de los lotes
+          no podrá exceder este número.
+        </p>
 
         {/* ------------------- Máximo por usuario ------------------- */}
-        <label className="fw-semibold">Máximo por usuario</label>
+        <label className="fw-semibold">Máx. por usuario</label>
         <input
           type="number"
           name="entradasPorUsuario"
-          className="form-control mb-3"
+          className="form-control"
           value={form.entradasPorUsuario}
           onChange={handleInput}
         />
+        <p className="text-muted small mt-1">
+          Número de entradas que puede solicitar un Usuario.{' '}
+          <strong>Solo se aplica cuando no existen lotes configurados.</strong>
+        </p>
 
         {/* ------------------- Imagen ------------------- */}
         <label className="fw-semibold">Imagen del evento</label>
@@ -451,25 +605,29 @@ export default function EditarEvento({ editarId, setSeccion }) {
         <div className="border rounded p-2 mb-1" style={{ minHeight: 150 }}>
           <EditorContent editor={editor} />
         </div>
-        <small className="text-end text-muted d-block mb-3">
+
+        <small className="text-muted d-block text-end mb-3">
           {descripcionPlano.length}/{MAX_DESC}
         </small>
 
         {/* ------------------- LOTES ------------------- */}
         <hr />
-        <h5 className="fw-bold">Lotes</h5>
+        <h5 className="fw-bold">Lotes (opcional)</h5>
 
         <button
           type="button"
           className="btn btn-outline-dark mb-3"
           onClick={agregarLote}
         >
-          ➕ Agregar lote
+          Agregar lote
         </button>
 
         {lotes.map(lote => {
-          const vendidas = lote.cantidadInicial - lote.cantidad
-          const tieneVentas = vendidas > 0
+          // vendidas reales según original (modelo "cantidad"=restantes)
+          const oi = Number(lote._originalCantidadInicial ?? 0)
+          const oc = Number(lote._originalCantidad ?? 0)
+          const vendidas = Math.max(oi - oc, 0)
+          const minPermitido = vendidas
 
           return (
             <div key={lote.id} className="border rounded p-2 mb-5 bg-light">
@@ -484,48 +642,105 @@ export default function EditarEvento({ editarId, setSeccion }) {
                 </button>
               </div>
 
-              {/* ... TODO tu JSX igual ... */}
+              <label className="form-label m-0 mt-2">
+                Descripción del lote
+              </label>
+              <input
+                type="text"
+                className="form-control form-control-sm"
+                value={lote.descripcion || ''}
+                placeholder="Ej: Acceso preferencial, incluye cinta VIP, etc.."
+                maxLength={80}
+                onChange={e =>
+                  actualizarLote(lote.id, 'descripcion', e.target.value)
+                }
+              />
+              <p className="text-muted small mt-1 mb-0">
+                <span className="text-danger">¡Atención!</span> Obviar
+                información: <strong>Valor, Horario, Costo.</strong>
+              </p>
 
+              <small className="text-muted d-block text-end">
+                Limite de caracteres: {(lote.descripcion || '').length}/80
+              </small>
+
+              {/* EJEMPLO: si tenés inputs de horario, limitarlos por horaInicio */}
+              <div className="row g-2 mb-2">
+                <div className="row g-2 mb-2">
+                  <div className="col-6">
+                    <label className="form-label m-0">Desde</label>
+                    <input
+                      type="time"
+                      className="form-control form-control-sm"
+                      value={lote.desdeHora}
+                      min={form.horaInicio || undefined}
+                      max={form.horaFin || undefined}
+                      onChange={e =>
+                        actualizarLote(lote.id, 'desdeHora', e.target.value)
+                      }
+                      style={{ maxWidth: 90 }}
+                      required
+                    />
+                  </div>
+
+                  <div className="col-6">
+                    <label className="form-label m-0">Hasta</label>
+                    <input
+                      type="time"
+                      className="form-control form-control-sm"
+                      value={lote.hastaHora}
+                      min={lote.desdeHora || form.horaInicio || undefined}
+                      max={form.horaFin || undefined}
+                      onChange={e =>
+                        actualizarLote(lote.id, 'hastaHora', e.target.value)
+                      }
+                      style={{ maxWidth: 90 }}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* CAPACIDAD DEL LOTE: editable, pero con mínimo vendidas */}
+              <label className="form-label m-0">Capacidad del lote</label>
               <input
                 type="number"
                 className="form-control form-control-sm"
-                value={lote.cantidadInicial}
-                min={vendidas}
+                value={Number(lote.cantidadInicial) || 0}
+                min={minPermitido}
                 onChange={e => {
                   const nuevaCapacidad = Number(e.target.value) || 0
-                  if (nuevaCapacidad < vendidas) return
+                  if (nuevaCapacidad < minPermitido) return
 
-                  const diferencia = nuevaCapacidad - lote.cantidadInicial
+                  const anteriorCap = Number(lote.cantidadInicial) || 0
+                  const anteriorRestantes = Number(lote.cantidad) || 0
+
+                  // diferencia de capacidad total
+                  const diferencia = nuevaCapacidad - anteriorCap
+
+                  // Ajustar "restantes" manteniendo vendidas constantes
+                  // restantes = capacidad - vendidas
+                  const nuevosRestantes = Math.max(nuevaCapacidad - vendidas, 0)
 
                   actualizarLote(lote.id, 'cantidadInicial', nuevaCapacidad)
-
-                  // 🔑 Ajustar restantes proporcionalmente
-                  actualizarLote(
-                    lote.id,
-                    'cantidad',
-                    Math.max(lote.cantidad + diferencia, 0)
-                  )
+                  actualizarLote(lote.id, 'cantidad', nuevosRestantes)
                 }}
                 required
               />
-              <small className="text-muted">
-                Vendidas: {vendidas} · Capacidad mínima permitida
+
+              <small className="text-muted d-block">
+                Vendidas: {vendidas} · Mínimo permitido: {minPermitido}
               </small>
-              {tieneVentas ? (
-                <small className="text-danger">
-                  ⚠️ Este lote tiene {vendidas} entradas vendidas. No se puede
-                  modificar su capacidad.
-                </small>
-              ) : (
-                <small className="text-muted">
-                  Vendidas: 0 · Capacidad editable
-                </small>
-              )}
+
+              <small className="text-muted d-block">
+                Restantes calculadas:{' '}
+                {Math.max((Number(lote.cantidadInicial) || 0) - vendidas, 0)}
+              </small>
             </div>
           )
         })}
 
-        <button className="btn btn-primary w-100" type="submit">
+        <button className="btn swal-btn-confirm" type="submit">
           Guardar cambios
         </button>
       </form>

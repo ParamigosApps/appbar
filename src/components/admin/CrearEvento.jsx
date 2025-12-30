@@ -250,6 +250,7 @@ export default function CrearEvento({ setSeccion = () => {} }) {
 
     if (!validarLotes(entradasMax)) return
 
+    if (!validarHorasLotesVsEvento()) return
     // --------------------------------------------------------------
     // DATA FINAL A GUARDAR EN FIREBASE
     // --------------------------------------------------------------
@@ -357,10 +358,15 @@ export default function CrearEvento({ setSeccion = () => {} }) {
           <input
             type="date"
             name="fechaInicio"
-            className="form-control mb-2"
+            className="form-control "
             value={form.fechaInicio}
             onChange={handleInput}
           />
+          <p className="text-muted small mt-1">
+            <span className="text-danger">¡Atención!</span> En eventos
+            nocturnos. Por ej: (23:00hs → 06:00hs) deben finalizar en la{' '}
+            <strong>fecha del día siguiente</strong>.
+          </p>
 
           <input
             type="time"
@@ -382,11 +388,15 @@ export default function CrearEvento({ setSeccion = () => {} }) {
           <input
             type="time"
             name="horaFin"
-            className="form-control mb-3"
+            className="form-control"
             value={form.horaFin}
             onChange={handleInput}
           />
-
+          <p className="text-muted small mt-1">
+            <span className="text-danger">Atención:</span> Si el evento es
+            nocturno, la <strong>fecha de fin</strong> debe ser el
+            <strong> día siguiente</strong>.
+          </p>
           {/* ------------------- Lugar ------------------- */}
           <label className="fw-semibold">Lugar*</label>
           <input
@@ -400,36 +410,55 @@ export default function CrearEvento({ setSeccion = () => {} }) {
           />
 
           {/* ------------------- Precio ------------------- */}
-          <label className="fw-semibold">Precio base</label>
-          <input
-            type="number"
-            name="precio"
-            className="form-control mb-3"
-            placeholder="0 = Free"
-            value={form.precio}
-            onChange={handleInput}
-          />
+          {lotes.length === 0 && (
+            <>
+              <label className="fw-semibold">Precio único</label>
+              <input
+                type="number"
+                name="precio"
+                className="form-control"
+                value={form.precio}
+                onChange={handleInput}
+              />
+              <p className="text-muted small mt-1">
+                <span className=" text-danger">¡Atención! </span>
+                Utilizar el valor $0 para indicar evento gratuito.{' '}
+                <strong>
+                  Solo se aplica cuando no existen lotes configurados.
+                </strong>
+              </p>
+            </>
+          )}
 
           {/* ------------------- Capacidad ------------------- */}
           <label className="fw-semibold">Capacidad total*</label>
           <input
             type="number"
             name="entradasMaximas"
-            className="form-control mb-3"
+            className="form-control "
             value={form.entradasMaximas}
             onChange={handleInput}
             required
           />
-
+          <p className="text-muted small mt-1">
+            <span className=" text-danger">¡Atención!</span> El total de los
+            lotes no podra excedér este numero.
+          </p>
           {/* ------------------- Máx por usuario ------------------- */}
           <label className="fw-semibold">Máx. por usuario</label>
           <input
             type="number"
             name="entradasPorUsuario"
-            className="form-control mb-3"
+            className="form-control"
             value={form.entradasPorUsuario}
             onChange={handleInput}
           />
+          <p className="text-muted small mt-1">
+            Número de entradas que puede solicitar un Usuario. {}
+            <strong>
+              Solo se aplica cuando no existen lotes configurados.
+            </strong>
+          </p>
 
           {/* ------------------- Imagen ------------------- */}
           <label className="fw-semibold">Imagen principal</label>
@@ -504,7 +533,7 @@ export default function CrearEvento({ setSeccion = () => {} }) {
                       <input
                         type="text"
                         className="form-control form-control-sm"
-                        placeholder="Ej: Ingreso hasta 01:30, acceso preferencial, cintas vip..."
+                        placeholder="Ej: Acceso preferencial, Incluye cinta vip, ect.."
                         value={lote.descripcionLote}
                         onChange={e =>
                           actualizarLote(
@@ -514,13 +543,18 @@ export default function CrearEvento({ setSeccion = () => {} }) {
                           )
                         }
                       />
+                      <p className="text-muted small mt-1 mb-0">
+                        <span className="text-danger">¡Atención! </span>Obviar
+                        información: <strong>Valor, Horario, Costo.</strong>
+                        {}
+                      </p>
                     </div>
                   </div>
 
                   {/* ================= Fila 2: Precio + Cantidad + Máx por usuario ================= */}
                   <div className="row g-2 mb-2">
                     {/* Precio */}
-                    <div className="col-md-4">
+                    <div className="col-md-6">
                       <label className="form-label small m-0">
                         Precio del lote <span style={{ color: 'red' }}>*</span>
                       </label>
@@ -539,11 +573,13 @@ export default function CrearEvento({ setSeccion = () => {} }) {
                         }
                         required
                       />
-                      <small className="text-muted">0 = Entrada gratuita</small>
+                      <p className="text-muted small mt-1 mb-0">
+                        Valor en $0 para lote gratuito.{' '}
+                      </p>
                     </div>
 
                     {/* Cantidad */}
-                    <div className="col-md-4">
+                    <div className="col-md-6">
                       <label className="form-label small m-0">
                         Límite de entradas{' '}
                         <span style={{ color: 'red' }}>*</span>
@@ -573,10 +609,15 @@ export default function CrearEvento({ setSeccion = () => {} }) {
                         }}
                         required
                       />
+                      <p className="text-muted small mt-1 mb-0">
+                        Eligé el total de entradas para este lote.{' '}
+                        <span className="text-danger">¡Atención!</span> La
+                        cantidad está sujeta al <strong>limite global</strong>.
+                      </p>
                     </div>
 
                     {/* Máx por usuario */}
-                    <div className="col-md-4">
+                    <div className="col-md-6">
                       <label className="form-label small m-0">
                         Máx. por usuario
                       </label>
@@ -584,7 +625,7 @@ export default function CrearEvento({ setSeccion = () => {} }) {
                         type="number"
                         className="form-control form-control-sm"
                         min={0}
-                        value={lote.maxPorUsuario}
+                        value={lote?.maxPorUsuario ? lote?.maxPorUsuario : '2'}
                         onChange={e =>
                           actualizarLote(
                             lote.id,
@@ -593,14 +634,12 @@ export default function CrearEvento({ setSeccion = () => {} }) {
                           )
                         }
                       />
-                      <small className="text-muted">
-                        0 = sin límite por usuario
-                      </small>
+                      <p className="text-muted small mt-1 mb-0">
+                        Recomendación: <strong>4 entradas</strong> para lotes
+                        gratuitos y <strong>8 entradas</strong> para lotes
+                        pagos.
+                      </p>
                     </div>
-                  </div>
-
-                  {/* ================= Fila 3: Género + Horarios ================= */}
-                  <div className="row g-2 mb-2">
                     <div className="col-md-4">
                       <label className="form-label small m-0">
                         Género <span style={{ color: 'red' }}>*</span>
@@ -618,11 +657,14 @@ export default function CrearEvento({ setSeccion = () => {} }) {
                         <option value="mujeres">Mujeres</option>
                       </select>
                     </div>
+                  </div>
 
-                    <div className="col-md-8">
+                  {/* ================= Ingreso + Consumición (una sola línea) ================= */}
+                  <div className="row g-2 mb-2 align-items-end">
+                    {/* ---- Horario ---- */}
+                    <div className="col-md-6">
                       <label className="form-label small m-0">
-                        Ingreso permitido{' '}
-                        <span style={{ color: 'red' }}>*</span>
+                        Ingreso permitido <span className="text-danger">*</span>
                       </label>
 
                       <div className="d-flex align-items-center gap-2">
@@ -653,26 +695,30 @@ export default function CrearEvento({ setSeccion = () => {} }) {
                         />
                       </div>
                     </div>
-                  </div>
 
-                  {/* ================= Consumición ================= */}
-                  <div className="row g-2">
-                    <div className="col-md-12 d-flex align-items-center">
-                      <input
-                        type="checkbox"
-                        className="form-check-input me-2"
-                        checked={lote.incluyeConsumicion}
-                        onChange={e =>
-                          actualizarLote(
-                            lote.id,
-                            'incluyeConsumicion',
-                            e.target.checked
-                          )
-                        }
-                      />
-                      <label className="form-check-label small">
-                        Incluye consumición
+                    {/* ---- Consumición ---- */}
+                    <div className="col-md-6">
+                      <label className="form-label small m-0">
+                        ¿Este lote trae consumición?
                       </label>
+
+                      <div className="d-flex align-items-center gap-2 mt-1">
+                        <input
+                          type="checkbox"
+                          className="form-check-input"
+                          checked={lote.incluyeConsumicion}
+                          onChange={e =>
+                            actualizarLote(
+                              lote.id,
+                              'incluyeConsumicion',
+                              e.target.checked
+                            )
+                          }
+                        />
+                        <label className="form-check-label small mb-0">
+                          🍸 Incluye consumición
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </div>

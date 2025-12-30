@@ -411,15 +411,12 @@ select:disabled {
 
 .badge-genero-mujeres {
   background: #ff4fb3;
-  color: #9d174d;
 }
 
 .badge-genero-hombres {
   background: #027fd3;
-  color: #075985;
 }
 
 .badge-genero-unisex {
-  background: #ffea01;
-  color: #92400e;
+  background: var(--color-primary);
 }

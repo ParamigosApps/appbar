@@ -63,6 +63,55 @@ export function formatearSoloFecha(valor) {
   return `${dia}/${mes}/${año}`
 }
 
+// Fecha evento legible: "Martes 30 de Diciembre 2025 - 20:30 hrs."
+export function formatearFechaEventoDescriptiva(
+  fechaInicio,
+  horaInicio = null
+) {
+  if (!fechaInicio) return '—'
+
+  let fecha = null
+
+  // Firestore Timestamp
+  if (typeof fechaInicio?.toDate === 'function') {
+    fecha = fechaInicio.toDate()
+  } else if (fechaInicio instanceof Date) {
+    fecha = fechaInicio
+  } else {
+    fecha = new Date(fechaInicio)
+  }
+
+  if (!fecha || isNaN(fecha.getTime())) return '—'
+
+  // Fecha larga en español
+  const fechaTexto = fecha.toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  })
+
+  // Hora
+  let horaTexto = ''
+  if (horaInicio) {
+    horaTexto = ` - ${horaInicio} hrs.`
+  } else {
+    const h = fecha.getHours()
+    const m = fecha.getMinutes()
+    if (h || m) {
+      horaTexto = ` - ${String(h).padStart(2, '0')}:${String(m).padStart(
+        2,
+        '0'
+      )} hrs.`
+    }
+  }
+
+  // Capitalizar primera letra
+  const capitalizada = fechaTexto.charAt(0).toUpperCase() + fechaTexto.slice(1)
+
+  return capitalizada + horaTexto
+}
+
 // Fecha exacta de compra
 export function obtenerFechaCompra() {
   return formatearFecha(new Date())

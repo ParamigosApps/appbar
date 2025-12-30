@@ -40,8 +40,8 @@
 
 /* ---- Título ---- */
 .lote-nombre-principal {
-  margin: 4px 0px;
-  font-size: 1rem;
+  margin: 4px 0px 8px 0;
+  font-size: 1.2rem;
   font-weight: 800;
 }
 .swal2-html-container {
@@ -52,7 +52,7 @@
 .lote-horario-box {
   display: flex;
   gap: 6px;
-  margin-bottom: 2px !important;
+  margin-bottom: 6px !important;
   align-items: center;
 }
 .lote-label {
@@ -83,22 +83,7 @@
   border-radius: 6px;
   font-weight: 700;
 }
-.badge-consu-no {
-  background: #bbbcbf;
-  color: #565961;
-  padding: 3px 8px;
-  font-size: 0.7rem;
-  border-radius: 6px;
-  font-weight: 700;
-}
 
-/* ---- Género + badges ---- */
-.lote-badges {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  margin-bottom: 6px !important;
-}
 .lote-badge {
   padding: 3px 8px;
   border-radius: 6px;
@@ -128,16 +113,6 @@
   background: var(--color-disabled);
 }
 
-/* Badge sin consumisión */
-.badge-consu-no {
-  background: #e5e7eb;
-  color: #6b7280;
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-size: 0.7rem;
-  font-weight: 700;
-}
-
 .lote-costo-box {
   margin: 0px !important;
   padding: 0px !important;
@@ -154,28 +129,19 @@
   background: linear-gradient(135deg, #3b82f6, #2563eb); /* hombres */
 }
 
-.badge-unisex {
-  background: #ffcc00;
-  color: #111 !important;
-}
-
 /* Consumisión */
 .badge-consu-ok {
   background: linear-gradient(135deg, #16a34a, #059669); /* verde premium */
   color: #fff;
   padding: 4px 10px;
-  font-size: 0.75rem;
   border-radius: 8px;
-  font-weight: 700;
 }
 
 .badge-consu-no {
   background: #e5e7eb;
-  color: #6b7280;
+  color: #3a3e45;
   padding: 4px 10px;
-  font-size: 0.75rem;
   border-radius: 8px;
-  font-weight: 700;
 }
 
 /* Badge precio pago */
@@ -208,7 +174,7 @@
    BOTÓN CONFIRMAR (Continuar) — estilo del botón COMPRAR
 ---------------------------------------------------------- */
 .swal-btn-confirm {
-  background: #ffcc00 !important; /* mismo celeste */
+  background: var(--color-primary) !important; /* mismo celeste */
   color: #fff !important;
   font-size: 0.88rem !important;
   font-weight: 800 !important;
@@ -269,7 +235,7 @@
   .badge-consu-ok,
   .badge-consu-no {
     padding: 2px 7px;
-    font-size: 0.65rem !important;
+    font-size: 0.7rem !important;
     font-weight: 600;
   }
 

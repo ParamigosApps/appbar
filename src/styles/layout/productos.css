@@ -58,7 +58,7 @@
 /* ------------------------------------------------------------
    BOTÓN CONFIRMAR
 ------------------------------------------------------------ */
-.swal-btn-confirm,
+
 .swal2-confirm {
   background: #14a8e2 !important;
   color: #ffffff !important;
@@ -74,12 +74,6 @@
   transition: 0.2s ease !important;
 
   box-shadow: 0 2px 8px rgba(20, 168, 226, 0.4) !important;
-}
-
-.swal-btn-confirm:hover,
-.swal2-confirm:hover {
-  background: #0f8cc0 !important;
-  transform: scale(1.05) !important;
 }
 
 /* ------------------------------------------------------------

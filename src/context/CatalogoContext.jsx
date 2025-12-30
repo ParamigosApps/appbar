@@ -47,7 +47,6 @@ export function CatalogoProvider({ children }) {
       const lista = snap.docs.map(doc => new Producto(doc.id, doc.data()))
       setProductos(lista)
       setTotalFirestore(lista.length)
-      console.log('📦 Catálogo cargado:', lista.length)
     } catch (err) {
       console.error('Error cargando catálogo:', err)
     }

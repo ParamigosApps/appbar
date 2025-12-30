@@ -5,7 +5,7 @@
 import Swal from 'sweetalert2'
 import { formatearSoloFecha } from '../utils/utils.js'
 import { calcularDisponiblesAhora } from '../utils/calcularDisponiblesAhora.js'
-
+import { formatearFechaEventoDescriptiva } from '../utils/utils.js'
 // ======================================================================
 // CREAR THEME
 // ======================================================================
@@ -41,35 +41,45 @@ function estadoLote(l, evento) {
 // ======================================================================
 // SELECCIÓN MULTI LOTE — PRO (MISMO DISEÑO, CON CANTIDADES)
 // ======================================================================
+
 export async function abrirSeleccionLotesMultiPro(
   evento,
   lotes,
   theme = 'light'
 ) {
   const MySwal = crearSwalConTheme(theme)
-
+  console.log('EVENTO EN SWAL:', evento)
   // 🔒 Normalizar estado con string
   const estado = {}
 
   lotes.forEach(l => (estado[String(l.index)] = 0))
 
   const html = `
-    <!-- HEADER EVENTO -->
-    <div class="swal-event-header">
-      <div class="swal-event-title">${evento.nombre}</div>
-      ${
-        evento.fechaInicio
-          ? `<div class="swal-event-sub">📅 ${formatearSoloFecha(
-              evento.fechaInicio
-            )}</div>`
-          : ''
-      }
-      ${
-        evento.lugar
-          ? `<div class="swal-event-sub">📍 ${evento.lugar}</div>`
-          : ''
-      }
-    </div>
+<!-- HEADER EVENTO -->
+<div class="swal-event-header">
+  <div class="swal-event-title">
+    ${evento.nombre}
+  </div>
+
+  ${
+    evento.fechaInicio
+      ? `<div class="swal-event-sub">
+  <span class="swal-event-icon">📅</span>
+  ${formatearFechaEventoDescriptiva(evento.fechaInicio, evento.horaInicio)}
+
+</div>`
+      : ''
+  }
+
+  ${
+    evento.lugar
+      ? `<div class="swal-event-sub muted">
+           📍 ${evento.lugar}
+         </div>`
+      : ''
+  }
+</div>
+
 
     <!-- LOTES -->
     <div class="lotes-scroll">
@@ -79,7 +89,21 @@ export async function abrirSeleccionLotesMultiPro(
             // ================================
             // STOCK / DISPONIBILIDAD (POR LOTE)
             // ================================
+            let badgeIngreso = ''
+            let claseIngreso = 'badge-ingreso-ok'
 
+            if (l.hastaHora) {
+              const [h, m] = l.hastaHora.split(':').map(Number)
+              const minutos = h * 60 + m
+
+              // antes de las 02:00 → 120 minutos
+              if (minutos < 120) {
+                claseIngreso = 'badge-ingreso-early'
+                badgeIngreso = '⚠ INGRESO TEMPRANO'
+              } else {
+                badgeIngreso = 'INGRESO NORMAL'
+              }
+            }
             // 🔑 total global REAL del lote
             const totalLote = Number.isFinite(l.cantidadInicial)
               ? l.cantidadInicial
@@ -107,32 +131,31 @@ export async function abrirSeleccionLotesMultiPro(
               textoStock = 'Agotado'
             } else if (porcentaje <= 15) {
               estadoStock = 'critical'
-              textoStock = '¡Quedan muy pocos cupos!'
+              textoStock = '¡QUEDAN POCAS ENTRADAS!'
             } else if (porcentaje <= 30) {
               estadoStock = 'warning'
-              textoStock = '¡Se estan agotando!'
+              textoStock = '¡SE ESTAN AGOTANDO!'
             }
 
             // 🔑 HTML FINAL
             const barraStockHtml = mostrarBarra
               ? `
-          <div class="stock-box stock-${estadoStock}">
-            <div class="stock-header">
-              <span class="stock-text">${textoStock}</span>
-            </div>
+              <div class="stock-box stock-${estadoStock}">
+                <div class="stock-header">
+                  <span class="stock-text">${textoStock}</span>
+                </div>
 
-            <div class="stock-bar-row">
-              <div class="stock-bar">
-                <div class="stock-bar-fill" style="width:${porcentaje}%"></div>
+                <div class="stock-bar-row">
+                  <div class="stock-bar">
+                    <div class="stock-bar-fill" style="width:${porcentaje}%"></div>
+                  </div>
+                  <span class="stock-meta">${porcentaje}%</span>
+                </div>
               </div>
-              <span class="stock-meta">${porcentaje}%</span>
-            </div>
-          </div>
-        `
+            `
               : ''
 
             // FIN BARRA STOCK
-
             const id = String(l.index)
 
             const descripcion =
@@ -184,26 +207,26 @@ ${
          <span class="lote-label">DESCRIPCIÓN:</span>
          ${descripcion}
        </div>`
-    : `<div class="lote-desc">
-         <span class="lote-label">DESCRIPCIÓN:</span>
-         Sin descripción.
-       </div>`
+    : ``
 }
 
-  <div class="lote-horario-box">
-    <span class="lote-label">INGRESO PERMITIDO:</span>
-   <span class="lote-horario-box">
-  <strong class="lote-hora">
-    ${l.desdeHora ? `${l.desdeHora}hs` : '-'}
-    →
-    ${l.hastaHora ? `${l.hastaHora}hs` : '-'}
-  </strong>
-</span>
+<div class="lote-horario-box">
+  <span class="lote-label">LÍMITE DE INGRESO:</span>
+
+  <div class="lote-horario-row">
+    <strong class="lote-hora">
+      ${l.hastaHora ? `${l.hastaHora}hs` : '-'}
+    </strong>
+
+    ${
+      l.hastaHora
+        ? `<span class="lote-badge ${claseIngreso}">
+            ${badgeIngreso}
+          </span>`
+        : ''
+    }
+  </div>
 </div>
-
-
-
-
 <div class="lote-info-left">
   <div class="lote-costo-row">
     <span class="lote-label">COSTO:</span>
@@ -215,7 +238,9 @@ ${
   </div>
 
 <div class="lote-genero-row">
-  <span class="lote-label">GÉNERO:</span>
+  <span class="lote-label">${
+    l.genero != 'hombres' && l.genero != 'mujeres' ? 'GÉNERO: ' : 'EXCLUSIVO:'
+  }</span>
   ${badgeGenero}
 </div>
 

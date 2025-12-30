@@ -28,11 +28,6 @@ import {
   manejarMercadoPago,
 } from '../logic/entradas/entradasPago.js'
 
-import {
-  crearSolicitudPendiente,
-  obtenerTotalPendientes,
-} from '../logic/entradas/entradasUtils.js'
-
 // SWALS
 import {
   abrirResumenLote,
@@ -41,7 +36,7 @@ import {
 
 import { showLoading, hideLoading } from '../services/loadingService'
 import { formatearSoloFecha } from '../utils/utils'
-import { triggerLimpiezaPagos } from '../services/triggerLimpiezaPagos'
+
 // --------------------------------------------------------------
 // CONTEXTO
 // --------------------------------------------------------------
@@ -87,13 +82,21 @@ export function EntradasProvider({ children }) {
   // CARGAR EVENTOS
   // ----------------------------------------------------------
   useEffect(() => {
-    //triggerLimpiezaPagos()
-
     async function cargar() {
       try {
         const snap = await getDocs(collection(db, 'eventos'))
-        const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-        arr.sort((a, b) => new Date(a.fecha) - new Date(b.fecha))
+
+        const arr = snap.docs.map(d => {
+          const data = d.data()
+          return {
+            id: d.id,
+            ...data,
+            horaInicio: data.horaInicio || '',
+            horaFin: data.horaFin || '',
+          }
+        })
+
+        arr.sort((a, b) => new Date(a.fechaInicio) - new Date(b.fechaInicio))
         setEventos(arr)
       } catch (e) {
         console.error('❌ Error cargando eventos:', e)
@@ -102,6 +105,7 @@ export function EntradasProvider({ children }) {
     }
     cargar()
   }, [])
+
   // ----------------------------------------------------------
   // CARGAR HISTORIAL ENTRADAS USUARIO
   // ----------------------------------------------------------
@@ -252,6 +256,13 @@ export function EntradasProvider({ children }) {
         usuarioId
       )
 
+      const eventoCompleto = {
+        ...evento,
+        ...eventoData,
+        horaInicio: eventoData?.horaInicio || evento.horaInicio || '',
+        horaFin: eventoData?.horaFin || evento.horaFin || '',
+      }
+
       if (maxUser <= 0) {
         await Swal.fire({
           title: 'Límite alcanzado',
@@ -270,7 +281,20 @@ export function EntradasProvider({ children }) {
       // 🎟 EVENTO CON LOTES — MULTI LOTE
       // ==========================================================
       if (Array.isArray(lotesInfo) && lotesInfo.length > 0) {
-        const seleccion = await abrirSeleccionLotesMultiPro(evento, lotesInfo)
+        const eventoCompleto = {
+          id: evento.id,
+          nombre: evento.nombre,
+          fechaInicio: evento.fechaInicio,
+          horaInicio: evento.horaInicio || '', // 👈 CLAVE
+          horaFin: evento.horaFin || '',
+          lugar: evento.lugar,
+          entradasPorUsuario: evento.entradasPorUsuario,
+        }
+
+        const seleccion = await abrirSeleccionLotesMultiPro(
+          eventoCompleto,
+          lotesInfo
+        )
         if (!seleccion) return
 
         // ----------------------------------------------------------
@@ -299,7 +323,7 @@ export function EntradasProvider({ children }) {
             })
             for (const g of gratis) {
               await pedirEntradaFreeConLote({
-                evento,
+                evento: eventoCompleto,
                 loteSel: g.lote,
                 usuarioId,
                 usuarioNombre,
@@ -485,7 +509,7 @@ export function EntradasProvider({ children }) {
         // ----------------------------------------------------------
         if (metodoPago.value === 'mp') {
           return manejarMercadoPago({
-            evento,
+            evento: eventoCompleto,
             usuarioId,
             eventoId: evento.id,
             loteSel: {
@@ -509,7 +533,7 @@ export function EntradasProvider({ children }) {
         )
 
         return manejarTransferencia({
-          evento,
+          evento: eventoCompleto,
           precio: totalPagos,
           cantidadSel: cantidadTotal,
           usuarioId,
@@ -534,7 +558,7 @@ export function EntradasProvider({ children }) {
 
       if (precioEvento === 0) {
         const resResumen = await abrirResumenLote(
-          evento,
+          eventoCompleto,
           {
             nombre: 'Entrada general',
             precio: 0,
@@ -562,7 +586,7 @@ export function EntradasProvider({ children }) {
       }
 
       const resResumen = await abrirResumenLote(
-        evento,
+        eventoCompleto,
         {
           nombre: 'Entrada general',
           precio: precioEvento,
@@ -579,7 +603,7 @@ export function EntradasProvider({ children }) {
 
       if (resResumen.metodo === 'transfer') {
         return manejarTransferencia({
-          evento,
+          evento: eventoCompleto,
           precio: precioEvento,
           cantidadSel: resResumen.cantidad || 1,
           usuarioId,
