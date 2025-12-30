@@ -1,9 +1,12 @@
 // --------------------------------------------------------------
-// src/services/comprasService.js — VERSIÓN MASTER DEFINITIVA
+// src/services/comprasService.js — MASTER DEFINITIVA (CORREGIDA)
+// - Guarda usuarioNombre/usuarioEmail correctamente
+// - Crea compra vinculada a un pagoId (para MP)
+// - Reserva stock y genera QR
+// - Deja expiraEn para liberar stock por jobs/cron si aplicás
 // --------------------------------------------------------------
 
 import Swal from 'sweetalert2'
-
 import { db, auth } from '../Firebase.js'
 import {
   addDoc,
@@ -23,10 +26,10 @@ import {
   generarCompraQr,
   subirQrGeneradoAFirebase,
 } from './generarQrService.js'
-
 import { showLoading, hideLoading } from './loadingService.js'
+
 // --------------------------------------------------------------
-// 📌 FECHA EXACTA (idéntica al proyecto original)
+// 📌 FECHA HUMANA
 // --------------------------------------------------------------
 export function obtenerFechaCompra() {
   const fecha = new Date().toLocaleString('es-AR', {
@@ -76,7 +79,7 @@ export async function validarLimitePendientes(usuarioId) {
 }
 
 // --------------------------------------------------------------
-// 📌 RESERVAR STOCK SI EL PEDIDO ES PENDIENTE
+// 📌 RESERVAR STOCK (pedido pendiente)
 // --------------------------------------------------------------
 async function reservarStock(items) {
   for (const item of items) {
@@ -85,7 +88,9 @@ async function reservarStock(items) {
     if (!snap.exists()) continue
 
     const data = snap.data()
-    const nuevoStock = (data.stock || 0) - item.enCarrito
+    const stock = Number(data.stock || 0)
+    const qty = Number(item.enCarrito || 0)
+    const nuevoStock = stock - qty
 
     if (nuevoStock >= 0) {
       await updateDoc(ref, { stock: nuevoStock })
@@ -94,7 +99,7 @@ async function reservarStock(items) {
 }
 
 // --------------------------------------------------------------
-// 📌 DEVOLVER STOCK — usado por expiración
+// 📌 DEVOLVER STOCK (expiración o cancelación)
 // --------------------------------------------------------------
 export async function devolverStock(items) {
   for (const item of items) {
@@ -103,7 +108,41 @@ export async function devolverStock(items) {
     if (!snap.exists()) continue
 
     const data = snap.data()
-    await updateDoc(ref, { stock: (data.stock || 0) + item.enCarrito })
+    const stock = Number(data.stock || 0)
+    const qty = Number(item.enCarrito || 0)
+
+    await updateDoc(ref, { stock: stock + qty })
+  }
+}
+
+// --------------------------------------------------------------
+// 📌 OBTENER PERFIL DE USUARIO ROBUSTO
+// - displayName/email desde auth
+// - fallback a usuarios/{uid}
+// --------------------------------------------------------------
+async function obtenerPerfilUsuario(uid) {
+  const authUser = auth.currentUser
+
+  let usuarioNombre =
+    authUser?.displayName || authUser?.providerData?.[0]?.displayName || ''
+
+  let usuarioEmail = authUser?.email || authUser?.providerData?.[0]?.email || ''
+
+  try {
+    const userSnap = await getDoc(doc(db, 'usuarios', uid))
+    if (userSnap.exists()) {
+      const data = userSnap.data() || {}
+      if (!usuarioNombre && data.nombre) usuarioNombre = data.nombre
+      if (!usuarioNombre && data.displayName) usuarioNombre = data.displayName
+      if (!usuarioEmail && data.email) usuarioEmail = data.email
+    }
+  } catch (e) {
+    console.warn('⚠️ No se pudo leer usuarios/{uid}:', e?.message || e)
+  }
+
+  return {
+    usuarioNombre: usuarioNombre || 'Usuario',
+    usuarioEmail: usuarioEmail || '',
   }
 }
 
@@ -115,106 +154,132 @@ export async function crearPedido({
   total,
   lugar,
   evento,
-  origenPago,
+  origenPago, // 'mp' | 'caja'
 }) {
-  if (!auth.currentUser) {
-    throw new Error('Usuario no autenticado')
-  }
+  if (!auth.currentUser) throw new Error('Usuario no autenticado')
 
   const usuarioId = auth.currentUser.uid
 
+  // límite pendientes
   if (await validarLimitePendientes(usuarioId)) {
     throw new Error('Límite de pedidos alcanzado (máximo 3 pendientes)')
   }
+
+  // Validación básica
+  if (!Array.isArray(carrito) || carrito.length === 0) {
+    throw new Error('Carrito vacío')
+  }
+
   showLoading({
     title: 'Generando ticket',
     text: 'Estamos generando tu ticket..',
   })
+
+  // IDs
   const ticketId = `${Date.now()}-${Math.floor(Math.random() * 9999)}`
   const numeroPedido = await obtenerNumeroPedido()
   const fechaHumana = obtenerFechaCompra()
 
-  // 🔑 Texto lógico del QR
+  // 🔑 pagoId: vínculo fuerte con pagos/{pagoId} (para Mercado Pago)
+  // - Para "caja" también sirve si querés unificar, pero no es obligatorio.
+  // - Para MP ES CLAVE.
+  // Nota: si "randomUUID" de node te da problemas en browser, usá crypto.randomUUID().
+  const pagoId =
+    typeof window !== 'undefined' &&
+    window.crypto &&
+    typeof window.crypto.randomUUID === 'function'
+      ? window.crypto.randomUUID()
+      : `${Date.now()}-${Math.floor(Math.random() * 1e9)}`
 
-  const qrText = JSON.stringify({
-    tipo: 'compra',
-    ticketId,
-  })
+  // Texto QR lógico
+  const qrText = JSON.stringify({ tipo: 'compra', ticketId })
 
+  // Reservar stock (siempre que quede pendiente)
   await reservarStock(carrito)
 
+  // Expira en 15 min para mp/caja (liberación por cron/manual)
   const expiraEn =
     origenPago === 'mp' || origenPago === 'caja'
       ? Timestamp.fromDate(new Date(Date.now() + 15 * 60 * 1000))
       : null
+
+  // Perfil usuario (nombre/email)
+  const { usuarioNombre, usuarioEmail } = await obtenerPerfilUsuario(usuarioId)
+
+  // Snapshot evento (alineado a tu app)
+  const eventoId = evento?.id || null
+  const nombreEvento = evento?.nombre || null
+  const fechaEvento = evento?.fechaInicio || null
+  const horaInicio = evento?.horaInicio || null
+  const horaFin = evento?.horaFin || null
+  const lugarEvento = evento?.lugar || null
+
   // --------------------------------------------------
-  // 1️⃣ CREAR PEDIDO EN FIRESTORE
+  // 1) CREAR COMPRA EN FIRESTORE
   // --------------------------------------------------
-
-  let userSnap = null
-  let usuarioEmail = null
-
-  userSnap = await getDoc(doc(db, 'usuarios', usuarioId))
-  usuarioEmail = auth.currentUser?.email || userSnap.data()?.email || null
-
   const ref = await addDoc(collection(db, 'compras'), {
-    // -----------------------------
-    // 👤 USUARIO
-    // -----------------------------
+    // Usuario
     usuarioId,
-    usuarioNombre: auth.currentUser?.displayName || 'Usuario',
+    usuarioNombre,
     usuarioEmail,
 
-    // -----------------------------
-    // 🧾 COMPRA
-    // -----------------------------
+    // Compra
     items: carrito,
     total,
     lugar,
+    metodo: origenPago, // compat con tus docs (metodo: "mp" / "caja")
+    origenPago, // por si lo usás en admin
+    descripcion:
+      carrito.length === 1
+        ? `${carrito[0]?.enCarrito || 1} ${
+            carrito[0]?.nombre || 'Item'
+          } ($${total})`
+        : `${carrito.length} items ($${total})`,
 
+    // IDs
     numeroPedido,
     ticketId,
 
-    // -----------------------------
-    // 🔒 SNAPSHOT INMUTABLE DEL EVENTO
-    // -----------------------------
-    eventoId: evento?.id || null,
-    nombreEvento: evento?.nombre || null,
-    fechaEvento: evento?.fechaInicio || null,
-    horaEvento: evento?.horaInicio || null,
+    // VÍNCULO CON PAGO (CLAVE)
+    pagoId,
 
-    // -----------------------------
-    // 💰 ESTADO
-    // -----------------------------
+    // Evento
+    eventoId,
+    nombreEvento,
+    fechaEvento,
+    horaInicio,
+    horaFin,
+    lugarEvento,
+
+    // Estado
     pagado: false,
     estado: 'pendiente',
-    origenPago, // 'mp' | 'caja'
+    paymentStartedAt: serverTimestamp(),
 
-    // -----------------------------
-    // 🎫 TICKET / CAJA
-    // -----------------------------
+    // Ticket / retiro
     ticketImpreso: false,
     ticketImpresoEn: null,
-
     retirada: false,
     retiradaEn: null,
     retiradaPor: null,
 
-    // -----------------------------
-    // 🔗 QR
-    // -----------------------------
+    // QR
     qrText,
     qrUrl: null,
 
-    // -----------------------------
-    // ⏱️ METADATA
-    // -----------------------------
+    // Metadata
     creadoEn: serverTimestamp(),
     expiraEn: expiraEn || null,
+
+    // Campos auxiliares si los tenés en tu modelo
+    entradasGratisPendientes: [],
+    itemsPagados: [],
+    gratisEntregadas: false,
   })
+
   try {
     // --------------------------------------------------
-    // 2️⃣ GENERAR QR VISUAL (SIEMPRE)
+    // 2) GENERAR QR VISUAL
     // --------------------------------------------------
     const qrDiv = await generarCompraQr({
       compraId: ref.id,
@@ -228,15 +293,14 @@ export async function crearPedido({
     })
 
     // --------------------------------------------------
-    // 3️⃣ GUARDAR QR EN FIRESTORE
+    // 3) GUARDAR QR
     // --------------------------------------------------
-    await updateDoc(doc(db, 'compras', ref.id), {
-      qrUrl,
-    })
+    await updateDoc(doc(db, 'compras', ref.id), { qrUrl })
 
     return {
       id: ref.id,
       ticketId,
+      pagoId, // 👈 CLAVE para Mercado Pago
       numeroPedido,
       fechaHumana,
       total,
@@ -244,13 +308,16 @@ export async function crearPedido({
       qrText,
       qrUrl,
       usuarioEmail,
+      usuarioNombre,
     }
   } catch (err) {
     console.error('❌ Error generando QR del pedido:', err)
 
+    // Devuelve igualmente, pero sin qrUrl
     return {
       id: ref.id,
       ticketId,
+      pagoId,
       numeroPedido,
       fechaHumana,
       total,
@@ -258,6 +325,7 @@ export async function crearPedido({
       qrText,
       qrUrl: null,
       usuarioEmail,
+      usuarioNombre,
     }
   } finally {
     hideLoading()

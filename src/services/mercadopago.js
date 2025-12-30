@@ -37,7 +37,7 @@ export async function crearPreferenciaEntrada({
 
   return await res.json()
 }
-export async function crearPreferenciaCompra({ carrito, ticketId }) {
+export async function crearPreferenciaCompra({ carrito, pagoId }) {
   try {
     // ============================
     // VALIDAR Y ARMAR ITEMS
@@ -69,10 +69,7 @@ export async function crearPreferenciaCompra({ carrito, ticketId }) {
     const res = await fetch('/api/crear-preferencia', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        items,
-        external_reference: ticketId,
-      }),
+      body: JSON.stringify({ items, external_reference: pagoId }),
     })
 
     // ============================

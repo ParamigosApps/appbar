@@ -413,8 +413,9 @@ export function CarritoProvider({ children }) {
         }
         const initPoint = await crearPreferenciaCompra({
           carrito,
-          ticketId: pedido.ticketId,
+          pagoId: pedido.pagoId,
         })
+
         setCarrito([])
         syncLocalStorage([])
 
