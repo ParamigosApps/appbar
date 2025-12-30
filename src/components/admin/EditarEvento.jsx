@@ -740,7 +740,10 @@ export default function EditarEvento({ editarId, setSeccion }) {
           )
         })}
 
-        <button className="btn swal-btn-confirm" type="submit">
+        <button
+          className="btn swal-btn-confirm d-block mx-auto mb-3"
+          type="submit"
+        >
           Guardar cambios
         </button>
       </form>

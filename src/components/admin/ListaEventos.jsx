@@ -76,32 +76,80 @@ export default function ListaEventos({ setSeccion, setEditarId }) {
   }
 
   async function cancelar(id, nombre) {
+    // ---------------------------------------------
+    // CONFIRMACIÓN PRINCIPAL
+    // ---------------------------------------------
     const confirm = await Swal.fire({
       icon: 'warning',
       title: '¿Cancelar evento?',
       html: `
-        <p>Vas a cancelar <b>${nombre}</b>.</p>
-        <p>Las entradas dejarán de ser válidas.</p>
-      `,
+      <p>Vas a cancelar <b>${nombre}</b>.</p>
+      <p>Las entradas dejarán de ser válidas.</p>
+    `,
       showCancelButton: true,
       confirmButtonText: 'Cancelar evento',
       cancelButtonText: 'Volver',
+
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      allowEnterKey: false,
+
+      customClass: {
+        popup: 'swal-popup-custom',
+        title: 'swal-title-custom',
+        htmlContainer: 'swal-text-custom',
+        confirmButton: 'swal-btn-confirm',
+        cancelButton: 'swal-btn-cancel',
+      },
+      buttonsStyling: false,
     })
 
     if (!confirm.isConfirmed) return
 
-    const motivo =
-      (
-        await Swal.fire({
-          title: 'Motivo de cancelación',
-          input: 'text',
-          inputPlaceholder: 'Opcional',
-          showCancelButton: true,
-        })
-      ).value || ''
+    // ---------------------------------------------
+    // MOTIVO DE CANCELACIÓN
+    // ---------------------------------------------
+    const motivoResult = await Swal.fire({
+      title: 'Motivo de cancelación',
+      input: 'text',
+      inputPlaceholder: 'Opcional',
+      showCancelButton: true,
+      confirmButtonText: 'Confirmar',
+      cancelButtonText: 'Volver, sin cancelar',
 
+      allowOutsideClick: false,
+      allowEscapeKey: false,
+      allowEnterKey: false,
+
+      customClass: {
+        popup: 'swal-popup-custom',
+        title: 'swal-title-custom',
+        confirmButton: 'swal-btn-confirm',
+        cancelButton: 'swal-btn-cancel',
+      },
+      buttonsStyling: false,
+    })
+
+    if (!motivoResult.isConfirmed) return
+
+    const motivo = motivoResult.value?.trim() || ''
+
+    // ---------------------------------------------
+    // EJECUCIÓN
+    // ---------------------------------------------
     await cancelarEvento(id, motivo)
-    Swal.fire('Evento cancelado', 'Se actualizó correctamente.', 'success')
+
+    await Swal.fire({
+      icon: 'success',
+      title: 'Evento cancelado',
+      text: 'Se actualizó correctamente.',
+      confirmButtonText: 'OK',
+      customClass: {
+        popup: 'swal-popup-custom',
+        confirmButton: 'swal-btn-confirm',
+      },
+      buttonsStyling: false,
+    })
   }
 
   async function borrar(id, nombre) {
@@ -119,9 +167,20 @@ export default function ListaEventos({ setSeccion, setEditarId }) {
     const confirm = await Swal.fire({
       title: '¿Eliminar evento?',
       text: 'Esta acción no se puede deshacer',
+      icon: 'warning',
       showCancelButton: true,
       confirmButtonText: 'Eliminar',
       cancelButtonText: 'Cancelar',
+
+      customClass: {
+        popup: 'swal-popup-custom',
+        title: 'swal-title-custom',
+        htmlContainer: 'swal-text-custom',
+        confirmButton: 'swal-btn-confirm',
+        cancelButton: 'swal-btn-cancel',
+      },
+
+      buttonsStyling: false, // IMPORTANTE para que use tus clases
     })
 
     if (!confirm.isConfirmed) return
@@ -167,7 +226,7 @@ export default function ListaEventos({ setSeccion, setEditarId }) {
 
                   <div className="d-flex flex-column gap-2 text-end">
                     <button
-                      className="btn btn-outline-primary btn-sm"
+                      className="swal-btn-confirm btn-editarEventos"
                       onClick={() => {
                         setEditarId(e.id)
                         setSeccion('editar-evento')
@@ -177,14 +236,14 @@ export default function ListaEventos({ setSeccion, setEditarId }) {
                     </button>
 
                     <button
-                      className="btn btn-outline-warning btn-sm"
+                      className="swal-btn-alt btn-dangerEvento"
                       onClick={() => cancelar(e.id, e.nombre)}
                     >
                       Cancelar
                     </button>
 
                     <button
-                      className="btn btn-outline-danger btn-sm"
+                      className="swal-btn-alt btn-editarEventos"
                       onClick={() => borrar(e.id, e.nombre)}
                     >
                       Eliminar

@@ -212,6 +212,7 @@ export default function AdminProductos() {
           <input
             type="text"
             name="nombre"
+            placeholder="Ej: Fernet + Coca - 500cc"
             className="form-control mb-3"
             value={form.nombre}
             onChange={handleInput}
@@ -223,6 +224,7 @@ export default function AdminProductos() {
           <input
             type="number"
             name="precio"
+            placeholder="Ej: $8000"
             className="form-control mb-3"
             value={form.precio}
             onChange={handleInput}
@@ -233,6 +235,7 @@ export default function AdminProductos() {
           <label className="form-label fw-semibold">Descripción *</label>
           <textarea
             name="descripcion"
+            placeholder="Ej: Vaso de Fernet + Coca Cola con hielo. Presentación de 500cc."
             className="form-control mb-1"
             rows="2"
             value={form.descripcion}
@@ -249,6 +252,7 @@ export default function AdminProductos() {
           <label className="form-label fw-semibold">Stock *</label>
           <input
             type="number"
+            placeholder="Ej: 100"
             name="stock"
             className="form-control mb-3"
             value={form.stock}
@@ -275,21 +279,23 @@ export default function AdminProductos() {
           </select>
 
           {/* Imagen */}
-          <label className="form-label fw-semibold">Imagen *</label>
-          <input
-            type="file"
-            className="form-control mb-2"
-            accept="image/*"
-            onChange={handleFileChange}
-          />
-
-          {previewImg && (
-            <img
-              src={previewImg}
-              className="img-fluid rounded mb-3"
-              style={{ maxHeight: 180, objectFit: 'cover' }}
+          <div>
+            <label className="form-label fw-semibold">Imagen *</label>
+            <input
+              type="file"
+              className="form-control mb-2"
+              accept="image/*"
+              onChange={handleFileChange}
             />
-          )}
+
+            {previewImg && (
+              <img
+                src={previewImg}
+                className="img-fluid rounded mb-3"
+                style={{ maxHeight: 180, objectFit: 'cover' }}
+              />
+            )}
+          </div>
           <label className="form-label fw-semibold mt-2">
             ¿Producto destacado?
           </label>
@@ -309,7 +315,7 @@ export default function AdminProductos() {
           {/* SUBMIT */}
           <div className="form-divider my-4" />
           <div className="mt-1  d-flex justify-content-center">
-            <button type="submit" className="btn swal-btn-confirm mb-4 mt-1">
+            <button type="submit" className="btn swal-btn-confirm mb-2 ">
               {editId ? 'Actualizar producto' : 'Guardar producto'}
             </button>
           </div>
@@ -317,7 +323,7 @@ export default function AdminProductos() {
           {editId && (
             <button
               type="button"
-              className="btn btn-outline-secondary w-100 mt-2"
+              className="btn swal-btn-alt d-block mx-auto"
               onClick={resetFormulario}
             >
               Cancelar edición
@@ -459,13 +465,13 @@ export default function AdminProductos() {
 
                   <div className="producto-col acciones">
                     <button
-                      className="btn btn-outline-primary btn-sm"
+                      className="swal-btn-confirm btn-editarProductos"
                       onClick={() => onEditarProducto(prod)}
                     >
                       Editar
                     </button>
                     <button
-                      className="btn btn-outline-danger btn-sm"
+                      className="swal-btn-alt btn-editarProductos"
                       onClick={() => onEliminarProducto(prod)}
                     >
                       Eliminar
