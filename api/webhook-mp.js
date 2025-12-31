@@ -1,4 +1,6 @@
 import admin from 'firebase-admin'
+import fetch from 'node-fetch'
+
 import { generarEntradasPagasDesdePago } from './_lib/generarEntradasPagasDesdePago.js'
 
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN
@@ -21,11 +23,26 @@ export default async function handler(req, res) {
 
   try {
     const body = req.body || {}
-    const tipo = body.type || body.topic || req.query.topic
-    const paymentId = body?.data?.id || req.query.id
 
-    if (tipo !== 'payment' || !paymentId) {
-      return res.status(200).send('ignored')
+    const topic = body.type || body.topic || req.query.type || req.query.topic
+
+    const paymentId = body?.data?.id || req.query.id || req.query['data.id']
+
+    console.log('📩 WEBHOOK MP RAW', {
+      method: req.method,
+      topic,
+      paymentId,
+      body,
+      query: req.query,
+    })
+
+    if (!paymentId) {
+      console.warn('⚠️ Webhook sin paymentId')
+      return res.status(200).send('no paymentId')
+    }
+
+    if (topic && topic !== 'payment') {
+      return res.status(200).send('ignored topic')
     }
 
     // 🔎 Consultar MP
@@ -110,6 +127,17 @@ export default async function handler(req, res) {
 
     // ⏳ Pendiente
     if (payment.status !== 'approved') {
+      await pagoRef.update({
+        log: {
+          ...(pago.log || {}),
+          lastMpStatus: payment.status,
+          lastMpDetail: payment.status_detail,
+          lastCheckAt: serverTimestamp(),
+        },
+      })
+
+      console.log('⏳ Pago pendiente en MP', payment.status)
+
       return res.status(200).send('pendiente')
     }
 
