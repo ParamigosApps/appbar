@@ -1,13 +1,17 @@
-import admin from 'firebase-admin'
 import crypto from 'crypto'
-
-const db = admin.firestore()
-const serverTimestamp = admin.firestore.FieldValue.serverTimestamp
+import { getAdmin } from './firebaseAdmin.js'
 
 // --------------------------------------------------
 // 🔥 GENERAR ENTRADAS PAGAS DESDE PAGO APROBADO
 // --------------------------------------------------
 export async function generarEntradasPagasDesdePago(pagoId, pago) {
+  // ----------------------------------------------
+  // INIT FIREBASE (SEGURO EN SERVERLESS)
+  // ----------------------------------------------
+  const admin = getAdmin()
+  const db = admin.firestore()
+  const serverTimestamp = admin.firestore.FieldValue.serverTimestamp
+
   const pagoRef = db.collection('pagos').doc(pagoId)
 
   // --------------------------------------------------
@@ -117,6 +121,7 @@ export async function generarEntradasPagasDesdePago(pagoId, pago) {
 
         operaciones++
 
+        // Firestore límite ~500 operaciones
         if (operaciones >= 450) {
           await batch.commit()
           batch = db.batch()
