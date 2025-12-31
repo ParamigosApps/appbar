@@ -5,12 +5,21 @@ import React, { useEffect, useState } from 'react'
 import { collection, getDocs, query, orderBy } from 'firebase/firestore'
 import { db } from '../../Firebase.js'
 import { useEntradas } from '../../context/EntradasContext.jsx'
+import { useAuth } from '../../context/AuthContext.jsx'
+import Swal from 'sweetalert2'
+import { abrirLoginGlobal } from '../../utils/utils'
 
 export default function EntradasEventos() {
+  const { user, adminUser } = useAuth()
+
   const [eventos, setEventos] = useState([])
   const [loading, setLoading] = useState(true)
 
   const { pedirEntrada } = useEntradas()
+
+  const usuarioId = adminUser?.uid || user?.uid || null
+  const usuarioNombre =
+    adminUser?.displayName || user?.nombre || user?.email || 'Usuario'
 
   // --------------------------------------------------------------
   // NORMALIZAR LOTES
@@ -158,7 +167,29 @@ export default function EntradasEventos() {
             {/* BOTÓN */}
             <button
               className="btn swal-btn-confirm mt-2 w-50 d-block mx-auto"
-              onClick={() => pedirEntrada(evento)}
+              onClick={() => {
+                if (!usuarioId) {
+                  Swal.fire({
+                    icon: 'warning',
+                    title: 'Iniciá sesión',
+                    text: 'Necesitás iniciar sesión para pedir una entrada.',
+                    confirmButtonText: 'Iniciar sesión',
+                    customClass: {
+                      popup: 'swal-popup-custom',
+                      confirmButton: 'swal-btn-confirm',
+                    },
+                    buttonsStyling: false,
+                  }).then(res => {
+                    if (res.isConfirmed) {
+                      abrirLoginGlobal()
+                    }
+                  })
+
+                  return
+                }
+
+                pedirEntrada(evento)
+              }}
             >
               {tieneLotes ? 'Ver entradas' : 'Pedir entrada'}
             </button>

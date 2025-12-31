@@ -5,9 +5,6 @@
 
 import Swal from 'sweetalert2'
 
-// ⚠️ IMPORT CRÍTICO:
-// - Si tu archivo real es "mercadoPagoEntradas.js", cambiá ESTE import.
-// - En Vercel (Linux) el nombre debe coincidir EXACTO.
 import { crearPreferenciaEntrada } from '../../services/mercadopago.js'
 
 import {
@@ -201,6 +198,8 @@ export async function manejarMercadoPago({
     const pagoRef = await addDoc(collection(db, 'pagos'), payloadPago)
 
     const pagoId = pagoRef.id
+
+    safeLocalStorageSet('pagoIdEnProceso', pagoId, trace)
     console.log(`[${trace}] [MP][7] pago creado OK`, { pagoId })
 
     // -----------------------------------------

@@ -257,8 +257,9 @@ export function EntradasProvider({ children }) {
       )
 
       const eventoCompleto = {
-        ...evento,
         ...eventoData,
+        ...evento,
+        id: evento.id, // 🔒 BLINDADO
         horaInicio: eventoData?.horaInicio || evento.horaInicio || '',
         horaFin: eventoData?.horaFin || evento.horaFin || '',
       }
@@ -281,18 +282,18 @@ export function EntradasProvider({ children }) {
       // 🎟 EVENTO CON LOTES — MULTI LOTE
       // ==========================================================
       if (Array.isArray(lotesInfo) && lotesInfo.length > 0) {
-        const eventoCompleto = {
+        const eventoParaSeleccion = {
           id: evento.id,
           nombre: evento.nombre,
           fechaInicio: evento.fechaInicio,
-          horaInicio: evento.horaInicio || '', // 👈 CLAVE
+          horaInicio: evento.horaInicio || '',
           horaFin: evento.horaFin || '',
           lugar: evento.lugar,
           entradasPorUsuario: evento.entradasPorUsuario,
         }
 
         const seleccion = await abrirSeleccionLotesMultiPro(
-          eventoCompleto,
+          eventoParaSeleccion,
           lotesInfo
         )
         if (!seleccion) return

@@ -1,5 +1,10 @@
 // /api/mp-webhook.js
-export const config = { runtime: 'nodejs' }
+export const config = {
+  runtime: 'nodejs',
+  api: {
+    bodyParser: true,
+  },
+}
 
 import { getAdmin } from './_lib/firebaseAdmin.js'
 import { generarEntradasPagasDesdePago } from './_lib/generarEntradasPagasDesdePago.js'
@@ -40,10 +45,9 @@ export default async function handler(req, res) {
   const reqId = `wh_${Date.now()}_${Math.random().toString(16).slice(2)}`
   const t0 = Date.now()
 
-  // MP puede reintentar, o en algunos casos mandar GET en validaciones/sondeos.
-  if (req.method !== 'POST' && req.method !== 'GET') {
-    console.log(`ℹ️ [${reqId}] method ignored`, { method: req.method })
-    return res.status(200).send('ignored')
+  if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST')
+    return res.status(200).send('only POST')
   }
 
   try {
@@ -93,6 +97,13 @@ export default async function handler(req, res) {
       hasBody: !!req.body,
       elapsedMs: Date.now() - t0,
     })
+    // --------------------------------------------------
+    // IGNORAR payment.created (llega siempre en pending)
+    // --------------------------------------------------
+    if (action === 'payment.created') {
+      console.log(`ℹ️ [${reqId}] payment.created ignorado`)
+      return res.status(200).send('ignored created')
+    }
 
     // --------------------------------------------------
     // Resolver a paymentId real (si vino merchant_order)

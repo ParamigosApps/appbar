@@ -12,6 +12,7 @@ function safeNum(v, fallback = 0) {
 }
 
 export default async function handler(req, res) {
+  console.log('📥 MP WEBHOOK RAW:', req.body)
   const reqId = `pref_${Date.now()}_${Math.random().toString(16).slice(2)}`
   console.log(`🧾 [${reqId}] crear-preferencia IN`, {
     method: req.method,

@@ -1,4 +1,4 @@
-// src/services/mercadoPagoEntradas.js
+// src/services/mercadopago.js
 
 import { auth, db } from '../Firebase.js'
 import { doc, getDoc } from 'firebase/firestore'
@@ -87,7 +87,19 @@ export async function crearPreferenciaEntrada({
       }),
     })
 
-    const data = await res.json()
+    const text = await res.text()
+
+    if (!text) {
+      throw new Error('Respuesta vacía del servidor Mercado Pago')
+    }
+
+    let data
+    try {
+      data = JSON.parse(text)
+    } catch (e) {
+      console.error('Respuesta cruda MP:', text)
+      throw new Error('Respuesta MP inválida')
+    }
 
     if (!res.ok) {
       console.error('❌ Backend MP error:', data)
