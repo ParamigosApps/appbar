@@ -16,7 +16,6 @@ export default function PagoResultado() {
   // 🔑 CLAVE: fallback a localStorage
   const pagoId =
     params.get('external_reference') || localStorage.getItem('pagoIdEnProceso')
-
   const intervalRef = useRef(null)
   const [intentos, setIntentos] = useState(0)
 

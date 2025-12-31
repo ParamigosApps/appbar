@@ -8,11 +8,40 @@ function safeStr(v, fallback = '') {
   return typeof v === 'string' && v.trim() ? v.trim() : fallback
 }
 
+function asNumber(v) {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : NaN
+}
+
+function cents(v) {
+  const n = asNumber(v)
+  if (!Number.isFinite(n)) return NaN
+  return Math.round(n * 100)
+}
+
+async function safeReadBody(req) {
+  // En Vercel suele venir parseado si es JSON, pero lo hacemos bulletproof.
+  const b = req.body
+  if (!b) return {}
+  if (typeof b === 'object') return b
+
+  // Si por algún motivo llegó como string
+  if (typeof b === 'string') {
+    try {
+      return JSON.parse(b)
+    } catch {
+      return { _raw: b }
+    }
+  }
+  return {}
+}
+
 export default async function handler(req, res) {
   const reqId = `wh_${Date.now()}_${Math.random().toString(16).slice(2)}`
   const t0 = Date.now()
 
-  if (req.method !== 'POST') {
+  // MP puede reintentar, o en algunos casos mandar GET en validaciones/sondeos.
+  if (req.method !== 'POST' && req.method !== 'GET') {
     console.log(`ℹ️ [${reqId}] method ignored`, { method: req.method })
     return res.status(200).send('ignored')
   }
@@ -28,43 +57,122 @@ export default async function handler(req, res) {
     const db = admin.firestore()
     const now = admin.firestore.FieldValue.serverTimestamp()
 
+    const body = await safeReadBody(req)
+
     // --------------------------------------------------
-    // WEBHOOK INPUT
+    // WEBHOOK INPUT (compat: v1 + v2)
     // --------------------------------------------------
-    const body = req.body || {}
-    const topic = body.type || body.topic || req.query.topic
-    const paymentId = body?.data?.id || req.query.id || req.query['data.id']
+    const topic =
+      safeStr(body.type) || safeStr(body.topic) || safeStr(req.query.topic)
+    const action = safeStr(body.action) || safeStr(req.query.action)
+
+    // payment id puede venir en:
+    // - body.data.id (v2)
+    // - query id (v1)
+    // - query data.id / data[id]
+    const paymentId =
+      safeStr(body?.data?.id) ||
+      safeStr(req.query.id) ||
+      safeStr(req.query['data.id']) ||
+      safeStr(req.query['data[id]'])
+
+    // merchant_order id puede venir en:
+    const merchantOrderId =
+      safeStr(body?.data?.id) ||
+      safeStr(req.query.id) ||
+      safeStr(req.query['data.id']) ||
+      safeStr(req.query['data[id]'])
 
     console.log(`📩 [${reqId}] webhook recibido`, {
+      method: req.method,
       topic,
+      action,
       paymentId,
       query: req.query,
       bodyKeys: Object.keys(body || {}),
+      hasBody: !!req.body,
+      elapsedMs: Date.now() - t0,
     })
 
-    if (!paymentId) {
-      console.warn(`⚠️ [${reqId}] sin paymentId`, { body, query: req.query })
+    // --------------------------------------------------
+    // Resolver a paymentId real (si vino merchant_order)
+    // --------------------------------------------------
+    let resolvedPaymentId = paymentId
+
+    // Si topic dice merchant_order, primero traemos la orden y de ahí el pago
+    if (!resolvedPaymentId && topic === 'merchant_order') {
+      console.warn(`⚠️ [${reqId}] merchant_order sin id`, {
+        topic,
+        merchantOrderId,
+      })
+      return res.status(200).send('no merchant_order id')
+    }
+
+    if (topic === 'merchant_order') {
+      const moUrl = `https://api.mercadopago.com/merchant_orders/${merchantOrderId}`
+      console.log(`➡️ [${reqId}] consultando merchant_order`, { moUrl })
+
+      const moRes = await fetch(moUrl, {
+        headers: { Authorization: `Bearer ${MP_ACCESS_TOKEN}` },
+      })
+
+      if (!moRes.ok) {
+        const text = await moRes.text().catch(() => '')
+        console.error(`❌ [${reqId}] merchant_order fetch error`, {
+          status: moRes.status,
+          text: text?.slice?.(0, 500),
+        })
+        return res.status(200).send('merchant_order error')
+      }
+
+      const mo = await moRes.json()
+
+      // Intentar extraer un payment id de la orden
+      const payments = Array.isArray(mo?.payments) ? mo.payments : []
+      const approved = payments.find(p => safeStr(p?.status) === 'approved')
+      const last = payments[payments.length - 1]
+
+      resolvedPaymentId = safeStr(approved?.id) || safeStr(last?.id)
+
+      console.log(`🧩 [${reqId}] merchant_order resuelto`, {
+        merchantOrderId,
+        paymentsCount: payments.length,
+        resolvedPaymentId,
+      })
+
+      if (!resolvedPaymentId) {
+        console.warn(`⚠️ [${reqId}] merchant_order sin payments`, {
+          merchantOrderId,
+          paymentsCount: payments.length,
+        })
+        return res.status(200).send('no payments in merchant_order')
+      }
+    }
+
+    // Si topic no es payment ni merchant_order, NO cortamos: log y seguimos solo si tenemos id.
+    if (!resolvedPaymentId) {
+      console.warn(`⚠️ [${reqId}] sin paymentId resolvible`, {
+        topic,
+        action,
+        body,
+        query: req.query,
+      })
       return res.status(200).send('no paymentId')
     }
 
-    if (topic && topic !== 'payment') {
-      console.log(`ℹ️ [${reqId}] topic ignorado`, { topic })
-      return res.status(200).send('ignored')
-    }
-
     // --------------------------------------------------
-    // CONSULTAR MP
+    // CONSULTAR MP PAYMENT
     // --------------------------------------------------
-    const url = `https://api.mercadopago.com/v1/payments/${paymentId}`
-    console.log(`➡️ [${reqId}] consultando MP`, { url })
+    const payUrl = `https://api.mercadopago.com/v1/payments/${resolvedPaymentId}`
+    console.log(`➡️ [${reqId}] consultando MP payment`, { payUrl })
 
-    const mpRes = await fetch(url, {
+    const mpRes = await fetch(payUrl, {
       headers: { Authorization: `Bearer ${MP_ACCESS_TOKEN}` },
     })
 
     if (!mpRes.ok) {
       const text = await mpRes.text().catch(() => '')
-      console.error(`❌ [${reqId}] MP fetch error`, {
+      console.error(`❌ [${reqId}] MP payment fetch error`, {
         status: mpRes.status,
         text: text?.slice?.(0, 500),
       })
@@ -72,7 +180,7 @@ export default async function handler(req, res) {
     }
 
     const payment = await mpRes.json()
-    const pagoId = payment.external_reference
+    const pagoId = safeStr(payment?.external_reference)
 
     console.log(`✅ [${reqId}] MP payment obtenido`, {
       paymentId: payment?.id,
@@ -96,13 +204,12 @@ export default async function handler(req, res) {
     }
 
     const pago = pagoSnap.data()
+
     console.log(`📄 [${reqId}] pago firestore`, {
       pagoId,
       estado: pago?.estado,
-      total: pago?.total,
+      fsTotal: pago?.total,
       usuarioId: pago?.usuarioId || null,
-      usuarioEmailEmpty: !safeStr(pago?.usuarioEmail),
-      usuarioNombreEmpty: !safeStr(pago?.usuarioNombre),
     })
 
     // --------------------------------------------------
@@ -114,19 +221,35 @@ export default async function handler(req, res) {
     }
 
     // --------------------------------------------------
-    // VALIDAR MONTO
+    // VALIDAR MONTO (robusto a decimales)
     // --------------------------------------------------
-    if (Number(payment.transaction_amount) !== Number(pago.total)) {
+    const mpCents = cents(payment?.transaction_amount)
+    const fsCents = cents(pago?.total)
+
+    console.log(`🧮 [${reqId}] comparación monto`, {
+      mpAmount: payment?.transaction_amount,
+      fsTotal: pago?.total,
+      mpCents,
+      fsCents,
+    })
+
+    if (
+      !Number.isFinite(mpCents) ||
+      !Number.isFinite(fsCents) ||
+      mpCents !== fsCents
+    ) {
       console.error(`❌ [${reqId}] monto invalido`, {
-        mpAmount: payment.transaction_amount,
-        fsTotal: pago.total,
+        mpAmount: payment?.transaction_amount,
+        fsTotal: pago?.total,
+        mpCents,
+        fsCents,
       })
 
       await pagoRef.update({
         estado: 'monto_invalido',
-        mpPaymentId: payment.id,
-        mpStatus: payment.status,
-        mpDetail: payment.status_detail,
+        mpPaymentId: payment?.id || null,
+        mpStatus: payment?.status || null,
+        mpDetail: payment?.status_detail || null,
         updatedAt: now,
       })
 
@@ -134,23 +257,19 @@ export default async function handler(req, res) {
     }
 
     // --------------------------------------------------
-    // REPARAR DATOS DE USUARIO SI ESTÁN VACÍOS
+    // REPARAR DATOS DE USUARIO
     // --------------------------------------------------
     let usuarioEmail = safeStr(pago?.usuarioEmail)
     let usuarioNombre = safeStr(pago?.usuarioNombre)
 
-    if (!usuarioEmail) {
-      usuarioEmail = safeStr(payment?.payer?.email)
-    }
+    if (!usuarioEmail) usuarioEmail = safeStr(payment?.payer?.email)
 
-    // Nombre: MP no siempre devuelve first_name/last_name; igual lo intentamos
     if (!usuarioNombre) {
       const fn = safeStr(payment?.payer?.first_name)
       const ln = safeStr(payment?.payer?.last_name)
       usuarioNombre = safeStr(`${fn} ${ln}`.trim())
     }
 
-    // Si sigue vacío y tenés colección usuarios, intentamos
     if ((!usuarioEmail || !usuarioNombre) && pago?.usuarioId) {
       try {
         const uSnap = await db.collection('usuarios').doc(pago.usuarioId).get()
@@ -159,13 +278,8 @@ export default async function handler(req, res) {
           if (!usuarioEmail) usuarioEmail = safeStr(u.email)
           if (!usuarioNombre) usuarioNombre = safeStr(u.nombre || u.displayName)
           console.log(`🧩 [${reqId}] usuario reparado desde /usuarios`, {
-            found: true,
             usuarioEmailFilled: !!usuarioEmail,
             usuarioNombreFilled: !!usuarioNombre,
-          })
-        } else {
-          console.log(`🧩 [${reqId}] /usuarios no existe para uid`, {
-            uid: pago.usuarioId,
           })
         }
       } catch (e) {
@@ -176,10 +290,10 @@ export default async function handler(req, res) {
     }
 
     // --------------------------------------------------
-    // SI AÚN NO APROBADO: solo guardamos estado MP
+    // NO APROBADO: persistir estado MP
     // --------------------------------------------------
     if (payment.status !== 'approved') {
-      console.log(`🟡 [${reqId}] no aprobado todavía`, {
+      console.log(`🟡 [${reqId}] pago aún no aprobado`, {
         status: payment.status,
         detail: payment.status_detail,
       })
@@ -190,13 +304,11 @@ export default async function handler(req, res) {
         mpStatus: payment.status,
         mpDetail: payment.status_detail,
         updatedAt: now,
-
-        // si pudimos reparar algo, lo persistimos
         ...(usuarioEmail ? { usuarioEmail } : {}),
         ...(usuarioNombre ? { usuarioNombre } : {}),
       })
 
-      console.log(`🟡 [${reqId}] firestore actualizado a pendiente`, {
+      console.log(`🟡 [${reqId}] firestore actualizado (pendiente)`, {
         pagoId,
         elapsedMs: Date.now() - t0,
       })
@@ -205,9 +317,9 @@ export default async function handler(req, res) {
     }
 
     // --------------------------------------------------
-    // ✅ APROBADO: confirmamos en Firestore
+    // ✅ APROBADO
     // --------------------------------------------------
-    console.log(`🟢 [${reqId}] APROBADO, actualizando firestore`, {
+    console.log(`🟢 [${reqId}] APROBADO -> actualizando firestore`, {
       pagoId,
       mpPaymentId: payment.id,
       detail: payment.status_detail,
@@ -220,18 +332,18 @@ export default async function handler(req, res) {
       mpStatus: payment.status,
       mpDetail: payment.status_detail,
       updatedAt: now,
-
       ...(usuarioEmail ? { usuarioEmail } : {}),
       ...(usuarioNombre ? { usuarioNombre } : {}),
     })
 
     // --------------------------------------------------
-    // GENERAR ENTRADAS (UNA SOLA VEZ)
+    // GENERAR ENTRADAS
     // --------------------------------------------------
-    console.log(`🎟️ [${reqId}] generando entradas`, { pagoId })
+    console.log(`🎟️ [${reqId}] generarEntradasPagasDesdePago START`, { pagoId })
     await generarEntradasPagasDesdePago(pagoId, pago)
+    console.log(`✅ [${reqId}] generarEntradasPagasDesdePago OK`, { pagoId })
 
-    console.log(`✅ [${reqId}] OK webhook completo`, {
+    console.log(`✅ [${reqId}] webhook OK`, {
       pagoId,
       elapsedMs: Date.now() - t0,
     })

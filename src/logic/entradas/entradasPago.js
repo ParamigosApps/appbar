@@ -1,18 +1,60 @@
 // --------------------------------------------------------------
 // src/logic/entradas/entradasPago.js
-// PAGO MP + TRANSFERENCIA — FINAL ESTABLE 2025
+// PAGO MP + TRANSFERENCIA — FINAL DEBUG TRACE 2025 (SIN QUITAR NADA)
 // --------------------------------------------------------------
 
 import Swal from 'sweetalert2'
+
+// ⚠️ IMPORT CRÍTICO:
+// - Si tu archivo real es "mercadoPagoEntradas.js", cambiá ESTE import.
+// - En Vercel (Linux) el nombre debe coincidir EXACTO.
 import { crearPreferenciaEntrada } from '../../services/mercadopago.js'
+
 import {
   obtenerDatosBancarios,
   obtenerContacto,
   crearSolicitudPendiente,
 } from './entradasUtils.js'
+
 import { normalizarPrecio } from '../../utils/utils.js'
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../Firebase.js'
+
+// =============================================================
+// HELPERS DEBUG
+// =============================================================
+function traceId(prefix = 'TRACE') {
+  return `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`
+}
+
+function safeLocalStorageSet(key, value, trace) {
+  try {
+    if (typeof window === 'undefined') {
+      console.warn(`[${trace}] localStorage no disponible (SSR)`)
+      return false
+    }
+    if (!window.localStorage) {
+      console.warn(`[${trace}] window.localStorage no existe`)
+      return false
+    }
+
+    window.localStorage.setItem(key, String(value))
+    const readBack = window.localStorage.getItem(key)
+    const ok = readBack === String(value)
+
+    console.log(`[${trace}] localStorage.setItem(${key})`, {
+      value,
+      readBack,
+      ok,
+    })
+
+    return ok
+  } catch (e) {
+    console.error(`[${trace}] ERROR localStorage.setItem(${key})`, e)
+    return false
+  }
+}
+
 // =============================================================
 // 🔵 MERCADO PAGO
 // =============================================================
@@ -22,6 +64,18 @@ export async function manejarMercadoPago({
   usuarioId,
   eventoId,
 }) {
+  const trace = traceId('MP')
+  console.log(`[${trace}] [MP][0] INVOCADO`, {
+    eventoId,
+    usuarioId,
+    hasEvento: !!evento,
+    hasLoteSel: !!loteSel,
+    detallesLen: Array.isArray(loteSel?.detalles) ? loteSel.detalles.length : 0,
+  })
+
+  // -----------------------------------------
+  // VALIDACIÓN INPUT
+  // -----------------------------------------
   if (
     !evento ||
     !eventoId ||
@@ -29,29 +83,33 @@ export async function manejarMercadoPago({
     !Array.isArray(loteSel?.detalles) ||
     !loteSel.detalles.length
   ) {
-    console.warn('⚠️ manejarMercadoPago datos inválidos')
+    console.warn(`[${trace}] [MP][X] datos inválidos`, {
+      evento,
+      eventoId,
+      usuarioId,
+      loteSel,
+    })
     return
   }
 
   try {
-    // ------------------------------------------------------------
-    // LOG GLOBAL — Snapshot entrada
-    // ------------------------------------------------------------
-    console.group('🧾 manejarMercadoPago() INPUT SNAPSHOT')
+    console.group(`[${trace}] [MP][1] INPUT SNAPSHOT`)
     console.log('eventoId:', eventoId)
     console.log('usuarioId:', usuarioId)
     console.log('evento.nombre:', evento?.nombre)
     console.log('loteSel:', loteSel)
     console.groupEnd()
 
-    // ------------------------------------------------------------
-    // ARMAR ITEMS (FUENTE ÚNICA DE VERDAD)
-    // ------------------------------------------------------------
+    // -----------------------------------------
+    // ARMAR ITEMS
+    // -----------------------------------------
+    console.log(`[${trace}] [MP][2] armando items...`)
+
     const items = loteSel.detalles.map((d, i) => {
-      console.group(`🎟️ ITEM MP #${i}`)
+      console.group(`[${trace}] [MP][2.${i}] detalle`)
       console.log('RAW detalle:', d)
-      console.log('RAW precio:', d.precio, typeof d.precio)
-      console.log('RAW cantidad:', d.cantidad, typeof d.cantidad)
+      console.log('RAW precio:', d?.precio, typeof d?.precio)
+      console.log('RAW cantidad:', d?.cantidad, typeof d?.cantidad)
 
       const precio = normalizarPrecio(d.precio)
       const cantidad = Number(d.cantidad)
@@ -61,8 +119,10 @@ export async function manejarMercadoPago({
         ? Math.trunc(cantidad)
         : NaN
 
-      console.log('SANITIZADO precioSeguro:', precioSeguro)
-      console.log('SANITIZADO cantidadSegura:', cantidadSegura)
+      console.log('precio (norm):', precio, typeof precio)
+      console.log('cantidad (num):', cantidad, typeof cantidad)
+      console.log('precioSeguro:', precioSeguro)
+      console.log('cantidadSegura:', cantidadSegura)
       console.groupEnd()
 
       if (!Number.isFinite(precioSeguro) || precioSeguro <= 0) {
@@ -80,16 +140,17 @@ export async function manejarMercadoPago({
       }
     })
 
-    // ------------------------------------------------------------
-    // CALCULAR TOTAL DEFINITIVO (🔑 CLAVE)
-    // ------------------------------------------------------------
+    console.log(`[${trace}] [MP][3] items OK`, items)
+
+    // -----------------------------------------
+    // TOTAL
+    // -----------------------------------------
     const total = items.reduce((acc, i) => acc + i.precio * i.cantidad, 0)
+    console.log(`[${trace}] [MP][4] total calculado`, { total })
 
-    console.log('💰 TOTAL DEFINITIVO MP:', total)
-
-    // ------------------------------------------------------------
+    // -----------------------------------------
     // ENTRADAS GRATIS
-    // ------------------------------------------------------------
+    // -----------------------------------------
     const entradasGratisPendientes = loteSel.detalles
       .filter(d => normalizarPrecio(d.precio) === 0)
       .map(d => ({
@@ -100,10 +161,17 @@ export async function manejarMercadoPago({
         cantidad: Number(d.cantidad),
       }))
 
-    // ------------------------------------------------------------
-    // CREAR PAGO EN FIRESTORE (YA CON TOTAL CORRECTO)
-    // ------------------------------------------------------------
-    const pagoRef = await addDoc(collection(db, 'pagos'), {
+    console.log(`[${trace}] [MP][5] entradasGratisPendientes`, {
+      count: entradasGratisPendientes.length,
+      entradasGratisPendientes,
+    })
+
+    // -----------------------------------------
+    // CREAR PAGO EN FIRESTORE
+    // -----------------------------------------
+    console.log(`[${trace}] [MP][6] addDoc(/pagos) START`)
+
+    const payloadPago = {
       metodo: 'mp',
       estado: 'pendiente',
 
@@ -119,20 +187,31 @@ export async function manejarMercadoPago({
         .map(i => `${i.cantidad} ${i.nombre} ($${i.precio * i.cantidad})`)
         .join('\n'),
 
-      total, // ✅ COINCIDE CON MP
+      total,
 
       entradasGratisPendientes,
       gratisEntregadas: false,
 
       createdAt: serverTimestamp(),
       paymentStartedAt: serverTimestamp(),
-    })
+    }
+
+    console.log(`[${trace}] [MP][6.1] payloadPago`, payloadPago)
+
+    const pagoRef = await addDoc(collection(db, 'pagos'), payloadPago)
 
     const pagoId = pagoRef.id
+    console.log(`[${trace}] [MP][7] pago creado OK`, { pagoId })
 
-    // ------------------------------------------------------------
-    // CREAR PREFERENCIA MP (USA LOS MISMOS ITEMS)
-    // ------------------------------------------------------------
+    // -----------------------------------------
+    // CREAR PREFERENCIA MP
+    // -----------------------------------------
+    console.log(`[${trace}] [MP][8] crearPreferenciaEntrada START`, {
+      eventoId,
+      pagoId,
+      itemsLen: items.length,
+    })
+
     const resp = await crearPreferenciaEntrada({
       eventoId,
       pagoId,
@@ -144,29 +223,44 @@ export async function manejarMercadoPago({
       imagenEventoUrl: evento.imagenEventoUrl || evento.imagen || '',
     })
 
-    console.log('🧩 crearPreferenciaEntrada() RESPUESTA RAW:', resp)
+    console.log(`[${trace}] [MP][9] crearPreferenciaEntrada RESP`, resp)
 
     const url =
       typeof resp === 'string'
         ? resp
         : resp?.init_point || resp?.url || resp?.sandbox_init_point || ''
 
-    if (!url || typeof url !== 'string' || !url.startsWith('http')) {
-      console.group('❌ MP RESPUESTA INVÁLIDA / SIN init_point')
-      console.log('resp:', resp)
-      console.log('items enviados:', items)
-      console.groupEnd()
+    console.log(`[${trace}] [MP][9.1] url resuelta`, { url })
 
+    if (!url || typeof url !== 'string' || !url.startsWith('http')) {
+      console.group(`[${trace}] [MP][X] RESPUESTA INVÁLIDA / SIN init_point`)
+      console.log('resp:', resp)
+      console.log('items:', items)
+      console.groupEnd()
       throw new Error('MP no devolvió init_point')
     }
 
-    // ------------------------------------------------------------
-    // REDIRIGIR A MP
-    // ------------------------------------------------------------
-    localStorage.setItem('pagoIdEnProceso', pagoId)
+    // -----------------------------------------
+    // LOCALSTORAGE
+    // -----------------------------------------
+    console.log(`[${trace}] [MP][10] set localStorage pagoIdEnProceso`, {
+      pagoId,
+    })
+
+    const okLS = safeLocalStorageSet('pagoIdEnProceso', pagoId, trace)
+    if (!okLS) {
+      console.warn(
+        `[${trace}] [MP][10.1] localStorage NO se pudo persistir. Continuo igual.`
+      )
+    }
+
+    // -----------------------------------------
+    // REDIRECCIÓN
+    // -----------------------------------------
+    console.log(`[${trace}] [MP][11] redirect a MercadoPago`, { url })
     window.location.href = url
   } catch (err) {
-    console.error('❌ Error Mercado Pago:', err)
+    console.error(`[${trace}] [MP][FATAL] flujo interrumpido`, err)
 
     await Swal.fire({
       title: 'Error',
@@ -183,7 +277,7 @@ export async function manejarMercadoPago({
 }
 
 // =============================================================
-// 🔄 TRANSFERENCIA BANCARIA
+// 🔄 TRANSFERENCIA BANCARIA (SIN CAMBIOS FUNCIONALES; SOLO LOGS)
 // =============================================================
 export async function manejarTransferencia({
   evento,
@@ -195,6 +289,17 @@ export async function manejarTransferencia({
   eventoId,
   detallesPagos,
 }) {
+  const trace = traceId('TR')
+  console.log(`[${trace}] [TR][0] INVOCADO`, {
+    eventoId,
+    usuarioId,
+    precio,
+    cantidadSel,
+    hasEvento: !!evento,
+    hasLoteSel: !!loteSel,
+    detallesPagosLen: Array.isArray(detallesPagos) ? detallesPagos.length : 0,
+  })
+
   if (
     !evento ||
     !eventoId ||
@@ -203,7 +308,7 @@ export async function manejarTransferencia({
     precio <= 0 ||
     !cantidadSel
   ) {
-    console.warn('⚠️ manejarTransferencia llamado con datos inválidos', {
+    console.warn(`[${trace}] [TR][X] datos inválidos`, {
       evento,
       precio,
       cantidadSel,
@@ -212,9 +317,7 @@ export async function manejarTransferencia({
     })
     return
   }
-  // -----------------------------------------
-  // 🧩 Resolver lotes: single-lote o multi-lote
-  // -----------------------------------------
+
   const lista =
     Array.isArray(detallesPagos) && detallesPagos.length
       ? detallesPagos
@@ -223,7 +326,7 @@ export async function manejarTransferencia({
       : null
 
   if (!lista) {
-    console.warn('⚠️ manejarTransferencia sin detalles de lotes', {
+    console.warn(`[${trace}] [TR][X] sin detalles de lotes`, {
       loteSel,
       detallesPagos,
     })
@@ -231,17 +334,18 @@ export async function manejarTransferencia({
   }
 
   try {
-    console.log('🔄 manejarTransferencia()', {
-      eventoId,
-      usuarioId,
-      cantidadSel,
-      precio,
-      loteSel,
-      detallesPagos,
+    console.log(`[${trace}] [TR][1] lista lotes resuelta`, {
+      cantidadLotes: lista.length,
+      lista,
     })
 
     const datos = await obtenerDatosBancarios()
     const contacto = await obtenerContacto()
+
+    console.log(`[${trace}] [TR][2] datos bancarios/contacto`, {
+      datos,
+      contacto,
+    })
 
     const {
       aliasBanco = '',
@@ -250,9 +354,6 @@ export async function manejarTransferencia({
       titularBanco = '',
     } = datos || {}
 
-    // ----------------------------------------------------------
-    // SWAL TRANSFERENCIA (BLOQUEANTE)
-    // ----------------------------------------------------------
     const res = await Swal.fire({
       title: `<span class="swal-title-main">Transferencia Bancaria</span>`,
       width: '480px',
@@ -262,91 +363,104 @@ export async function manejarTransferencia({
       allowEnterKey: false,
 
       html: `
-    <div class="transfer-box">
-      <p class="transfer-monto">
-        <b>Monto total:</b>
-        <span class="transfer-precio">$${precio}</span>
-      </p>
+        <div class="transfer-box">
+          <p class="transfer-monto">
+            <b>Monto total:</b>
+            <span class="transfer-precio">$${precio}</span>
+          </p>
 
-      <div class="transfer-datos-dark">
-        <div class="dato-line">
-          <span class="label">Alias</span>
-          <span class="value">${aliasBanco}</span>
+          <div class="transfer-datos-dark">
+            <div class="dato-line">
+              <span class="label">Alias</span>
+              <span class="value">${aliasBanco}</span>
+            </div>
+            <div class="dato-line">
+              <span class="label">CBU</span>
+              <span class="value">${cbuBanco}</span>
+            </div>
+            <div class="dato-line">
+              <span class="label">Titular</span>
+              <span class="value">${titularBanco}</span>
+            </div>
+            <div class="dato-line">
+              <span class="label">Banco</span>
+              <span class="value">${nombreBanco}</span>
+            </div>
+          </div>
+
+          <button id="comprobante-btn" class="method-btn full-btn azul">
+            Enviar comprobante por WhatsApp
+          </button>
+
+          <button id="copiar-btn" class="method-btn full-btn celeste">
+            Copiar ALIAS
+          </button>
+
+          <div id="copiado-ok" class="copiado-ok" style="display:none;">
+            Alias copiado
+          </div>
+
+          <button id="cerrar-btn" class="method-btn full-btn gris">
+            Salir
+          </button>
         </div>
-        <div class="dato-line">
-          <span class="label">CBU</span>
-          <span class="value">${cbuBanco}</span>
-        </div>
-        <div class="dato-line">
-          <span class="label">Titular</span>
-          <span class="value">${titularBanco}</span>
-        </div>
-        <div class="dato-line">
-          <span class="label">Banco</span>
-          <span class="value">${nombreBanco}</span>
-        </div>
-      </div>
-
-      <button id="comprobante-btn" class="method-btn full-btn azul">
-        Enviar comprobante por WhatsApp
-      </button>
-
-      <button id="copiar-btn" class="method-btn full-btn celeste">
-        Copiar ALIAS
-      </button>
-
-      <div id="copiado-ok" class="copiado-ok" style="display:none;">
-        Alias copiado
-      </div>
-
-      <button id="cerrar-btn" class="method-btn full-btn gris">
-        Salir
-      </button>
-    </div>
-  `,
+      `,
 
       didOpen: () => {
-        document.getElementById('copiar-btn').onclick = async () => {
-          const texto = `${aliasBanco}`
+        const copiarBtn = document.getElementById('copiar-btn')
+        const compBtn = document.getElementById('comprobante-btn')
+        const cerrarBtn = document.getElementById('cerrar-btn')
 
-          await navigator.clipboard.writeText(texto)
-
-          const ok = document.getElementById('copiado-ok')
-          ok.style.display = 'block'
-
-          setTimeout(() => {
-            ok.style.display = 'none'
-          }, 1800)
-        }
-
-        document.getElementById('comprobante-btn').onclick = () => {
-          if (contacto?.whatsappContacto) {
-            const msg = encodeURIComponent(
-              `Hola, soy ${usuarioNombre}. Envío comprobante por ${cantidadSel} entrada(s) del evento ${evento.nombre}.`
-            )
-            window.open(
-              `https://wa.me/${contacto.whatsappContacto}?text=${msg}`,
-              '_blank'
-            )
+        if (copiarBtn) {
+          copiarBtn.onclick = async () => {
+            try {
+              await navigator.clipboard.writeText(`${aliasBanco}`)
+              const ok = document.getElementById('copiado-ok')
+              if (ok) ok.style.display = 'block'
+              setTimeout(() => {
+                const ok2 = document.getElementById('copiado-ok')
+                if (ok2) ok2.style.display = 'none'
+              }, 1800)
+            } catch (e) {
+              console.error(`[${trace}] [TR][X] clipboard error`, e)
+            }
           }
-          Swal.close({ isConfirmed: true })
         }
 
-        document.getElementById('cerrar-btn').onclick = () => {
-          Swal.close()
+        if (compBtn) {
+          compBtn.onclick = () => {
+            try {
+              if (contacto?.whatsappContacto) {
+                const msg = encodeURIComponent(
+                  `Hola, soy ${usuarioNombre}. Envío comprobante por ${cantidadSel} entrada(s) del evento ${evento.nombre}.`
+                )
+                window.open(
+                  `https://wa.me/${contacto.whatsappContacto}?text=${msg}`,
+                  '_blank'
+                )
+              }
+              Swal.close({ isConfirmed: true })
+            } catch (e) {
+              console.error(`[${trace}] [TR][X] whatsapp open error`, e)
+            }
+          }
+        }
+
+        if (cerrarBtn) {
+          cerrarBtn.onclick = () => Swal.close()
         }
       },
     })
 
-    // ⛔ CERRADO → NO CREAR SOLICITUD
+    console.log(`[${trace}] [TR][3] Swal resultado`, res)
+
     if (!res || res.isDismissed) {
-      console.log('ℹ️ Transferencia cancelada')
+      console.log(`[${trace}] [TR][END] cancelado por usuario`)
       return
     }
 
-    // ----------------------------------------------------------
-    // CREAR SOLICITUDES PENDIENTES (UNA POR LOTE)
-    // ----------------------------------------------------------
+    console.log(`[${trace}] [TR][4] creando solicitudes pendientes...`)
+
     for (const d of lista) {
       const loteIndice = Number.isFinite(d?.lote?.index)
         ? d.lote.index
@@ -356,7 +470,7 @@ export async function manejarTransferencia({
         ? Number(d.loteId)
         : null
 
-      await crearSolicitudPendiente(eventoId, usuarioId, {
+      const payloadPendiente = {
         usuarioId,
         usuarioNombre,
 
@@ -373,7 +487,6 @@ export async function manejarTransferencia({
           precio: Number(d.precio) || 0,
         },
 
-        // ✅ FIJO: guardar el calculado
         loteIndice: loteIndice,
 
         metodo: 'transferencia',
@@ -385,12 +498,12 @@ export async function manejarTransferencia({
         ultimaModificacionPor: 'usuario',
         ultimaModificacionEn: serverTimestamp(),
         creadoEn: serverTimestamp(),
-      })
+      }
+
+      console.log(`[${trace}] [TR][4.1] payloadPendiente`, payloadPendiente)
+      await crearSolicitudPendiente(eventoId, usuarioId, payloadPendiente)
     }
 
-    // ----------------------------------------------------------
-    // SWAL FINAL
-    // ----------------------------------------------------------
     const fin = await Swal.fire({
       title: 'Solicitud enviada',
       html: `
@@ -410,11 +523,13 @@ export async function manejarTransferencia({
       timerProgressBar: true,
     })
 
+    console.log(`[${trace}] [TR][5] Swal final`, fin)
+
     if (fin.isConfirmed) {
       document.dispatchEvent(new Event('abrir-mis-entradas'))
     }
   } catch (err) {
-    console.error('❌ Error en manejarTransferencia:', err)
+    console.error(`[${trace}] [TR][FATAL] error en Transferencia`, err)
 
     await Swal.fire({
       title: 'Error',
