@@ -3,19 +3,43 @@ import fetch from 'node-fetch'
 
 import { generarEntradasPagasDesdePago } from './_lib/generarEntradasPagasDesdePago.js'
 
+// ======================================================
+// ENV
+// ======================================================
 const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN
+
+if (!MP_ACCESS_TOKEN) {
+  throw new Error('MP_ACCESS_TOKEN no configurado')
+}
+
+// ======================================================
+// FIREBASE ADMIN INIT (BLINDADO)
+// ======================================================
+let serviceAccount
+
+try {
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT no definida')
+  }
+
+  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+} catch (err) {
+  console.error('❌ Error parseando FIREBASE_SERVICE_ACCOUNT', err)
+  throw err
+}
 
 if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.cert(
-      JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-    ),
+    credential: admin.credential.cert(serviceAccount),
   })
 }
 
 const db = admin.firestore()
 const serverTimestamp = admin.firestore.FieldValue.serverTimestamp
 
+// ======================================================
+// HANDLER
+// ======================================================
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(200).send('method ignored')
@@ -32,8 +56,8 @@ export default async function handler(req, res) {
       method: req.method,
       topic,
       paymentId,
-      body,
       query: req.query,
+      body,
     })
 
     if (!paymentId) {
@@ -45,7 +69,9 @@ export default async function handler(req, res) {
       return res.status(200).send('ignored topic')
     }
 
-    // 🔎 Consultar MP
+    // ======================================================
+    // CONSULTAR MERCADO PAGO
+    // ======================================================
     const mpRes = await fetch(
       `https://api.mercadopago.com/v1/payments/${paymentId}`,
       {
@@ -79,17 +105,23 @@ export default async function handler(req, res) {
     const pagoSnap = await pagoRef.get()
 
     if (!pagoSnap.exists) {
+      console.warn('⚠️ Pago inexistente en Firestore', pagoId)
       return res.status(200).send('pago inexistente')
     }
 
     const pago = pagoSnap.data()
 
-    // 🔐 Idempotencia
+    // ======================================================
+    // IDEMPOTENCIA
+    // ======================================================
     if (['aprobado', 'fallido', 'monto_invalido'].includes(pago.estado)) {
+      console.log('🔁 Pago ya procesado:', pago.estado)
       return res.status(200).send('ya procesado')
     }
 
-    // 💰 Validar monto
+    // ======================================================
+    // VALIDAR MONTO
+    // ======================================================
     if (Number(payment.transaction_amount) !== Number(pago.total)) {
       await pagoRef.update({
         estado: 'monto_invalido',
@@ -102,11 +134,12 @@ export default async function handler(req, res) {
         },
       })
 
-      // ❌ NO TOCAR compras
       return res.status(200).send('monto invalido')
     }
 
-    // ❌ Estados fallidos
+    // ======================================================
+    // ESTADOS FALLIDOS
+    // ======================================================
     if (
       ['rejected', 'cancelled', 'refunded', 'charged_back'].includes(
         payment.status
@@ -125,7 +158,9 @@ export default async function handler(req, res) {
       return res.status(200).send('fallido')
     }
 
-    // ⏳ Pendiente
+    // ======================================================
+    // PENDIENTE
+    // ======================================================
     if (payment.status !== 'approved') {
       await pagoRef.update({
         log: {
@@ -136,12 +171,13 @@ export default async function handler(req, res) {
         },
       })
 
-      console.log('⏳ Pago pendiente en MP', payment.status)
-
+      console.log('⏳ Pago pendiente en MP:', payment.status)
       return res.status(200).send('pendiente')
     }
 
-    // ✅ APROBAR PAGO
+    // ======================================================
+    // APROBADO
+    // ======================================================
     await pagoRef.update({
       estado: 'aprobado',
       paymentId,
@@ -153,7 +189,9 @@ export default async function handler(req, res) {
       },
     })
 
-    // 🔗 MARCAR COMPRA COMO PAGADA
+    // ======================================================
+    // MARCAR COMPRA
+    // ======================================================
     const compraSnap = await db
       .collection('compras')
       .where('ticketId', '==', pagoId)
@@ -168,7 +206,9 @@ export default async function handler(req, res) {
       })
     }
 
-    // 🎟️ Generar entradas (NO BLOQUEANTE)
+    // ======================================================
+    // GENERAR ENTRADAS (NO BLOQUEANTE)
+    // ======================================================
     try {
       await generarEntradasPagasDesdePago(pagoId, pago)
     } catch (err) {
