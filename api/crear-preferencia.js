@@ -20,10 +20,10 @@ export default async function handler(req, res) {
   })
 
   if (req.method === 'GET') {
-    // MP hace validaciones y health checks por GET
     return res.status(200).send('ok')
   }
 
+  // Aceptar solo POST para procesar
   if (req.method !== 'POST') {
     return res.status(200).send('ignored')
   }
@@ -134,7 +134,7 @@ export default async function handler(req, res) {
       quantity: i.quantity,
       unit_price: i.unit_price,
     })),
-    notification_url: `${baseUrl}/api/mp-webhook`,
+    notification_url: `${baseUrl}/api/webhook-mp`,
   })
 
   try {
@@ -147,7 +147,7 @@ export default async function handler(req, res) {
         items,
         payer,
 
-        notification_url: `${baseUrl}/api/mp-webhook`,
+        notification_url: `${baseUrl}/api/webhook-mp`,
 
         back_urls: {
           success: `${baseUrl}/pago-resultado?status=success`,

@@ -308,6 +308,18 @@ export default async function handler(req, res) {
         status: payment.status,
         detail: payment.status_detail,
       })
+      if (payment.status === 'rejected' || payment.status === 'cancelled') {
+        await pagoRef.update({
+          estado: 'rechazado',
+          mpPaymentId: payment.id,
+          mpStatus: payment.status,
+          mpDetail: payment.status_detail,
+          updatedAt: now,
+          ...(usuarioEmail ? { usuarioEmail } : {}),
+          ...(usuarioNombre ? { usuarioNombre } : {}),
+        })
+        return res.status(200).send('rechazado')
+      }
 
       await pagoRef.update({
         estado: 'pendiente',
