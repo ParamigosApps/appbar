@@ -35,7 +35,7 @@ export async function manejarMercadoPago({
 
   try {
     // ------------------------------------------------------------
-    // LOG GLOBAL (NUEVO) — Snapshot entrada
+    // LOG GLOBAL — Snapshot entrada
     // ------------------------------------------------------------
     console.group('🧾 manejarMercadoPago() INPUT SNAPSHOT')
     console.log('eventoId:', eventoId)
@@ -44,6 +44,9 @@ export async function manejarMercadoPago({
     console.log('loteSel:', loteSel)
     console.groupEnd()
 
+    // ------------------------------------------------------------
+    // ARMAR ITEMS (FUENTE ÚNICA DE VERDAD)
+    // ------------------------------------------------------------
     const items = loteSel.detalles.map((d, i) => {
       console.group(`🎟️ ITEM MP #${i}`)
       console.log('RAW detalle:', d)
@@ -53,154 +56,94 @@ export async function manejarMercadoPago({
       const precio = normalizarPrecio(d.precio)
       const cantidad = Number(d.cantidad)
 
-      console.log('NORMALIZADO precio:', precio, typeof precio)
-      console.log('NORMALIZADO cantidad:', cantidad, typeof cantidad)
-
-      // ------------------------------------------------------------
-      // ✅ CORRECCIÓN “SIN QUITAR NADA”: SANITIZAR PARA MP
-      // - unit_price: número finito, redondeado, > 0
-      // - quantity: entero >= 1
-      // ------------------------------------------------------------
       const precioSeguro = Math.round(Number(precio))
       const cantidadSegura = Number.isFinite(cantidad)
         ? Math.trunc(cantidad)
         : NaN
 
-      console.log('SANITIZADO precioSeguro:', precioSeguro, typeof precioSeguro)
-      console.log(
-        'SANITIZADO cantidadSegura:',
-        cantidadSegura,
-        typeof cantidadSegura
-      )
+      console.log('SANITIZADO precioSeguro:', precioSeguro)
+      console.log('SANITIZADO cantidadSegura:', cantidadSegura)
       console.groupEnd()
 
-      // ------------------------------------------------------------
-      // Validaciones originales (LAS MANTENGO)
-      // ------------------------------------------------------------
-      if (!Number.isFinite(precio) || precio <= 0) {
+      if (!Number.isFinite(precioSeguro) || precioSeguro <= 0) {
         throw new Error(`Precio inválido: ${d.precio}`)
       }
 
-      if (!Number.isInteger(cantidad) || cantidad <= 0) {
+      if (!Number.isInteger(cantidadSegura) || cantidadSegura <= 0) {
         throw new Error(`Cantidad inválida: ${d.cantidad}`)
       }
 
-      // ------------------------------------------------------------
-      // ✅ Validaciones nuevas (NO REEMPLAZAN; refuerzan)
-      // ------------------------------------------------------------
-      if (!Number.isFinite(precioSeguro) || precioSeguro <= 0) {
-        throw new Error(
-          `Precio inválido para MP (sanitizado): raw=${d.precio} norm=${precio} seguro=${precioSeguro}`
-        )
-      }
-
-      if (!Number.isInteger(cantidadSegura) || cantidadSegura <= 0) {
-        throw new Error(
-          `Cantidad inválida para MP (sanitizado): raw=${d.cantidad} norm=${cantidad} segura=${cantidadSegura}`
-        )
-      }
-
       return {
-        title: `${d.cantidad} ${d.nombre} — ${evento.nombre}`,
-        quantity: cantidadSegura, // ✅ FIX: entero seguro
-        unit_price: precioSeguro, // ✅ FIX: number seguro para MP
-        currency_id: 'ARS',
+        nombre: d.nombre,
+        precio: precioSeguro,
+        cantidad: cantidadSegura,
       }
     })
 
     // ------------------------------------------------------------
-    // LOGS FINALES (NUEVO) — Payload exacto a backend
+    // CALCULAR TOTAL DEFINITIVO (🔑 CLAVE)
     // ------------------------------------------------------------
-    console.group('💳 MP PAYLOAD FINAL (ANTES DE BACKEND)')
-    console.table(
-      items.map((it, idx) => ({
-        idx,
-        title: it.title,
-        unit_price: it.unit_price,
-        unit_price_type: typeof it.unit_price,
-        quantity: it.quantity,
-        quantity_type: typeof it.quantity,
-        currency_id: it.currency_id,
+    const total = items.reduce((acc, i) => acc + i.precio * i.cantidad, 0)
+
+    console.log('💰 TOTAL DEFINITIVO MP:', total)
+
+    // ------------------------------------------------------------
+    // ENTRADAS GRATIS
+    // ------------------------------------------------------------
+    const entradasGratisPendientes = loteSel.detalles
+      .filter(d => normalizarPrecio(d.precio) === 0)
+      .map(d => ({
+        lote: {
+          id: loteSel.id ?? 'general',
+          nombre: d.nombre,
+        },
+        cantidad: Number(d.cantidad),
       }))
-    )
-    console.log('items RAW:', items)
-    console.groupEnd()
 
-    console.log('🟢 MP items OK:', items)
-
-    const entradasGratisPendientes = Array.isArray(loteSel?.detalles)
-      ? loteSel.detalles
-          .filter(d => normalizarPrecio(d.precio) === 0)
-          .map(d => ({
-            lote: {
-              id: loteSel.id ?? 'general',
-              nombre: d.nombre,
-            },
-            cantidad: Number(d.cantidad),
-          }))
-      : []
-
+    // ------------------------------------------------------------
+    // CREAR PAGO EN FIRESTORE (YA CON TOTAL CORRECTO)
+    // ------------------------------------------------------------
     const pagoRef = await addDoc(collection(db, 'pagos'), {
-      // ----------------------------
-      // INFO DEL PAGO
-      // ----------------------------
       metodo: 'mp',
       estado: 'pendiente',
 
-      // ----------------------------
-      // USUARIO
-      // ----------------------------
       usuarioId,
       usuarioNombre: evento?.usuarioNombre || '',
       usuarioEmail: evento?.usuarioEmail || '',
 
-      // ----------------------------
-      // EVENTO
-      // ----------------------------
       eventoId,
 
-      // ----------------------------
-      // ITEMS PAGADOS (SNAPSHOT)
-      // 🔑 ESTO ES LO QUE PREGUNTABAS
-      // ----------------------------
-      itemsPagados: loteSel?.detalles ?? [],
+      itemsPagados: items,
 
-      descripcion: (loteSel?.detalles ?? [])
-        .map(d => {
-          const total = Number(d.precio) * Number(d.cantidad)
-          return `${d.cantidad} ${d.nombre} ($${total.toLocaleString('es-AR')})`
-        })
+      descripcion: items
+        .map(i => `${i.cantidad} ${i.nombre} ($${i.precio * i.cantidad})`)
         .join('\n'),
 
-      total: items.reduce((acc, i) => acc + i.unit_price * i.quantity, 0),
+      total, // ✅ COINCIDE CON MP
 
-      // ----------------------------
-      // ENTRADAS GRATIS
-      // ----------------------------
       entradasGratisPendientes,
       gratisEntregadas: false,
 
-      // ----------------------------
-      // FECHA
-      // ----------------------------
       createdAt: serverTimestamp(),
       paymentStartedAt: serverTimestamp(),
     })
 
-    // 🔑 ESTE ID ES CLAVE PARA EL WEBHOOK
     const pagoId = pagoRef.id
 
+    // ------------------------------------------------------------
+    // CREAR PREFERENCIA MP (USA LOS MISMOS ITEMS)
+    // ------------------------------------------------------------
     const resp = await crearPreferenciaEntrada({
-      usuarioId,
       eventoId,
-      pagoId, // 🔑 CLAVE
-      items,
+      pagoId,
+      items: items.map(i => ({
+        nombre: i.nombre,
+        precio: i.precio,
+        cantidad: i.cantidad,
+      })),
       imagenEventoUrl: evento.imagenEventoUrl || evento.imagen || '',
     })
 
-    // ------------------------------------------------------------
-    // ✅ FIX “sin quitar nada”: soportar backend que devuelve objeto error
-    // ------------------------------------------------------------
     console.log('🧩 crearPreferenciaEntrada() RESPUESTA RAW:', resp)
 
     const url =
@@ -209,7 +152,6 @@ export async function manejarMercadoPago({
         : resp?.init_point || resp?.url || resp?.sandbox_init_point || ''
 
     if (!url || typeof url !== 'string' || !url.startsWith('http')) {
-      // Log extra si viene error estructurado
       console.group('❌ MP RESPUESTA INVÁLIDA / SIN init_point')
       console.log('resp:', resp)
       console.log('items enviados:', items)
@@ -218,6 +160,9 @@ export async function manejarMercadoPago({
       throw new Error('MP no devolvió init_point')
     }
 
+    // ------------------------------------------------------------
+    // REDIRIGIR A MP
+    // ------------------------------------------------------------
     window.location.href = url
   } catch (err) {
     console.error('❌ Error Mercado Pago:', err)
@@ -226,6 +171,12 @@ export async function manejarMercadoPago({
       title: 'Error',
       text: 'No se pudo iniciar el pago con Mercado Pago.',
       icon: 'error',
+      confirmButtonText: 'Aceptar',
+      customClass: {
+        popup: 'swal-popup-custom',
+        confirmButton: 'swal-btn-confirm',
+      },
+      buttonsStyling: false,
     })
   }
 }

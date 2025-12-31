@@ -18,19 +18,14 @@ function normalizarPrecio(valor) {
 
 async function obtenerPerfilUsuario() {
   const user = auth.currentUser
-
-  if (!user || !user.uid) {
-    throw new Error('Usuario no autenticado')
-  }
+  if (!user || !user.uid) throw new Error('Usuario no autenticado')
 
   let email = user.email || ''
   let nombre = user.displayName || ''
 
-  // 🔹 Fallback a Firestore
   if (!email || !nombre) {
     const ref = doc(db, 'usuarios', user.uid)
     const snap = await getDoc(ref)
-
     if (snap.exists()) {
       const data = snap.data()
       if (!email) email = data.email || ''
@@ -38,22 +33,12 @@ async function obtenerPerfilUsuario() {
     }
   }
 
-  console.table({
-    uid: user.uid,
-    email,
-    nombre,
-  })
-
-  return {
-    uid: user.uid,
-    email,
-    nombre,
-  }
+  return { uid: user.uid, email, nombre }
 }
 
 // --------------------------------------------------
 // ENTRADAS (EVENTOS)
-// -------------------------------------------------
+// --------------------------------------------------
 export async function crearPreferenciaEntrada({
   eventoId,
   pagoId,
@@ -63,35 +48,43 @@ export async function crearPreferenciaEntrada({
   try {
     const perfil = await obtenerPerfilUsuario()
 
-    const itemsMP = items.map((i, idx) => ({
-      id: i.id || `entrada_${idx + 1}_${i.nombre}`,
-      title: String(i.nombre),
-      description: `Entrada ${i.nombre} - Evento ${eventoId}`,
-      quantity: Math.max(1, Math.trunc(Number(i.cantidad))),
-      unit_price: normalizarPrecio(i.precio),
-      currency_id: 'ARS',
-      category_id: 'tickets',
-    }))
+    let total = 0
+
+    const itemsMP = items.map((i, idx) => {
+      const cantidad = Math.max(1, Math.trunc(Number(i.cantidad)))
+      const precio = normalizarPrecio(i.precio)
+
+      total += cantidad * precio
+
+      return {
+        id: i.id || `entrada_${idx + 1}_${i.nombre}`,
+        title: String(i.nombre),
+        description: `Entrada ${i.nombre} - Evento ${eventoId}`,
+        quantity: cantidad,
+        unit_price: precio,
+        currency_id: 'ARS',
+        category_id: 'tickets',
+      }
+    })
 
     console.log('🧾 Preferencia ENTRADA payload', {
       pagoId,
+      total,
       usuarioEmail: perfil.email,
       usuarioNombre: perfil.nombre,
       itemsMP,
     })
 
-    const body = {
-      external_reference: pagoId,
-      usuarioEmail: perfil.email,
-      usuarioNombre: perfil.nombre,
-      items: itemsMP,
-      imagenEventoUrl,
-    }
-
     const res = await fetch('/api/crear-preferencia', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        external_reference: pagoId,
+        usuarioEmail: perfil.email,
+        usuarioNombre: perfil.nombre,
+        items: itemsMP,
+        imagenEventoUrl,
+      }),
     })
 
     const data = await res.json()
@@ -101,7 +94,11 @@ export async function crearPreferenciaEntrada({
       return null
     }
 
-    return data
+    // ⬅️ DEVOLVEMOS TAMBIÉN EL TOTAL
+    return {
+      ...data,
+      total,
+    }
   } catch (err) {
     console.error('❌ crearPreferenciaEntrada ERROR:', err)
     return null
@@ -115,25 +112,29 @@ export async function crearPreferenciaCompra({ carrito, pagoId }) {
   try {
     const perfil = await obtenerPerfilUsuario()
 
+    let total = 0
+
     const itemsMP = carrito.map((p, idx) => {
-      const precioNum = normalizarPrecio(p.precio)
-      const cantidadNum = Math.trunc(Number(p.enCarrito))
+      const precio = normalizarPrecio(p.precio)
+      const cantidad = Math.trunc(Number(p.enCarrito))
 
       if (
-        !Number.isFinite(precioNum) ||
-        precioNum <= 0 ||
-        !Number.isInteger(cantidadNum) ||
-        cantidadNum <= 0
+        !Number.isFinite(precio) ||
+        precio <= 0 ||
+        !Number.isInteger(cantidad) ||
+        cantidad <= 0
       ) {
         throw new Error('Item inválido para Mercado Pago')
       }
+
+      total += cantidad * precio
 
       return {
         id: p.id || `producto_${idx + 1}_${p.nombre}`,
         title: String(p.nombre),
         description: `Compra de ${p.nombre}`,
-        quantity: cantidadNum,
-        unit_price: precioNum,
+        quantity: cantidad,
+        unit_price: precio,
         currency_id: 'ARS',
         category_id: 'retail',
       }
@@ -141,6 +142,7 @@ export async function crearPreferenciaCompra({ carrito, pagoId }) {
 
     console.log('🧾 Preferencia COMPRA payload', {
       pagoId,
+      total,
       usuarioEmail: perfil.email,
       usuarioNombre: perfil.nombre,
       itemsMP,
@@ -159,17 +161,16 @@ export async function crearPreferenciaCompra({ carrito, pagoId }) {
 
     const data = await res.json()
 
-    if (!res.ok) {
+    if (!res.ok || !data?.init_point) {
       console.error('❌ Backend MP error:', data)
       return null
     }
 
-    if (!data?.init_point) {
-      console.error('❌ MP sin init_point:', data)
-      return null
+    // ⬅️ DEVOLVEMOS init_point + total
+    return {
+      init_point: data.init_point,
+      total,
     }
-
-    return data.init_point
   } catch (err) {
     console.error('❌ Error crearPreferenciaCompra:', err)
     return null
