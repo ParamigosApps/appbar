@@ -1,5 +1,11 @@
 // src/services/mercadoPagoEntradas.js
 
+import { auth, db } from '../Firebase.js'
+import { doc, getDoc } from 'firebase/firestore'
+
+// --------------------------------------------------
+// HELPERS
+// --------------------------------------------------
 function normalizarPrecio(valor) {
   if (!valor) return 0
   if (typeof valor === 'string') {
@@ -10,41 +16,108 @@ function normalizarPrecio(valor) {
   return Number(valor) || 0
 }
 
+async function obtenerPerfilUsuario() {
+  const user = auth.currentUser
+
+  if (!user || !user.uid) {
+    throw new Error('Usuario no autenticado')
+  }
+
+  let email = user.email || ''
+  let nombre = user.displayName || ''
+
+  // 🔹 Fallback a Firestore
+  if (!email || !nombre) {
+    const ref = doc(db, 'usuarios', user.uid)
+    const snap = await getDoc(ref)
+
+    if (snap.exists()) {
+      const data = snap.data()
+      if (!email) email = data.email || ''
+      if (!nombre) nombre = data.nombre || data.displayName || ''
+    }
+  }
+
+  console.table({
+    uid: user.uid,
+    email,
+    nombre,
+  })
+
+  return {
+    uid: user.uid,
+    email,
+    nombre,
+  }
+}
+
+// --------------------------------------------------
+// ENTRADAS (EVENTOS)
+// -------------------------------------------------
 export async function crearPreferenciaEntrada({
-  usuarioId,
   eventoId,
   pagoId,
   items,
   imagenEventoUrl,
 }) {
-  const body = {
-    items,
-    imagenEventoUrl,
-    external_reference: pagoId,
-  }
+  try {
+    const perfil = await obtenerPerfilUsuario()
 
-  const res = await fetch('/api/crear-preferencia', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+    const itemsMP = items.map((i, idx) => ({
+      id: i.id || `entrada_${idx + 1}_${i.nombre}`,
+      title: String(i.nombre),
+      description: `Entrada ${i.nombre} - Evento ${eventoId}`,
+      quantity: Math.max(1, Math.trunc(Number(i.cantidad))),
+      unit_price: normalizarPrecio(i.precio),
+      currency_id: 'ARS',
+      category_id: 'tickets',
+    }))
 
-  if (!res.ok) {
-    const raw = await res.text()
-    console.error('❌ Backend MP error:', raw)
+    console.log('🧾 Preferencia ENTRADA payload', {
+      pagoId,
+      usuarioEmail: perfil.email,
+      usuarioNombre: perfil.nombre,
+      itemsMP,
+    })
+
+    const body = {
+      external_reference: pagoId,
+      usuarioEmail: perfil.email,
+      usuarioNombre: perfil.nombre,
+      items: itemsMP,
+      imagenEventoUrl,
+    }
+
+    const res = await fetch('/api/crear-preferencia', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+
+    const data = await res.json()
+
+    if (!res.ok) {
+      console.error('❌ Backend MP error:', data)
+      return null
+    }
+
+    return data
+  } catch (err) {
+    console.error('❌ crearPreferenciaEntrada ERROR:', err)
     return null
   }
-
-  return await res.json()
 }
+
+// --------------------------------------------------
+// COMPRAS (CARRITO)
+// --------------------------------------------------
 export async function crearPreferenciaCompra({ carrito, pagoId }) {
   try {
-    // ============================
-    // VALIDAR Y ARMAR ITEMS
-    // ============================
-    const items = carrito.map(p => {
+    const perfil = await obtenerPerfilUsuario()
+
+    const itemsMP = carrito.map((p, idx) => {
       const precioNum = normalizarPrecio(p.precio)
-      const cantidadNum = Number(p.enCarrito)
+      const cantidadNum = Math.trunc(Number(p.enCarrito))
 
       if (
         !Number.isFinite(precioNum) ||
@@ -56,25 +129,34 @@ export async function crearPreferenciaCompra({ carrito, pagoId }) {
       }
 
       return {
+        id: p.id || `producto_${idx + 1}_${p.nombre}`,
         title: String(p.nombre),
+        description: `Compra de ${p.nombre}`,
         quantity: cantidadNum,
         unit_price: precioNum,
         currency_id: 'ARS',
+        category_id: 'retail',
       }
     })
 
-    // ============================
-    // FETCH
-    // ============================
+    console.log('🧾 Preferencia COMPRA payload', {
+      pagoId,
+      usuarioEmail: perfil.email,
+      usuarioNombre: perfil.nombre,
+      itemsMP,
+    })
+
     const res = await fetch('/api/crear-preferencia', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items, external_reference: pagoId }),
+      body: JSON.stringify({
+        external_reference: pagoId,
+        usuarioEmail: perfil.email,
+        usuarioNombre: perfil.nombre,
+        items: itemsMP,
+      }),
     })
 
-    // ============================
-    // LEER JSON UNA SOLA VEZ
-    // ============================
     const data = await res.json()
 
     if (!res.ok) {
