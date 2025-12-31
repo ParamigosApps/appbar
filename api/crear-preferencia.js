@@ -19,10 +19,13 @@ export default async function handler(req, res) {
     hasBody: !!req.body,
   })
 
-  // Solo POST
+  if (req.method === 'GET') {
+    // MP hace validaciones y health checks por GET
+    return res.status(200).send('ok')
+  }
+
   if (req.method !== 'POST') {
-    console.log(`ℹ️ [${reqId}] method ignored`)
-    return res.status(200).json({ ok: true, ignored: true })
+    return res.status(200).send('ignored')
   }
 
   // Validar body
