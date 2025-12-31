@@ -163,6 +163,7 @@ export async function manejarMercadoPago({
     // ------------------------------------------------------------
     // REDIRIGIR A MP
     // ------------------------------------------------------------
+    localStorage.setItem('pagoIdEnProceso', pagoId)
     window.location.href = url
   } catch (err) {
     console.error('❌ Error Mercado Pago:', err)

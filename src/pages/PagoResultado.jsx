@@ -12,7 +12,10 @@ const MAX_INTENTOS = 10
 export default function PagoResultado() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
-  const pagoId = params.get('external_reference')
+
+  // 🔑 CLAVE: fallback a localStorage
+  const pagoId =
+    params.get('external_reference') || localStorage.getItem('pagoIdEnProceso')
 
   const intervalRef = useRef(null)
   const [intentos, setIntentos] = useState(0)
@@ -24,6 +27,7 @@ export default function PagoResultado() {
     })
 
     if (!pagoId) {
+      console.warn('⚠️ PagoResultado sin pagoId')
       localStorage.setItem('avisoPostPago', 'rechazado')
       hideLoading()
       navigate('/')
@@ -44,6 +48,7 @@ export default function PagoResultado() {
 
         if (pago.estado === 'aprobado') {
           localStorage.setItem('avisoPostPago', 'aprobado')
+          localStorage.removeItem('pagoIdEnProceso') // 🧹 limpiar
           clearInterval(intervalRef.current)
           hideLoading()
           navigate('/')
@@ -52,6 +57,7 @@ export default function PagoResultado() {
 
         if (['fallido', 'monto_invalido'].includes(pago.estado)) {
           localStorage.setItem('avisoPostPago', 'rechazado')
+          localStorage.removeItem('pagoIdEnProceso') // 🧹 limpiar
           clearInterval(intervalRef.current)
           hideLoading()
           navigate('/')
@@ -78,6 +84,7 @@ export default function PagoResultado() {
   useEffect(() => {
     if (intentos >= MAX_INTENTOS) {
       localStorage.setItem('avisoPostPago', 'pendiente')
+      localStorage.removeItem('pagoIdEnProceso') // 🧹 limpiar
       if (intervalRef.current) clearInterval(intervalRef.current)
       hideLoading()
       navigate('/')
