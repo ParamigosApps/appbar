@@ -212,7 +212,15 @@ export default async function handler(req, res) {
         mpDetail: payment.status_detail,
         updatedAt: now,
       })
-
+      console.log('🧪 DEBUG PAYMENT COMPLETO', {
+        id: payment.id,
+        status: payment.status,
+        status_detail: payment.status_detail,
+        external_reference: payment.external_reference,
+        transaction_amount: payment.transaction_amount,
+        payment_method: payment.payment_method_id,
+        payment_type: payment.payment_type_id,
+      })
       return res.status(200).send('pending')
     }
 
