@@ -61,8 +61,6 @@ export default function HistorialEntradas() {
 
   return (
     <div className="container py-3">
-      <h2 className="fw-bold mb-3">Historial de entradas</h2>
-
       <div className="d-flex flex-column gap-3">
         {eventos.map((ev, i) => {
           const total = ev.entradas.length

@@ -546,26 +546,28 @@
 }
 
 .infoCantEntradas {
-  font-size: 0.65rem !important;
+  font-size: 0.85rem !important;
   font-weight: 700 !important;
+  opacity: 0.85;
 }
 
 .infoMaximoEntradas,
 .infoCantPendientes {
-  font-size: 0.6rem !important;
-  font-weight: 600 !important;
-  opacity: 0.8;
+  font-size: 0.85rem !important;
+  font-weight: 700 !important;
+  opacity: 0.5;
 }
 
 .highlight {
   color: #3d3d39f1 !important;
-  font-size: 0.95rem !important;
+  font-size: 1.3rem !important;
   margin: 3px 0 0 0;
+  font-weight: 800 !important;
 }
 
 .infoDisponiblesEntradas {
   margin: 6px 0 0 0;
-  font-size: 0.7rem !important;
+  font-size: 1rem !important;
 }
 
 /* =====================================================

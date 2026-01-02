@@ -1,5 +1,5 @@
 // --------------------------------------------------------------
-// src/pages/PagoResultado.jsx — FINAL DEFINITIVO
+// src/pages/PagoResultado.jsx — VERSIÓN FINAL BLINDADA
 // --------------------------------------------------------------
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
@@ -9,106 +9,121 @@ import { db } from '../Firebase.js'
 import { showLoading, hideLoading } from '../services/loadingService.js'
 
 // --------------------------------------------------------------
-// CONFIG
+const POLL_INTERVAL = 3000 // 3s
+const MAX_INTENTOS = 40 // ~2 minutos
 // --------------------------------------------------------------
-const POLL_INTERVAL = 2000
-const MAX_INTENTOS = 10
 
-// --------------------------------------------------------------
-// NORMALIZAR ESTADO MERCADO PAGO
-// --------------------------------------------------------------
-function normalizarEstadoMP(raw) {
+function normalizarEstado(raw) {
   const s = (raw || '').toLowerCase()
 
-  if (['approved', 'success'].includes(s)) return 'aprobado'
-  if (['rejected', 'failure', 'cancelled'].includes(s)) return 'rechazado'
-  if (['in_process', 'pending', 'authorized'].includes(s)) return 'pendiente'
+  if (['aprobado', 'approved', 'success'].includes(s)) return 'aprobado'
+  if (
+    [
+      'rechazado',
+      'rejected',
+      'cancelled',
+      'failure',
+      'monto_invalido',
+    ].includes(s)
+  )
+    return 'rechazado'
 
   return 'pendiente'
 }
 
-// --------------------------------------------------------------
-// COMPONENTE
-// --------------------------------------------------------------
 export default function PagoResultado() {
   const [params] = useSearchParams()
   const navigate = useNavigate()
 
-  // 🔑 external_reference o fallback local
   const pagoId =
     params.get('external_reference') || localStorage.getItem('pagoIdEnProceso')
 
   const intervalRef = useRef(null)
-  const [intentos, setIntentos] = useState(0)
+  const intentosRef = useRef(0)
+  const [estadoUI, setEstadoUI] = useState('verificando')
 
   // --------------------------------------------------------------
-  // VERIFICAR PAGO
+  // LOG DE MONTAJE / DESMONTAJE (CLAVE)
   // --------------------------------------------------------------
   useEffect(() => {
-    showLoading({
-      title: 'Confirmando pago',
-      text: 'Estamos verificando tu pago…',
-    })
+    console.log('🧠 PagoResultado MOUNT', { pagoId })
+    return () => console.log('💥 PagoResultado UNMOUNT')
+  }, [])
 
+  // --------------------------------------------------------------
+  // POLLING ÚNICO Y BLINDADO
+  // --------------------------------------------------------------
+  useEffect(() => {
     if (!pagoId) {
       console.warn('⚠️ PagoResultado sin pagoId')
-      localStorage.setItem('avisoPostPago', 'rechazado')
-      hideLoading()
       navigate('/')
       return
     }
 
+    showLoading({
+      title: 'Confirmando pago',
+      text: 'Estamos verificando tu pago. Esto puede demorar unos instantes…',
+    })
+
     const checkPago = async () => {
+      intentosRef.current += 1
+
+      console.log(
+        `🔍 [PagoResultado] intento ${intentosRef.current}/${MAX_INTENTOS}`,
+        { pagoId }
+      )
+
       try {
         const ref = doc(db, 'pagos', pagoId)
         const snap = await getDoc(ref)
 
-        // Aún no llegó el webhook
         if (!snap.exists()) {
-          setIntentos(i => i + 1)
+          console.warn('⏳ Pago no existe aún en Firestore')
           return
         }
 
         const pago = snap.data()
-        const estado = normalizarEstadoMP(pago.estado)
+        const estado = normalizarEstado(pago.estado)
 
-        // -----------------------------
-        // ✅ APROBADO
-        // -----------------------------
+        console.log('📄 Estado Firestore:', {
+          estadoRaw: pago.estado,
+          estadoNormalizado: estado,
+        })
+
+        // ------------------ APROBADO ------------------
         if (estado === 'aprobado') {
           localStorage.setItem('avisoPostPago', 'aprobado')
           localStorage.removeItem('pagoIdEnProceso')
-
-          clearInterval(intervalRef.current)
-          hideLoading()
-          navigate('/') // o /mis-entradas si preferís
-          return
-        }
-
-        // -----------------------------
-        // ❌ RECHAZADO
-        // -----------------------------
-        if (estado === 'rechazado') {
-          localStorage.setItem('avisoPostPago', 'rechazado')
-          localStorage.removeItem('pagoIdEnProceso')
-
           clearInterval(intervalRef.current)
           hideLoading()
           navigate('/')
           return
         }
 
-        // -----------------------------
-        // ⏳ PENDIENTE → seguir esperando
-        // -----------------------------
-        setIntentos(i => i + 1)
+        // ------------------ RECHAZADO ------------------
+        if (estado === 'rechazado') {
+          localStorage.setItem('avisoPostPago', 'rechazado')
+          localStorage.removeItem('pagoIdEnProceso')
+          clearInterval(intervalRef.current)
+          hideLoading()
+          navigate('/')
+          return
+        }
+
+        // ------------------ TIMEOUT ------------------
+        if (intentosRef.current >= MAX_INTENTOS) {
+          console.warn('⏳ Timeout: sigue pendiente')
+          localStorage.setItem('avisoPostPago', 'verificando')
+          clearInterval(intervalRef.current)
+          hideLoading()
+          navigate('/')
+        }
       } catch (err) {
         console.error('❌ Error verificando pago:', err)
-        setIntentos(i => i + 1)
       }
     }
 
-    // Ejecutar inmediato + polling
+    // ejecutar inmediato
     checkPago()
     intervalRef.current = setInterval(checkPago, POLL_INTERVAL)
 
@@ -116,24 +131,7 @@ export default function PagoResultado() {
       if (intervalRef.current) clearInterval(intervalRef.current)
       hideLoading()
     }
-  }, [pagoId, navigate])
+  }, [pagoId]) // ⛔ NO agregar navigate acá
 
-  // --------------------------------------------------------------
-  // ⏱️ TIMEOUT → PENDIENTE
-  // --------------------------------------------------------------
-  useEffect(() => {
-    if (intentos >= MAX_INTENTOS) {
-      localStorage.setItem('avisoPostPago', 'pendiente')
-      localStorage.removeItem('pagoIdEnProceso')
-
-      if (intervalRef.current) clearInterval(intervalRef.current)
-      hideLoading()
-      navigate('/')
-    }
-  }, [intentos, navigate])
-
-  // --------------------------------------------------------------
-  // NO RENDER
-  // --------------------------------------------------------------
   return null
 }

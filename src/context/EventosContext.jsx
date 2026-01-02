@@ -20,32 +20,65 @@ export function useEvento() {
 export function EventoProvider({ children }) {
   const [evento, setEvento] = useState(null)
   const [hayEventosVigentes, setHayEventosVigentes] = useState(null)
-  // ======================================================
-  // SELECCIONAR EVENTO
-  // ======================================================
+
+  const enPago =
+    window.location.pathname.includes('/pago') ||
+    window.location.pathname.includes('/resultado')
+
+  useEffect(() => {
+    if (enPago) {
+      console.warn('⛔ EventoProvider: restauración bloqueada por pago')
+      return
+    }
+
+    const guardado = localStorage.getItem('eventoActivo')
+    if (!guardado) return
+
+    try {
+      const parsed = JSON.parse(guardado)
+      if (parsed?.id) {
+        setEvento(parsed)
+      }
+    } catch {
+      localStorage.removeItem('eventoActivo')
+    }
+  }, [])
+
   function seleccionarEvento(ev) {
     setEvento(ev)
     localStorage.setItem('eventoActivo', JSON.stringify(ev))
   }
 
-  // ======================================================
-  // LIMPIAR EVENTO (🔥 FALTABA)
-  // ======================================================
   function limpiarEvento() {
+    if (enPago) {
+      console.warn('⛔ limpiarEvento bloqueado por pago')
+      return
+    }
+
     setEvento(null)
     localStorage.removeItem('eventoActivo')
   }
 
-  // ======================================================
-  // VALIDAR EVENTO VIGENTE (🔥 FALTABA)
-  // ======================================================
   async function validarEventoVigente() {
+    if (enPago) {
+      console.warn('⛔ validarEventoVigente bloqueado por pago')
+      return true
+    }
     try {
+      // 🔒 GUARD CLAUSE CRÍTICA
+      if (!evento || !evento.id) {
+        console.warn('⚠️ validarEventoVigente: evento nulo o inválido')
+        return false
+      }
+
       const snap = await getDocs(collection(db, 'eventos'))
       const ahora = new Date()
 
       const match = snap.docs.find(d => d.id === evento.id)
-      if (!match) return false
+      if (!match) {
+        limpiarEvento()
+        return false
+      }
 
       const data = match.data()
 
@@ -66,11 +99,11 @@ export function EventoProvider({ children }) {
       if (!vigente) {
         setHayEventosVigentes(false)
         limpiarEvento()
-      } else {
-        setHayEventosVigentes(true)
+        return false
       }
 
-      return vigente
+      setHayEventosVigentes(true)
+      return true
     } catch (err) {
       console.error('❌ Error validando evento vigente:', err)
       return false
@@ -81,6 +114,11 @@ export function EventoProvider({ children }) {
   // PEDIR SELECCIÓN DE EVENTO (TU LÓGICA ORIGINAL)
   // ======================================================
   async function pedirSeleccionEvento() {
+    if (enPago) {
+      console.warn('⛔ pedirSeleccionEvento bloqueado por pago')
+      return false
+    }
+
     const snap = await getDocs(collection(db, 'eventos'))
     const ahora = new Date()
 

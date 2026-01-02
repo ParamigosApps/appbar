@@ -78,21 +78,6 @@ export default function EntradasEventos() {
   // --------------------------------------------------------------
   // TEXTO DEL PRECIO (CONSIDERA LOTES)
   // --------------------------------------------------------------
-  function getTextoPrecio(evento) {
-    const lotes = normalizarLotes(evento.lotes)
-
-    if (lotes.length > 0) {
-      const precios = lotes
-        .map(l => Number(l.precio) || 0)
-        .filter(n => !isNaN(n))
-
-      if (precios.includes(0)) return 'INCLUYE INGRESOS FREE'
-      return `Desde $${Math.min(...precios)}`
-    }
-
-    if (!evento.precio || evento.precio < 1) return 'Entrada gratuita'
-    return `$${evento.precio}`
-  }
 
   // --------------------------------------------------------------
   // RENDER
@@ -141,9 +126,14 @@ export default function EntradasEventos() {
               → hasta <strong>{formatearHora(evento.fechaFin)} hs</strong>
             </p>
 
-            <p className="mt-2 mb-1">
-              💲 <strong>{getTextoPrecio(evento)}</strong>
-            </p>
+            {!tieneLotes && (
+              <p className="mt-2 mb-1">
+                💲{' '}
+                <strong>
+                  {evento.precio ? `$${evento.precio}` : 'Entrada gratuita'}
+                </strong>
+              </p>
+            )}
 
             {/* LOTES */}
             {tieneLotes && (

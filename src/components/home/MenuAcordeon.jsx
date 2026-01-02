@@ -64,7 +64,7 @@ export default function MenuAcordeon() {
     abrirProductoDetalle,
   } = useCatalogo()
   const { evento, hayEventosVigentes, pedirSeleccionEvento } = useEvento()
-  const { eventos, historialEntradas, misEntradas } = useEntradas()
+  const { eventos, misEntradas } = useEntradas()
 
   const {
     user,
@@ -330,8 +330,14 @@ export default function MenuAcordeon() {
                   abierto === 'entradas' ? '' : 'collapsed'
                 }`}
                 onClick={() => {
-                  toggle('entradas')
-                  setEntradasInterno(null)
+                  setAbierto(prev => {
+                    const nuevo = prev === 'entradas' ? null : 'entradas'
+                    // 👉 Si se abre, mostrar eventos por defecto
+                    if (nuevo === 'entradas') {
+                      setEntradasInterno('eventos')
+                    }
+                    return nuevo
+                  })
                 }}
               >
                 🎟️ Entradas & Eventos
@@ -424,7 +430,15 @@ export default function MenuAcordeon() {
                         </p>
                       )}
 
-                      {user && <HistorialEntradas />}
+                      {user && (
+                        <>
+                          <hr />
+                          <h6 className="fw-semibold mb-3">
+                            Historial de entradas usadas o expiradas
+                          </h6>
+                          <HistorialEntradas />
+                        </>
+                      )}
                     </div>
                   )}
                 </div>

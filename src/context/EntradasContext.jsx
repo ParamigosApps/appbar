@@ -56,7 +56,8 @@ export function EntradasProvider({ children }) {
 
   const [historialEntradas, setHistorialEntradas] = useState([])
   const [loadingEventos, setLoadingEventos] = useState(true)
-  const { user, loading } = useAuth()
+  const { user } = useAuth()
+  const [loading, setLoading] = useState(true)
 
   // ----------------------------------------------------------
   // CARGAR HISTORIAL DE ENTRADAS USADAS
@@ -224,6 +225,10 @@ export function EntradasProvider({ children }) {
   // --------------------------------------------------------------
   async function pedirEntrada(evento) {
     try {
+      showLoading({
+        title: 'Cargando evento',
+        text: 'Estamos cargando la información del evento..',
+      })
       // ==========================================================
       // 🔐 VALIDACIÓN LOGIN
       // ==========================================================
@@ -649,6 +654,8 @@ export function EntradasProvider({ children }) {
     } catch (err) {
       console.error('❌ ERROR pedirEntrada:', err)
       Swal.fire('Error', 'Ocurrió un error inesperado.', 'error')
+    } finally {
+      hideLoading()
     }
   }
 
