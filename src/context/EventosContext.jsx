@@ -3,7 +3,7 @@ import { db } from '../Firebase.js'
 import { getDocs, collection } from 'firebase/firestore'
 import Swal from 'sweetalert2'
 import { formatearEventoLinea } from '../utils/eventoUI'
-
+import { swalEventosNoVigentes } from '../utils/swalUtils'
 const EventosContext = createContext(null)
 
 // ----------------------------------------
@@ -19,7 +19,7 @@ export function useEvento() {
 
 export function EventoProvider({ children }) {
   const [evento, setEvento] = useState(null)
-
+  const [hayEventosVigentes, setHayEventosVigentes] = useState(null)
   // ======================================================
   // SELECCIONAR EVENTO
   // ======================================================
@@ -40,8 +40,6 @@ export function EventoProvider({ children }) {
   // VALIDAR EVENTO VIGENTE (🔥 FALTABA)
   // ======================================================
   async function validarEventoVigente() {
-    if (!evento) return false
-
     try {
       const snap = await getDocs(collection(db, 'eventos'))
       const ahora = new Date()
@@ -66,7 +64,10 @@ export function EventoProvider({ children }) {
       else if (inicio) vigente = inicio.toDateString() === ahora.toDateString()
 
       if (!vigente) {
+        setHayEventosVigentes(false)
         limpiarEvento()
+      } else {
+        setHayEventosVigentes(true)
       }
 
       return vigente
@@ -107,10 +108,28 @@ export function EventoProvider({ children }) {
       .filter(ev => ev.vigente)
 
     if (!eventosVigentes.length) {
-      await Swal.fire('Sin eventos', 'No hay eventos activos.', 'info')
+      setHayEventosVigentes(false)
+
+      // Buscar próximos eventos (aunque no estén vigentes)
+      const proximos = snap.docs
+        .map(d => {
+          const data = d.data()
+          const inicio = data.fechaInicio?.toDate
+            ? data.fechaInicio.toDate()
+            : new Date(data.fechaInicio)
+
+          return inicio > ahora
+            ? formatearEventoLinea({ ...data, inicio })
+            : null
+        })
+        .filter(Boolean)
+        .slice(0, 5)
+
+      await swalEventosNoVigentes({ eventos: proximos })
       return false
     }
 
+    setHayEventosVigentes(true)
     const html = `
       <select id="evento-select" class="swal2-select" style="width:100%">
         ${eventosVigentes
@@ -157,6 +176,7 @@ export function EventoProvider({ children }) {
     <EventosContext.Provider
       value={{
         evento,
+        hayEventosVigentes,
         seleccionarEvento,
         limpiarEvento,
         validarEventoVigente,

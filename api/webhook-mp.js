@@ -1,4 +1,4 @@
-// /api/mp-webhook.js
+// /api/webhook-mp.js
 export const config = {
   runtime: 'nodejs',
   api: {

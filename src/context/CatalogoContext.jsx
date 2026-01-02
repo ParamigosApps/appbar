@@ -191,24 +191,17 @@ export function CatalogoProvider({ children }) {
   // ======================================================
 
   async function toggleCatalogo() {
+    // 1️⃣ No hay evento seleccionado
     if (!evento) {
       const ok = await pedirEventoAntesDeCatalogo()
-      if (!ok) return
+      if (!ok) return // ⛔ BLOQUEO TOTAL
     } else {
+      // 2️⃣ Evento seleccionado pero puede haber vencido
       const vigente = await validarEventoVigente()
 
       if (!vigente) {
-        await Swal.fire({
-          title: 'Evento finalizado',
-          text: 'El evento ya no está activo. Seleccioná otro.',
-          icon: 'info',
-          confirmButtonText: 'Aceptar',
-          customClass: { confirmButton: 'swal-btn-confirm' },
-          buttonsStyling: false,
-        })
-
         const ok = await pedirEventoAntesDeCatalogo()
-        if (!ok) return
+        if (!ok) return // ⛔ BLOQUEO TOTAL
       }
     }
 
@@ -256,13 +249,19 @@ export function CatalogoProvider({ children }) {
 
     if (!eventosVigentes.length) {
       await Swal.fire({
-        title: 'Sin eventos vigentes',
-        text: 'No hay eventos activos en este momento.',
+        title: 'Sin eventos activos',
+        html: `
+    <p style="font-size:15px">
+      En este momento no hay ningún evento vigente.<br/>
+      El catálogo solo está disponible durante eventos activos.
+    </p>
+  `,
         icon: 'info',
-        confirmButtonText: 'Aceptar',
+        confirmButtonText: 'Entendido',
         customClass: { confirmButton: 'swal-btn-confirm' },
         buttonsStyling: false,
       })
+
       return false
     }
 

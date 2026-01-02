@@ -420,3 +420,28 @@ select:disabled {
 .badge-genero-unisex {
   background: var(--color-primary);
 }
+
+/* =========================
+   HISTORIAL PRO
+========================= */
+
+.historial-card {
+  border-radius: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.historial-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+}
+
+.validacion-box {
+  background: #ecfdf5;
+  border-left: 4px solid #10b981;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: #065f46;
+}

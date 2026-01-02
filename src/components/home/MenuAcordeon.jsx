@@ -6,10 +6,11 @@ import React, { useState, useEffect } from 'react'
 import { useCatalogo } from '../../context/CatalogoContext.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useEntradas } from '../../context/EntradasContext.jsx'
+import HistorialEntradas from '../entradas/HistorialEntradas.jsx'
 import EntradasEventos from '../entradas/EntradasEventos.jsx'
 import MisEntradas from '../entradas/MisEntradas.jsx'
 import RedesSociales from '../home/RedesSociales.jsx'
-
+import { useEvento } from '../../context/EventosContext.jsx'
 // Íconos
 import googleIcon from '../../assets/img/google.png'
 import facebookIcon from '../../assets/img/facebook.png'
@@ -53,10 +54,6 @@ export default function MenuAcordeon() {
   const [smsError, setSmsError] = useState(false)
 
   const toggle = key => setAbierto(prev => (prev === key ? null : key))
-
-  // ------------------------------------------------------------
-  // CONTEXTOS
-  // ------------------------------------------------------------
   const {
     categorias,
     categoriaActiva,
@@ -66,7 +63,7 @@ export default function MenuAcordeon() {
     catalogoVisible,
     abrirProductoDetalle,
   } = useCatalogo()
-
+  const { evento, hayEventosVigentes, pedirSeleccionEvento } = useEvento()
   const { eventos, historialEntradas, misEntradas } = useEntradas()
 
   const {
@@ -130,7 +127,6 @@ export default function MenuAcordeon() {
     cargarUbicacion()
   }, [])
 
-  const [confirmacionTelefono, setConfirmacionTelefono] = useState(null)
   // ------------------------------------------------------------
   // RENDER
   // ------------------------------------------------------------
@@ -148,7 +144,23 @@ export default function MenuAcordeon() {
                 className={`accordion-button ${
                   abierto === 'catalogo' ? '' : 'collapsed'
                 }`}
-                onClick={() => toggle('catalogo')}
+                onClick={async () => {
+                  // Si NO está abierto todavía
+                  if (abierto !== 'catalogo') {
+                    // 2️⃣ Hay eventos pero NO hay evento seleccionado → pedirlo
+                    if (!evento) {
+                      const ok = await pedirSeleccionEvento()
+                      if (!ok) return // ⛔ si cancela, no abrir acordeón
+                    }
+                    // 1️⃣ No hay eventos vigentes → no abrir
+                    if (hayEventosVigentes === false) {
+                      return
+                    }
+                  }
+
+                  // 3️⃣ Abrir / cerrar acordeón normalmente
+                  toggle('catalogo')
+                }}
               >
                 🍾 Catálogo
               </button>
@@ -177,7 +189,6 @@ export default function MenuAcordeon() {
                               categoriaActiva === cat ? 'active' : ''
                             }`}
                             onClick={async () => {
-                              await toggleCatalogo()
                               seleccionarCategoria(cat)
                             }}
                           >
@@ -188,8 +199,18 @@ export default function MenuAcordeon() {
                       })}
                   </div>
 
-                  <div className="text-start mt-3 mb-2 text-muted">
-                    {categoriaActiva === 'Todos' ? (
+                  <div className="text-start mb-2 text-muted">
+                    {hayEventosVigentes === false ? (
+                      <>
+                        ⚠️ <strong>No hay eventos activos</strong> en este
+                        momento.
+                      </>
+                    ) : !evento ? (
+                      <>
+                        <strong>Seleccioná un evento</strong> para ver el
+                        catálogo.
+                      </>
+                    ) : categoriaActiva === 'Todos' ? (
                       catalogoVisible ? (
                         <>
                           🔎 Mostrando el <strong>Catálogo Completo</strong>
@@ -390,36 +411,20 @@ export default function MenuAcordeon() {
                   {/* HISTORIAL */}
                   {entradasInterno === 'historial' && (
                     <div className="bg-light p-3 rounded">
-                      <h6 className="fw-bold mb-2">
-                        Historial de entradas usadas
-                      </h6>
                       {!user && !loading && (
                         <p className="text-center text-danger mt-3">
                           Debés iniciar sesión para ver tu historial de
                           entradas.
                         </p>
                       )}
+
                       {loading && (
                         <p className="text-muted text-center">
-                          Cargando inicio de sesión...
+                          Cargando historial...
                         </p>
                       )}
 
-                      {user && historialEntradas?.length === 0 && (
-                        <p className="text-muted m-0">
-                          Aún no tienes historial.
-                        </p>
-                      )}
-
-                      {user && historialEntradas?.length > 0 && (
-                        <ul className="m-0 ps-3">
-                          {historialEntradas.map(h => (
-                            <li key={h.id} className="text-muted">
-                              {h.nombreEvento} — {h.fechaUso}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
+                      {user && <HistorialEntradas />}
                     </div>
                   )}
                 </div>

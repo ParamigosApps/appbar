@@ -1,8 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useEntradas } from '../../context/EntradasContext.jsx'
 import { useFirebase } from '../../context/FirebaseContext.jsx'
 
-import { formatearFecha } from '../../utils/utils'
+import {
+  formatearFecha,
+  formatearFechaEventoDescriptiva,
+} from '../../utils/utils'
 
 export default function HistorialEntradas() {
   const { user } = useFirebase()
@@ -14,60 +17,112 @@ export default function HistorialEntradas() {
     }
   }, [user])
 
-  // -------------------------------------------------------
-  // ORDENAR POR fecha usada → más reciente primero
-  // -------------------------------------------------------
-  const entradasOrdenadas = [...historialEntradas].sort((a, b) => {
-    const fa = new Date(a.usadoEn || a.fechaEvento || 0)
-    const fb = new Date(b.usadoEn || b.fechaEvento || 0)
-    return fb - fa
-  })
+  // ======================================================
+  // AGRUPAR POR EVENTO (MIS ENTRADAS STYLE)
+  // ======================================================
+  const eventos = useMemo(() => {
+    const map = {}
+
+    historialEntradas.forEach(e => {
+      const key = e.eventoId || e.nombreEvento
+
+      if (!map[key]) {
+        map[key] = {
+          nombreEvento: e.nombreEvento || e.nombre,
+          fechaEvento: e.fechaEvento,
+          horaInicio: e.horaInicio,
+          horaFin: e.horaFin,
+          lugar: e.lugar,
+          entradas: [],
+        }
+      }
+
+      map[key].entradas.push(e)
+    })
+
+    return Object.values(map)
+  }, [historialEntradas])
+
+  if (!user) {
+    return (
+      <p className="text-danger text-center mt-3">
+        Debés iniciar sesión para ver tu historial.
+      </p>
+    )
+  }
+
+  if (eventos.length === 0) {
+    return (
+      <p className="text-secondary text-center mt-3">
+        Todavía no tenés entradas usadas o expiradas.
+      </p>
+    )
+  }
 
   return (
     <div className="container py-3">
       <h2 className="fw-bold mb-3">Historial de entradas</h2>
 
-      {entradasOrdenadas.length === 0 && (
-        <p className="text-secondary">Todavía no tienes entradas usadas.</p>
-      )}
+      <div className="d-flex flex-column gap-3">
+        {eventos.map((ev, i) => {
+          const total = ev.entradas.length
+          const usadas = ev.entradas.filter(e => e.usado).length
 
-      {entradasOrdenadas.map(e => {
-        const estado =
-          e.razon === 'expirada' ? (
-            <span className="badge bg-danger">Expirada</span>
-          ) : (
-            <span className="badge bg-success">Usada</span>
-          )
+          const ultimaValidacion = ev.entradas
+            .map(e => e.usadoEn)
+            .filter(Boolean)
+            .sort((a, b) => b.seconds - a.seconds)[0]
 
-        return (
-          <div key={e.id} className="card mb-3 shadow-sm">
-            <div className="card-body">
-              {/* Nombre del evento */}
-              <h5 className="fw-semibold">{e.nombreEvento || e.nombre}</h5>
+          return (
+            <div key={i} className="card historial-card p-3 shadow-sm">
+              {/* HEADER */}
+              <div className="d-flex justify-content-between align-items-start">
+                <div>
+                  <h5 className="evento-title mb-0">{ev.nombreEvento}</h5>
 
-              {/* Fecha original del evento */}
-              <p className="m-0">📅 {formatearFecha(e.fecha)}</p>
+                  <div className="evento-meta">
+                    📅{' '}
+                    <strong>
+                      {formatearFecha(ev.fechaEvento, ev.horaInicio)}
+                      {ev.horaFin && <> – {ev.horaFin} hs</>}
+                    </strong>
+                  </div>
 
-              {/* Lugar */}
-              {e.lugar && <p className="m-0">📍 {e.lugar}</p>}
+                  {ev.lugar && <div className="evento-meta">📍 {ev.lugar}</div>}
+                </div>
 
-              {/* Horario */}
-              {e.horario && <p className="m-0">🕑 {e.horario}</p>}
+                <span className="badge bg-success">Finalizado</span>
+              </div>
 
-              {/* Estado */}
-              <p className="mt-2 mb-1">
-                <strong>Estado:</strong> {estado}
-              </p>
+              <div className="evento-divider" />
 
-              {/* Fecha de uso o expiración */}
-              <p className="m-0">
-                <strong>Usada / expirada:</strong>{' '}
-                {formatearFecha(e.usadoEn || e.fechaEvento)}
-              </p>
+              {/* INFO */}
+              <div className="d-flex flex-wrap gap-2 mb-2">
+                <span className="badge bg-secondary">
+                  🎟 {total} {total > 1 ? 'entradas' : 'entrada'}
+                </span>
+
+                <span className="badge bg-light text-dark border">
+                  {usadas} usadas
+                </span>
+              </div>
+
+              {/* VALIDACIÓN */}
+              {ultimaValidacion && (
+                <div className="validacion-box">
+                  ✅ <strong>Última validación</strong> el{' '}
+                  <strong>{formatearFecha(ultimaValidacion)}</strong>
+                </div>
+              )}
+
+              {/* CREACIÓN */}
+              <div className="text-muted small mt-1 mx-1">
+                Creada el {formatearFecha(ev.entradas[0].creadoEn)}
+              </div>
             </div>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
     </div>
   )
 }

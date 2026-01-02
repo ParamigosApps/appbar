@@ -202,3 +202,36 @@ export function swalEditarPerfil({
     },
   })
 }
+
+export function swalEventosNoVigentes({ eventos = [] }) {
+  return Swal.fire({
+    title: 'Sin eventos activos',
+    html: `
+      <p style="font-size:14px;color:#555;margin-bottom:12px;margin-top:4px">
+        En este momento no hay ningun evento vigente.
+      </p>
+
+      ${
+        eventos.length
+          ? `
+        <div style="text-align:left;font-size:14px">
+          <strong>Próximos eventos:</strong>
+          <ul style="padding-left:18px;margin-top:8px">
+            ${eventos
+              .map(ev => `<li style="margin-bottom:4px">${ev}</li>`)
+              .join('')}
+          </ul>
+        </div>
+      `
+          : `<p style="font-size:13px;color:#777">No hay eventos programados.</p>`
+      }
+    `,
+    icon: 'info',
+    confirmButtonText: 'Entendido',
+    customClass: {
+      popup: 'swal-popup-custom',
+      confirmButton: 'swal-btn-confirm',
+    },
+    buttonsStyling: false,
+  })
+}
