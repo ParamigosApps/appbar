@@ -35,13 +35,11 @@ function verifySignature(req, raw, secret) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(200).end()
 
-  const rawBody = await readRaw(req)
-
-  // responder inmediato a MP
+  // responder rápido
   res.status(200).json({ ok: true })
 
-  // procesar normalmente (Node NO corta acá)
-  processEvent(rawBody).catch(err => console.error('[webhook] error', err))
+  // procesar normalmente (sin waitUntil)
+  await processEvent(req)
 }
 
 async function processEvent(req, rawBody) {
@@ -69,9 +67,11 @@ async function processEvent(req, rawBody) {
     return
   }
 
-  const topic = body.type || body.topic
+  const topic = body.type || body.topic || req.query?.type || req.query?.topic
+
+  const paymentId = body?.data?.id || req.query?.['data.id'] || req.query?.id
+
   const action = body.action || null
-  const paymentId = body?.data?.id
 
   if (topic !== 'payment' || !paymentId) return
 
