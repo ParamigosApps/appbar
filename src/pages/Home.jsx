@@ -33,8 +33,14 @@ export default function Home() {
         customClass: {
           confirmButton: 'swal-btn-confirm',
         },
-      }).then(() => {
-        navigate('/')
+      }).then(result => {
+        if (result.isConfirmed) {
+          navigate('/')
+          // 🔑 esperar al render del Home
+          setTimeout(() => {
+            document.dispatchEvent(new Event('abrir-mis-entradas'))
+          }, 0)
+        }
       })
     }
 

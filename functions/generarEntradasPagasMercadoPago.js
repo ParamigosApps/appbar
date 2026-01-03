@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { getAdmin } from './firebaseAdmin.js'
+import { getAdmin } from '../api/_lib/firebaseAdmin.js'
 
 // --------------------------------------------------
 // 🔥 GENERAR ENTRADAS PAGAS DESDE PAGO APROBADO

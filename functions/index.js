@@ -10,8 +10,7 @@ const { defineString } = require('firebase-functions/params')
 const MP_ACCESS_TOKEN = defineString('MP_ACCESS_TOKEN')
 const {
   generarEntradasPagasDesdePago,
-} = require('./api/_lib/generarEntradasPagasDesdePago.js')
-
+} = require('./generarEntradasPagasMercadoPago.js')
 admin.initializeApp()
 
 setGlobalOptions({

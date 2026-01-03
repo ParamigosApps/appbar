@@ -339,8 +339,9 @@ export default function MenuAcordeon() {
                     const nuevo = prev === 'entradas' ? null : 'entradas'
                     // 👉 Si se abre, mostrar eventos por defecto
                     if (nuevo === 'entradas') {
-                      setEntradasInterno('eventos')
+                      setEntradasInterno(prev => prev ?? 'eventos')
                     }
+
                     return nuevo
                   })
                 }}
