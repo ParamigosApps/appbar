@@ -78,8 +78,12 @@ export default function MenuAcordeon() {
     loading,
     puedeEditarPerfil,
   } = useAuth()
-
   const contadorMisEntradas = misEntradas?.length ?? 0
+
+  const pagoId = localStorage.getItem('pagoIdEnProceso')
+  {
+    pagoId && <PaymentListener pagoId={pagoId} />
+  }
 
   // ------------------------------------------------------------
   // Evento global para abrir login

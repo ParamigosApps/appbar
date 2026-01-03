@@ -1,7 +1,7 @@
 // --------------------------------------------------------------
-// src/pages/PagoResultado.jsx — VERSIÓN FINAL BLINDADA
+// src/pages/PagoResultado.jsx — FINAL DEFINITIVA
 // --------------------------------------------------------------
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../Firebase.js'
@@ -9,10 +9,11 @@ import { db } from '../Firebase.js'
 import { showLoading, hideLoading } from '../services/loadingService.js'
 
 // --------------------------------------------------------------
-const POLL_INTERVAL = 3000 // 3s
+const POLL_INTERVAL = 3000 // 3 segundos
 const MAX_INTENTOS = 40 // ~2 minutos
 // --------------------------------------------------------------
 
+// Normaliza SOLO el estado de negocio
 function normalizarEstado(raw) {
   const s = (raw || '').toLowerCase()
 
@@ -40,10 +41,9 @@ export default function PagoResultado() {
 
   const intervalRef = useRef(null)
   const intentosRef = useRef(0)
-  const [estadoUI, setEstadoUI] = useState('verificando')
 
   // --------------------------------------------------------------
-  // LOG DE MONTAJE / DESMONTAJE (CLAVE)
+  // MOUNT / UNMOUNT (debug controlado)
   // --------------------------------------------------------------
   useEffect(() => {
     console.log('🧠 PagoResultado MOUNT', { pagoId })
@@ -51,7 +51,7 @@ export default function PagoResultado() {
   }, [])
 
   // --------------------------------------------------------------
-  // POLLING ÚNICO Y BLINDADO
+  // POLLING ÚNICO
   // --------------------------------------------------------------
   useEffect(() => {
     if (!pagoId) {
@@ -77,8 +77,9 @@ export default function PagoResultado() {
         const ref = doc(db, 'pagos', pagoId)
         const snap = await getDoc(ref)
 
+        // El webhook todavía no creó / actualizó el pago
         if (!snap.exists()) {
-          console.warn('⏳ Pago no existe aún en Firestore')
+          console.warn('⏳ Pago aún no existe en Firestore')
           return
         }
 
@@ -88,12 +89,15 @@ export default function PagoResultado() {
         console.log('📄 Estado Firestore:', {
           estadoRaw: pago.estado,
           estadoNormalizado: estado,
+          mpStatus: pago.mpStatus || null,
+          mpDetail: pago.mpStatusDetail || null,
         })
 
         // ------------------ APROBADO ------------------
         if (estado === 'aprobado') {
           localStorage.setItem('avisoPostPago', 'aprobado')
           localStorage.removeItem('pagoIdEnProceso')
+
           clearInterval(intervalRef.current)
           hideLoading()
           navigate('/')
@@ -104,6 +108,7 @@ export default function PagoResultado() {
         if (estado === 'rechazado') {
           localStorage.setItem('avisoPostPago', 'rechazado')
           localStorage.removeItem('pagoIdEnProceso')
+
           clearInterval(intervalRef.current)
           hideLoading()
           navigate('/')
@@ -112,8 +117,10 @@ export default function PagoResultado() {
 
         // ------------------ TIMEOUT ------------------
         if (intentosRef.current >= MAX_INTENTOS) {
-          console.warn('⏳ Timeout: sigue pendiente')
+          console.warn('⏳ Timeout: pago sigue pendiente')
+
           localStorage.setItem('avisoPostPago', 'verificando')
+
           clearInterval(intervalRef.current)
           hideLoading()
           navigate('/')
@@ -123,7 +130,7 @@ export default function PagoResultado() {
       }
     }
 
-    // ejecutar inmediato
+    // Ejecutar inmediato + polling
     checkPago()
     intervalRef.current = setInterval(checkPago, POLL_INTERVAL)
 
@@ -131,7 +138,7 @@ export default function PagoResultado() {
       if (intervalRef.current) clearInterval(intervalRef.current)
       hideLoading()
     }
-  }, [pagoId]) // ⛔ NO agregar navigate acá
+  }, [pagoId]) // ⛔ NO agregar navigate aquí
 
   return null
 }
