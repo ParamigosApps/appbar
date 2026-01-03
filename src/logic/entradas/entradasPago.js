@@ -16,7 +16,7 @@ import {
 import { normalizarPrecio } from '../../utils/utils.js'
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../Firebase.js'
-import { showLoading, hideLoading } from '../services/loadingService'
+import { showLoading, hideLoading } from '../../services/loadingService'
 // =============================================================
 // HELPERS DEBUG
 // =============================================================
