@@ -1,6 +1,6 @@
+// /api/webhook-mp.js
 import crypto from 'crypto'
 import { getAdmin } from './_lib/firebaseAdmin.js'
-import { generarEntradasPagasDesdePago } from './_lib/generarEntradasPagasDesdePago.js'
 
 export const config = {
   runtime: 'nodejs',
@@ -16,112 +16,55 @@ function readRaw(req) {
   })
 }
 
-const cents = v => Math.round(Number(v) * 100)
+function verifySignature(req, raw, secret) {
+  if (!secret) return true
+  const sig = req.headers['x-signature']
+  if (!sig) return false
+  const expected = crypto.createHmac('sha256', secret).update(raw).digest('hex')
+  return sig === expected
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(200).end()
 
-  const rawBody = await readRaw(req)
+  const raw = await readRaw(req)
 
-  // RESPUESTA INMEDIATA A MP
+  // responder inmediato a MP
   res.status(200).json({ ok: true })
 
-  // NO await
-  processEvent(req, rawBody).catch(e => console.error('[webhook-bg]', e))
-}
-
-async function processEvent(req, rawBody) {
-  const admin = getAdmin()
-  const db = admin.firestore()
-  const now = admin.firestore.FieldValue.serverTimestamp()
-
-  const { MP_ACCESS_TOKEN, MP_COLLECTOR_ID } = process.env
-  if (!MP_ACCESS_TOKEN) return
+  const MP_WEBHOOK_SECRET = process.env.MP_WEBHOOK_SECRET
+  if (!verifySignature(req, raw, MP_WEBHOOK_SECRET)) return
 
   let body
   try {
-    body = JSON.parse(rawBody || '{}')
+    body = JSON.parse(raw || '{}')
   } catch {
     return
   }
 
-  const paymentId = body?.data?.id
-  if (!paymentId) return
+  const topic = body.type || body.topic
+  const paymentId = body?.data?.id || req.query?.['data.id']
 
-  const eventRef = db.collection('webhook_events').doc(`payment_${paymentId}`)
+  if (topic !== 'payment' || !paymentId) return
 
-  let pagoId = null
+  const admin = getAdmin()
+  const db = admin.firestore()
+  const now = admin.firestore.FieldValue.serverTimestamp()
 
-  // consultar pago
-  const r = await fetch(
-    `https://api.mercadopago.com/v1/payments/${paymentId}`,
-    { headers: { Authorization: `Bearer ${MP_ACCESS_TOKEN}` } }
-  )
+  const ref = db.collection('webhook_events').doc(`payment_${paymentId}`)
 
-  if (!r.ok) {
-    await eventRef.set({ error: r.status, updatedAt: now }, { merge: true })
-    return
-  }
-
-  const payment = await r.json()
-  pagoId = payment.external_reference
-
-  if (!pagoId) return
-
-  const pagoRef = db.collection('pagos').doc(pagoId)
-  const snap = await pagoRef.get()
-
-  if (!snap.exists) {
-    await pagoRef.set(
-      { estado: 'pendiente_mp', updatedAt: now },
-      { merge: true }
-    )
-    return
-  }
-
-  const pago = snap.data()
-
-  // validar collector
-  if (MP_COLLECTOR_ID && payment.collector_id !== Number(MP_COLLECTOR_ID)) {
-    await pagoRef.update({ estado: 'pendiente_mp', updatedAt: now })
-    return
-  }
-
-  // validar monto
-  if (cents(payment.transaction_amount) !== cents(pago.total)) {
-    await pagoRef.update({ estado: 'monto_invalido', updatedAt: now })
-    return
-  }
-
-  // estado final
-  if (payment.status === 'approved') {
-    if (pago.estado !== 'aprobado') {
-      await pagoRef.update({
-        estado: 'aprobado',
-        mpStatus: payment.status,
-        mpDetail: payment.status_detail,
-        mpPaymentId: payment.id,
-        approvedAt: now,
-        updatedAt: now,
+  try {
+    await db.runTransaction(async tx => {
+      const snap = await tx.get(ref)
+      if (snap.exists) return
+      tx.set(ref, {
+        topic,
+        paymentId,
+        receivedAt: now,
+        processed: false,
       })
-
-      await generarEntradasPagasDesdePago(pagoId, pago)
-    }
-  } else {
-    await pagoRef.update({
-      estado:
-        payment.status === 'rejected' || payment.status === 'cancelled'
-          ? 'rechazado'
-          : 'pendiente_mp',
-      mpStatus: payment.status,
-      mpDetail: payment.status_detail,
-      mpPaymentId: payment.id,
-      updatedAt: now,
     })
+  } catch (error) {
+    console.error('❌ Error saving webhook event:', error)
   }
-
-  await eventRef.set(
-    { processed: true, payment_status: payment.status, updatedAt: now },
-    { merge: true }
-  )
 }
