@@ -1,10 +1,17 @@
 // functions/index.js
-const { onDocumentCreated } = require('firebase-functions/v2/firestore')
+const {
+  onDocumentCreated,
+  onDocumentUpdated,
+} = require('firebase-functions/v2/firestore')
 const { setGlobalOptions } = require('firebase-functions/v2')
 const admin = require('firebase-admin')
 const fetch = require('node-fetch')
 const { defineString } = require('firebase-functions/params')
 const MP_ACCESS_TOKEN = defineString('MP_ACCESS_TOKEN')
+const {
+  generarEntradasPagasDesdePago,
+} = require('./generarEntradasPagasDesdePago')
+
 admin.initializeApp()
 
 setGlobalOptions({
@@ -203,3 +210,17 @@ exports.processWebhookEvent = onDocumentCreated(
     }
   }
 )
+
+exports.onPagoAprobado = onDocumentUpdated('pagos/{pagoId}', async event => {
+  const before = event.data.before.data()
+  const after = event.data.after.data()
+
+  if (!before || !after) return
+
+  // 🔑 solo transición a aprobado
+  if (before.estado !== 'aprobado' && after.estado === 'aprobado') {
+    console.log('🎟️ Generando entradas para pago', event.params.pagoId)
+
+    await generarEntradasPagasDesdePago(event.params.pagoId, after)
+  }
+})
