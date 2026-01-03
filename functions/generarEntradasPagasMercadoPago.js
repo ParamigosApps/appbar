@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { getAdmin } from '../api/_lib/firebaseAdmin.js'
+import { getAdmin } from './firebaseAdmin.js'
 
 // --------------------------------------------------
 // 🔥 GENERAR ENTRADAS PAGAS DESDE PAGO APROBADO
@@ -8,7 +8,11 @@ export async function generarEntradasPagasDesdePago(pagoId, pago) {
   // ----------------------------------------------
   // INIT FIREBASE (SEGURO EN SERVERLESS)
   // ----------------------------------------------
-
+  console.log(
+    '🎟️ generarEntradasPagasDesdePago INICIO',
+    pagoId,
+    pago?.itemsSolicitados?.length
+  )
   const admin = getAdmin()
   const db = admin.firestore()
   const serverTimestamp = admin.firestore.FieldValue.serverTimestamp
@@ -73,6 +77,8 @@ export async function generarEntradasPagasDesdePago(pagoId, pago) {
   let batch = db.batch()
   let operaciones = 0
 
+  console.log('📦 itemsSolicitados:', JSON.stringify(itemsSolicitados))
+
   try {
     for (const item of itemsSolicitados) {
       const cantidad = Number(item.cantidad) || 1
@@ -134,6 +140,7 @@ export async function generarEntradasPagasDesdePago(pagoId, pago) {
     if (operaciones > 0) {
       await batch.commit()
     }
+    console.log('Entradas antes de dar el paso final')
 
     // --------------------------------------------------
     // ✅ FINALIZAR
@@ -142,6 +149,7 @@ export async function generarEntradasPagasDesdePago(pagoId, pago) {
       entradasPagasGeneradas: true,
       entradasPagasAt: serverTimestamp(),
     })
+    console.log('✅ Entradas generadas OK para pago', pagoId)
   } catch (err) {
     console.error('❌ Error generando entradas:', err)
 

@@ -1,4 +1,6 @@
 // functions/index.js
+
+/*
 const {
   onDocumentCreated,
   onDocumentUpdated,
@@ -223,3 +225,18 @@ exports.onPagoAprobado = onDocumentUpdated('pagos/{pagoId}', async event => {
     await generarEntradasPagasDesdePago(event.params.pagoId, after)
   }
 })
+*/
+
+const admin = require('firebase-admin')
+
+let app
+
+function getAdmin() {
+  if (!app) {
+    app = admin.initializeApp()
+    console.log('✅ [functions/firebaseAdmin] initializeApp OK')
+  }
+  return admin
+}
+
+module.exports = { getAdmin }
