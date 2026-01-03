@@ -1,250 +1,232 @@
 // /api/webhook-mp.js
+import { waitUntil } from '@vercel/functions'
+import { getAdmin } from './_lib/firebaseAdmin.js'
+
 export const config = {
   runtime: 'nodejs',
-  api: { bodyParser: true },
+  api: { bodyParser: false }, // ⬅️ CLAVE PARA MERCADO PAGO
 }
 
-import { getAdmin } from './_lib/firebaseAdmin.js'
-import { generarEntradasPagasDesdePago } from './_lib/generarEntradasPagasDesdePago.js'
+// ======================================================
+// RAW BODY
+// ======================================================
+function readRaw(req) {
+  return new Promise((resolve, reject) => {
+    let data = ''
+    req.on('data', chunk => (data += chunk))
+    req.on('end', () => resolve(data))
+    req.on('error', reject)
+  })
+}
 
 // ======================================================
 // UTILS
 // ======================================================
-function safeStr(v, fallback = '') {
-  return typeof v === 'string' && v.trim() ? v.trim() : fallback
-}
-
-function asNumber(v) {
-  const n = Number(v)
-  return Number.isFinite(n) ? n : NaN
-}
-
 function cents(v) {
-  const n = asNumber(v)
+  const n = Number(v)
   return Number.isFinite(n) ? Math.round(n * 100) : NaN
 }
 
-async function safeReadBody(req) {
-  const b = req.body
-  if (!b) return {}
-  if (typeof b === 'object') return b
-  if (typeof b === 'string') {
-    try {
-      return JSON.parse(b)
-    } catch {
-      return { _raw: b }
-    }
-  }
-  return {}
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms))
 }
 
 // ======================================================
 // HANDLER
 // ======================================================
 export default async function handler(req, res) {
-  const reqId = `wh_${Date.now()}_${Math.random().toString(16).slice(2)}`
-  const t0 = Date.now()
-
-  console.log(`🚀 [${reqId}] WEBHOOK START`)
-
   if (req.method !== 'POST') {
-    console.log(`ℹ️ [${reqId}] Método ignorado`, req.method)
-    return res.status(200).send('only POST')
+    return res.status(200).end()
   }
 
-  try {
-    const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN
-    if (!MP_ACCESS_TOKEN) {
-      console.error(`❌ [${reqId}] MP_ACCESS_TOKEN faltante`)
-      return res.status(200).send('env error')
-    }
+  // ✅ RESPUESTA INMEDIATA A MERCADO PAGO
+  res.status(200).json({ ok: true })
 
-    const admin = getAdmin()
-    const db = admin.firestore()
-    const now = admin.firestore.FieldValue.serverTimestamp()
+  // 🧠 PROCESAMIENTO EN SEGUNDO PLANO
+  waitUntil(
+    processEvent(req).catch(err => console.error('[webhook-bg] error', err))
+  )
+}
 
-    const body = await safeReadBody(req)
+// ======================================================
+// BACKGROUND WORK
+// ======================================================
+async function processEvent(req) {
+  const reqId = `mp_${Date.now()}_${Math.random().toString(16).slice(2)}`
+  const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN
 
-    // --------------------------------------------------
-    // INPUT
-    // --------------------------------------------------
-    const topic =
-      safeStr(body.type) || safeStr(body.topic) || safeStr(req.query.topic)
-    const action = safeStr(body.action) || safeStr(req.query.action)
+  if (!MP_ACCESS_TOKEN) {
+    console.error(`[${reqId}] MP_ACCESS_TOKEN faltante`)
+    return
+  }
 
-    const rawPaymentId =
-      safeStr(body?.data?.id) ||
-      safeStr(req.query.id) ||
-      safeStr(req.query['data.id']) ||
-      safeStr(req.query['data[id]'])
+  const raw = await readRaw(req)
+  const body = JSON.parse(raw || '{}')
 
-    console.log(`📩 [${reqId}] INPUT`, {
+  const topic = body.type || body.topic
+  const paymentId = body?.data?.id
+
+  console.log(`[${reqId}] WEBHOOK RECIBIDO`, { topic, paymentId })
+
+  if (topic !== 'payment' || !paymentId) return
+
+  const admin = getAdmin()
+  const db = admin.firestore()
+  const now = admin.firestore.FieldValue.serverTimestamp()
+
+  // ======================================================
+  // IDEMPOTENCIA
+  // ======================================================
+  const eventKey = `payment_${paymentId}`
+  const eventRef = db.collection('webhook_events').doc(eventKey)
+  const eventSnap = await eventRef.get()
+
+  if (eventSnap.exists && eventSnap.data()?.processed === true) {
+    console.log(`[${reqId}] Evento ya procesado`)
+    return
+  }
+
+  await eventRef.set(
+    {
       topic,
-      action,
-      rawPaymentId,
-      query: req.query,
-      body,
-    })
+      paymentId,
+      receivedAt: now,
+      processed: false,
+    },
+    { merge: true }
+  )
 
-    // --------------------------------------------------
-    // RESOLVER PAYMENT ID
-    // --------------------------------------------------
-    let resolvedPaymentId = rawPaymentId
+  // ======================================================
+  // CONSULTAR PAYMENT (REINTENTOS)
+  // ======================================================
+  let payment = null
+  let lastError = null
 
-    if (topic === 'merchant_order') {
-      console.log(`🔁 [${reqId}] Resolviendo merchant_order`, rawPaymentId)
-
-      if (!rawPaymentId) {
-        console.warn(`⚠️ [${reqId}] merchant_order sin id`)
-        return res.status(200).send('ignored')
+  for (let i = 0; i < 5; i++) {
+    const res = await fetch(
+      `https://api.mercadopago.com/v1/payments/${paymentId}`,
+      {
+        headers: {
+          Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
+        },
       }
+    )
 
-      const moUrl = `https://api.mercadopago.com/merchant_orders/${rawPaymentId}`
-      const moRes = await fetch(moUrl, {
-        headers: { Authorization: `Bearer ${MP_ACCESS_TOKEN}` },
-      })
+    lastError = res.status
 
-      if (!moRes.ok) {
-        console.error(`❌ [${reqId}] merchant_order fetch error`)
-        return res.status(200).send('ignored')
-      }
-
-      const mo = await moRes.json()
-      const payments = Array.isArray(mo.payments) ? mo.payments : []
-
-      console.log(`📦 [${reqId}] merchant_order payments`, payments)
-
-      const approved = payments.find(p => p.status === 'approved')
-      const last = payments[payments.length - 1]
-
-      resolvedPaymentId = safeStr(approved?.id || last?.id)
-
-      console.log(`🧩 [${reqId}] resolvedPaymentId`, resolvedPaymentId)
-
-      if (!resolvedPaymentId) {
-        return res.status(200).send('ignored')
-      }
+    if (res.ok) {
+      payment = await res.json()
+      break
     }
 
-    if (!resolvedPaymentId) {
-      console.warn(`⚠️ [${reqId}] Sin paymentId`)
-      return res.status(200).send('ignored')
-    }
+    await sleep(800 * (i + 1))
+  }
 
-    // --------------------------------------------------
-    // CONSULTAR PAYMENT REAL
-    // --------------------------------------------------
-    console.log(`➡️ [${reqId}] Consultando payment`, resolvedPaymentId)
+  if (!payment) {
+    console.error(`[${reqId}] No se pudo obtener payment`, lastError)
+    await eventRef.set(
+      { last_error: lastError, updatedAt: now },
+      { merge: true }
+    )
+    return
+  }
 
-    const payUrl = `https://api.mercadopago.com/v1/payments/${resolvedPaymentId}`
-    const mpRes = await fetch(payUrl, {
-      headers: { Authorization: `Bearer ${MP_ACCESS_TOKEN}` },
-    })
+  console.log(`[${reqId}] PAYMENT`, {
+    id: payment.id,
+    status: payment.status,
+    status_detail: payment.status_detail,
+    collector_id: payment.collector_id,
+    live_mode: payment.live_mode,
+    external_reference: payment.external_reference,
+  })
 
-    if (!mpRes.ok) {
-      console.error(`❌ [${reqId}] MP fetch error`)
-      return res.status(200).send('ignored')
-    }
+  // ======================================================
+  // VALIDAR EXTERNAL_REFERENCE
+  // ======================================================
+  const pagoId = payment.external_reference
+  if (!pagoId) {
+    await eventRef.set(
+      { note: 'sin_external_reference', updatedAt: now },
+      { merge: true }
+    )
+    return
+  }
 
-    const payment = await mpRes.json()
+  const pagoRef = db.collection('pagos').doc(pagoId)
+  const snap = await pagoRef.get()
 
-    console.log(`💰 [${reqId}] PAYMENT`, payment)
+  if (!snap.exists) {
+    await eventRef.set(
+      { note: 'pago_no_encontrado', updatedAt: now },
+      { merge: true }
+    )
+    return
+  }
 
-    const pagoId = safeStr(payment.external_reference)
+  const pago = snap.data()
 
-    if (!pagoId) {
-      console.warn(`⚠️ [${reqId}] Sin external_reference`)
-      return res.status(200).send('ignored')
-    }
+  // ======================================================
+  // VALIDAR MONTO (CENTAVOS)
+  // ======================================================
+  const mpCents = cents(payment.transaction_amount)
+  const fsCents = cents(pago.total)
 
-    // --------------------------------------------------
-    // FIRESTORE
-    // --------------------------------------------------
-    console.log(`📄 [${reqId}] Buscando pago en Firestore`, pagoId)
-
-    const pagoRef = db.collection('pagos').doc(pagoId)
-    const pagoSnap = await pagoRef.get()
-
-    if (!pagoSnap.exists) {
-      console.error(`❌ [${reqId}] PAGO NO EXISTE EN FIRESTORE`, pagoId)
-      return res.status(200).send('missing_pago')
-    }
-
-    const pago = pagoSnap.data()
-
-    console.log(`📄 [${reqId}] PAGO FS`, pago)
-
-    if (pago.estado === 'aprobado') {
-      console.log(`ℹ️ [${reqId}] Ya aprobado`)
-      return res.status(200).send('ok')
-    }
-
-    // --------------------------------------------------
-    // VALIDAR MONTO
-    // --------------------------------------------------
-    const mpCents = cents(payment.transaction_amount)
-    const fsCents = cents(pago.total)
-
-    console.log(`🧮 [${reqId}] MONTO`, { mpCents, fsCents })
-
-    if (!Number.isFinite(mpCents) || mpCents !== fsCents) {
-      console.error(`❌ [${reqId}] MONTO INVALIDO`)
-      await pagoRef.update({
-        estado: 'monto_invalido',
-        updatedAt: now,
-      })
-      return res.status(200).send('monto invalido')
-    }
-
-    // --------------------------------------------------
-    // NO APROBADO
-    // --------------------------------------------------
-    if (payment.status !== 'approved') {
-      console.log(`⏳ [${reqId}] Aún no aprobado`, payment.status)
-
-      await pagoRef.update({
-        estado:
-          payment.status === 'rejected' || payment.status === 'cancelled'
-            ? 'rechazado'
-            : 'pendiente',
-        mpPaymentId: payment.id,
-        mpStatus: payment.status,
-        mpDetail: payment.status_detail,
-        updatedAt: now,
-      })
-      console.log('🧪 DEBUG PAYMENT COMPLETO', {
-        id: payment.id,
-        status: payment.status,
-        status_detail: payment.status_detail,
-        external_reference: payment.external_reference,
-        transaction_amount: payment.transaction_amount,
-        payment_method: payment.payment_method_id,
-        payment_type: payment.payment_type_id,
-      })
-      return res.status(200).send('pending')
-    }
-
-    // --------------------------------------------------
-    // ✅ APROBADO
-    // --------------------------------------------------
-    console.log(`🟢 [${reqId}] APROBADO`)
-
+  if (!Number.isFinite(mpCents) || mpCents !== fsCents) {
     await pagoRef.update({
-      estado: 'aprobado',
-      approvedAt: now,
-      mpPaymentId: payment.id,
+      estado: 'monto_invalido',
       mpStatus: payment.status,
       mpDetail: payment.status_detail,
+      mpPaymentId: payment.id,
       updatedAt: now,
     })
-
-    console.log(`🎟️ [${reqId}] Generando entradas`)
-    await generarEntradasPagasDesdePago(pagoId, pago)
-
-    console.log(`✅ [${reqId}] WEBHOOK OK`, Date.now() - t0, 'ms')
-    return res.status(200).send('ok')
-  } catch (err) {
-    console.error(`❌ [${reqId}] ERROR`, err)
-    return res.status(200).send('error')
+    return
   }
+
+  // ======================================================
+  // ESTADOS
+  // ======================================================
+  if (payment.status === 'approved') {
+    if (pago.estado !== 'aprobado') {
+      await pagoRef.update({
+        estado: 'aprobado',
+        mpStatus: payment.status,
+        mpDetail: payment.status_detail,
+        mpPaymentId: payment.id,
+        approvedAt: now,
+        updatedAt: now,
+      })
+
+      // 🎟️ GENERAR ENTRADAS
+      await import('./_lib/generarEntradasPagasDesdePago.js').then(m =>
+        m.generarEntradasPagasDesdePago(pagoId, pago)
+      )
+    }
+  } else {
+    await pagoRef.update({
+      estado:
+        payment.status === 'rejected' || payment.status === 'cancelled'
+          ? 'rechazado'
+          : 'pendiente',
+      mpStatus: payment.status,
+      mpDetail: payment.status_detail,
+      mpPaymentId: payment.id,
+      updatedAt: now,
+    })
+  }
+
+  // ======================================================
+  // MARCAR EVENTO PROCESADO
+  // ======================================================
+  await eventRef.set(
+    {
+      processed: true,
+      payment_status: payment.status,
+      collector_id: payment.collector_id,
+      live_mode: payment.live_mode,
+      processedAt: now,
+    },
+    { merge: true }
+  )
+
+  console.log(`[${reqId}] WEBHOOK OK`)
 }
