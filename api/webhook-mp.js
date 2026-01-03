@@ -1,4 +1,3 @@
-import { waitUntil } from '@vercel/functions'
 import crypto from 'crypto'
 import { getAdmin } from './_lib/firebaseAdmin.js'
 import { generarEntradasPagasDesdePago } from './_lib/generarEntradasPagasDesdePago.js'
@@ -8,9 +7,6 @@ export const config = {
   api: { bodyParser: false },
 }
 
-// --------------------------------------------------
-// RAW BODY
-// --------------------------------------------------
 function readRaw(req) {
   return new Promise((resolve, reject) => {
     let data = ''
@@ -25,9 +21,6 @@ const cents = v =>
 
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
-// --------------------------------------------------
-// FIRMA MP — USANDO CABECERA COMPLETA
-// --------------------------------------------------
 function verifySignature(req, raw, secret) {
   if (!secret) return true
 
@@ -39,27 +32,18 @@ function verifySignature(req, raw, secret) {
   return signature === hmac
 }
 
-// --------------------------------------------------
-// HANDLER
-// --------------------------------------------------
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(200).end()
 
   const rawBody = await readRaw(req)
 
-  // responder rápido a MP
+  // responder inmediato a MP
   res.status(200).json({ ok: true })
 
-  waitUntil(
-    processEvent(req, rawBody).catch(err =>
-      console.error('[webhook-bg] error', err)
-    )
-  )
+  // procesar normalmente (Node NO corta acá)
+  processEvent(rawBody).catch(err => console.error('[webhook] error', err))
 }
 
-// --------------------------------------------------
-// PROCESAMIENTO
-// --------------------------------------------------
 async function processEvent(req, rawBody) {
   const reqId = `mp_${Date.now()}_${Math.random().toString(16).slice(2)}`
 
@@ -98,9 +82,6 @@ async function processEvent(req, rawBody) {
   const eventKey = `payment_${paymentId}`
   const eventRef = db.collection('webhook_events').doc(eventKey)
 
-  // --------------------------------------------------
-  // IDEMPOTENCIA + TRAZABILIDAD
-  // --------------------------------------------------
   try {
     await db.runTransaction(async tx => {
       const snap = await tx.get(eventRef)
@@ -134,9 +115,6 @@ async function processEvent(req, rawBody) {
     return
   }
 
-  // --------------------------------------------------
-  // CONSULTA MP
-  // --------------------------------------------------
   let payment = null
   let lastError = null
   let lastErrorText = null
@@ -182,9 +160,6 @@ async function processEvent(req, rawBody) {
     return
   }
 
-  // --------------------------------------------------
-  // VALIDACIONES
-  // --------------------------------------------------
   if (payment.live_mode !== true) return
   if (MP_COLLECTOR_ID && payment.collector_id !== Number(MP_COLLECTOR_ID))
     return
@@ -209,12 +184,6 @@ async function processEvent(req, rawBody) {
     return
   }
 
-  // --------------------------------------------------
-  // ESTADOS MP
-  // --------------------------------------------------
-  // --------------------------------------------------
-  // ESTADOS MP (approved / refunded / chargeback / rejected)
-  // --------------------------------------------------
   if (payment.status === 'approved') {
     if (pago.estado !== 'aprobado') {
       await pagoRef.update({
@@ -267,9 +236,6 @@ async function processEvent(req, rawBody) {
     })
   }
 
-  // --------------------------------------------------
-  // MARCAR EVENTO PROCESADO
-  // --------------------------------------------------
   await eventRef.set(
     {
       processed: true,
