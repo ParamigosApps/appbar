@@ -3,8 +3,8 @@ const { onDocumentCreated } = require('firebase-functions/v2/firestore')
 const { setGlobalOptions } = require('firebase-functions/v2')
 const admin = require('firebase-admin')
 const fetch = require('node-fetch')
-const functions = require('firebase-functions')
-
+const { defineString } = require('firebase-functions/params')
+const MP_ACCESS_TOKEN = defineString('MP_ACCESS_TOKEN')
 admin.initializeApp()
 
 setGlobalOptions({
@@ -56,12 +56,11 @@ exports.processWebhookEvent = onDocumentCreated(
     // ⛔ Idempotencia SOLO real
     if (processed) return
 
-    const MP_ACCESS_TOKEN =
-      require('firebase-functions').config().mp?.access_token
+    const mpAccessToken = MP_ACCESS_TOKEN.value()
 
     const MP_COLLECTOR_ID = Number(process.env.MP_COLLECTOR_ID || 0)
-    console.log('🔑 MP_ACCESS_TOKEN presente?', !!MP_ACCESS_TOKEN)
-    if (!MP_ACCESS_TOKEN) {
+    console.log('🔑 MP_ACCESS_TOKEN presente?', !!mpAccessToken)
+    if (!mpAccessToken) {
       await snap.ref.set({ note: 'mp_access_token_missing' }, { merge: true })
       return
     }
@@ -73,7 +72,8 @@ exports.processWebhookEvent = onDocumentCreated(
       // ==================================================
       // 🔵 PAYMENT (ÚNICO EVENTO DEFINITIVO)
       // ==================================================
-      const IS_TEST = refId => refId.startsWith('TEST_')
+      const IS_TEST = refId =>
+        refId.startsWith('TEST_') || refId.startsWith('payment_test_')
 
       if (topic === 'payment') {
         let payment
@@ -92,7 +92,7 @@ exports.processWebhookEvent = onDocumentCreated(
         } else {
           payment = await mpGet(
             `https://api.mercadopago.com/v1/payments/${refId}`,
-            MP_ACCESS_TOKEN
+            mpAccessToken
           )
         }
 
@@ -174,7 +174,7 @@ exports.processWebhookEvent = onDocumentCreated(
       if (topic === 'merchant_order') {
         const order = await mpGet(
           `https://api.mercadopago.com/merchant_orders/${refId}`,
-          MP_ACCESS_TOKEN
+          mpAccessToken
         )
 
         const payments = Array.isArray(order.payments) ? order.payments : []
@@ -182,7 +182,7 @@ exports.processWebhookEvent = onDocumentCreated(
         // Solo log / traza
         await snap.ref.set(
           {
-            processed: false,
+            processed: true,
             paymentsCount: payments.length,
             processedAt: now,
             note: 'merchant_order_seen',
