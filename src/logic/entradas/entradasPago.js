@@ -16,7 +16,7 @@ import {
 import { normalizarPrecio } from '../../utils/utils.js'
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../Firebase.js'
-
+import { showLoading, hideLoading } from '../services/loadingService'
 // =============================================================
 // HELPERS DEBUG
 // =============================================================
@@ -92,6 +92,10 @@ export async function manejarMercadoPago({
   }
 
   try {
+    showLoading({
+      title: 'Redirigiendo a Mercado Pago',
+      text: 'Aguarda unos instantes..',
+    })
     console.group(`[${trace}] [MP][1] INPUT SNAPSHOT`)
     console.log('eventoId:', eventoId)
     console.log('usuarioId:', usuarioId)
@@ -275,6 +279,8 @@ export async function manejarMercadoPago({
       },
       buttonsStyling: false,
     })
+  } finally {
+    hideLoading()
   }
 }
 

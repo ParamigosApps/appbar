@@ -12,11 +12,19 @@ const cents = v =>
 exports.processWebhookEvent = onDocumentCreated(
   'webhook_events/{id}',
   async event => {
+    console.log('🔥 processWebhookEvent ejecutada')
     const snap = event.data
-    if (!snap) return
+    if (!snap) {
+      console.log('⚠️ sin snapshot')
+      return
+    }
 
     const data = snap.data()
-    if (data.topic !== 'payment' || !data.paymentId) return
+    console.log('📦 data:', data)
+    if (data.topic !== 'payment' || !data.paymentId) {
+      console.log('⛔ no payment o sin paymentId')
+      return
+    }
 
     const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN
     const MP_COLLECTOR_ID = Number(process.env.MP_COLLECTOR_ID)
@@ -96,6 +104,7 @@ exports.processWebhookEvent = onDocumentCreated(
         updatedAt: now,
       })
     }
+    console.log('💳 paymentId:', data.paymentId)
 
     await snap.ref.set(
       {
