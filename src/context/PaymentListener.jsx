@@ -3,7 +3,7 @@ import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../Firebase'
 import { toast } from 'react-toastify'
 
-export function PaymentListener({ pagoId }) {
+export default function PaymentListener({ pagoId }) {
   useEffect(() => {
     if (!pagoId) return
 
