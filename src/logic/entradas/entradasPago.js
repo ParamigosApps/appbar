@@ -60,6 +60,8 @@ export async function manejarMercadoPago({
   loteSel,
   usuarioId,
   eventoId,
+  usuarioNombre,
+  usuarioEmail,
 }) {
   const trace = traceId('MP')
   console.log(`[${trace}] [MP][0] INVOCADO`, {
@@ -173,17 +175,10 @@ export async function manejarMercadoPago({
       estado: 'pendiente',
 
       usuarioId,
-      usuarioNombre: evento?.usuarioNombre || '',
-      usuarioEmail: evento?.usuarioEmail || '',
-
+      usuarioNombre: usuarioNombre || '',
+      usuarioEmail: usuarioEmail || '',
       eventoId,
-
-      itemsPagados: items,
-
-      descripcion: items
-        .map(i => `${i.cantidad} ${i.nombre} ($${i.precio * i.cantidad})`)
-        .join('\n'),
-
+      itemsSolicitados: items,
       total,
 
       entradasGratisPendientes,
@@ -210,10 +205,18 @@ export async function manejarMercadoPago({
       pagoId,
       itemsLen: items.length,
     })
+    console.log(`CACA [${trace}] [MP][8.0] user data`, {
+      usuarioId,
+      usuarioNombre,
+      usuarioEmail,
+    })
 
     const resp = await crearPreferenciaEntrada({
       eventoId,
       pagoId,
+      usuarioId,
+      usuarioNombre: usuarioNombre || '',
+      usuarioEmail: usuarioEmail || '',
       items: items.map(i => ({
         nombre: i.nombre,
         precio: i.precio,

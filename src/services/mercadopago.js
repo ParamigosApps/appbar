@@ -1,8 +1,5 @@
 // src/services/mercadopago.js
 
-import { auth, db } from '../Firebase.js'
-import { doc, getDoc } from 'firebase/firestore'
-
 // --------------------------------------------------
 // HELPERS
 // --------------------------------------------------
@@ -16,37 +13,19 @@ function normalizarPrecio(valor) {
   return Number(valor) || 0
 }
 
-async function obtenerPerfilUsuario() {
-  const user = auth.currentUser
-  if (!user || !user.uid) throw new Error('Usuario no autenticado')
-
-  let email = user.email || ''
-  let nombre = user.displayName || ''
-
-  if (!email || !nombre) {
-    const ref = doc(db, 'usuarios', user.uid)
-    const snap = await getDoc(ref)
-    if (snap.exists()) {
-      const data = snap.data()
-      if (!email) email = data.email || ''
-      if (!nombre) nombre = data.nombre || data.displayName || ''
-    }
-  }
-
-  return { uid: user.uid, email, nombre }
-}
-
-// --------------------------------------------------
-// ENTRADAS (EVENTOS)
-// --------------------------------------------------
 export async function crearPreferenciaEntrada({
   eventoId,
   pagoId,
   items,
   imagenEventoUrl,
+  usuarioId,
+  usuarioNombre,
+  usuarioEmail,
 }) {
   try {
-    const perfil = await obtenerPerfilUsuario()
+    if (!usuarioId) {
+      throw new Error('Usuario no autenticado')
+    }
 
     let total = 0
 
@@ -70,8 +49,8 @@ export async function crearPreferenciaEntrada({
     console.log('🧾 Preferencia ENTRADA payload', {
       pagoId,
       total,
-      usuarioEmail: perfil.email,
-      usuarioNombre: perfil.nombre,
+      usuarioEmail,
+      usuarioNombre,
       itemsMP,
     })
 
@@ -80,33 +59,21 @@ export async function crearPreferenciaEntrada({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         external_reference: pagoId,
-        usuarioEmail: perfil.email,
-        usuarioNombre: perfil.nombre,
+        usuarioId,
+        usuarioEmail,
+        usuarioNombre,
         items: itemsMP,
         imagenEventoUrl,
       }),
     })
 
-    const text = await res.text()
+    const data = await res.json()
 
-    if (!text) {
-      throw new Error('Respuesta vacía del servidor Mercado Pago')
-    }
-
-    let data
-    try {
-      data = JSON.parse(text)
-    } catch (e) {
-      console.error('Respuesta cruda MP:', text)
-      throw new Error('Respuesta MP inválida')
-    }
-
-    if (!res.ok) {
+    if (!res.ok || !data?.init_point) {
       console.error('❌ Backend MP error:', data)
       return null
     }
 
-    // ⬅️ DEVOLVEMOS TAMBIÉN EL TOTAL
     return {
       ...data,
       total,
@@ -120,9 +87,17 @@ export async function crearPreferenciaEntrada({
 // --------------------------------------------------
 // COMPRAS (CARRITO)
 // --------------------------------------------------
-export async function crearPreferenciaCompra({ carrito, pagoId }) {
+export async function crearPreferenciaCompra({
+  carrito,
+  pagoId,
+  usuarioId,
+  usuarioNombre,
+  usuarioEmail,
+}) {
   try {
-    const perfil = await obtenerPerfilUsuario()
+    if (!usuarioId) {
+      throw new Error('Usuario no autenticado')
+    }
 
     let total = 0
 
@@ -155,8 +130,8 @@ export async function crearPreferenciaCompra({ carrito, pagoId }) {
     console.log('🧾 Preferencia COMPRA payload', {
       pagoId,
       total,
-      usuarioEmail: perfil.email,
-      usuarioNombre: perfil.nombre,
+      usuarioEmail,
+      usuarioNombre,
       itemsMP,
     })
 
@@ -165,8 +140,9 @@ export async function crearPreferenciaCompra({ carrito, pagoId }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         external_reference: pagoId,
-        usuarioEmail: perfil.email,
-        usuarioNombre: perfil.nombre,
+        usuarioId,
+        usuarioEmail,
+        usuarioNombre,
         items: itemsMP,
       }),
     })
@@ -178,7 +154,6 @@ export async function crearPreferenciaCompra({ carrito, pagoId }) {
       return null
     }
 
-    // ⬅️ DEVOLVEMOS init_point + total
     return {
       init_point: data.init_point,
       total,

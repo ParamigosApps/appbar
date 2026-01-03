@@ -273,7 +273,7 @@ export async function crearPedido({
 
     // Campos auxiliares si los tenés en tu modelo
     entradasGratisPendientes: [],
-    itemsPagados: [],
+    itemsSolicitados: [],
     gratisEntregadas: false,
   })
 

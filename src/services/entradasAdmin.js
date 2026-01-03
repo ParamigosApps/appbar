@@ -241,7 +241,6 @@ export async function aprobarEntrada(entrada) {
 
       if (snapUser.exists()) {
         emailUsuario = snapUser.data().email || null
-        console.log('CACACACA ' + emailUsuario)
       }
     } catch (err) {
       console.warn('⚠️ No se pudo obtener email del usuario:', err)

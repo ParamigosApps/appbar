@@ -8,6 +8,7 @@ export async function generarEntradasPagasDesdePago(pagoId, pago) {
   // ----------------------------------------------
   // INIT FIREBASE (SEGURO EN SERVERLESS)
   // ----------------------------------------------
+
   const admin = getAdmin()
   const db = admin.firestore()
   const serverTimestamp = admin.firestore.FieldValue.serverTimestamp
@@ -58,9 +59,9 @@ export async function generarEntradasPagasDesdePago(pagoId, pago) {
   // --------------------------------------------------
   // VALIDACIÓN DE DATOS
   // --------------------------------------------------
-  const { usuarioId, eventoId, itemsPagados = [] } = pago
+  const { usuarioId, eventoId, itemsSolicitados = [] } = pago
 
-  if (!usuarioId || !eventoId || !Array.isArray(itemsPagados)) {
+  if (!usuarioId || !eventoId || !Array.isArray(itemsSolicitados)) {
     await pagoRef.update({
       entradasPagasGeneradas: 'error',
       entradasPagasError: 'Pago inválido para generar entradas',
@@ -73,7 +74,7 @@ export async function generarEntradasPagasDesdePago(pagoId, pago) {
   let operaciones = 0
 
   try {
-    for (const item of itemsPagados) {
+    for (const item of itemsSolicitados) {
       const cantidad = Number(item.cantidad) || 1
       const precio = Number(item.precio) || 0
 

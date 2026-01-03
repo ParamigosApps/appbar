@@ -9,7 +9,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { pagoId, userId } = req.body || {}
+    const {
+      pagoId,
+      userId,
+      usuarioEmail = '',
+      usuarioNombre = '',
+    } = req.body || {}
 
     if (!pagoId || !userId) {
       return res.status(400).json({
@@ -20,14 +25,13 @@ export default async function handler(req, res) {
     const pagoRef = doc(db, 'pagos', pagoId)
     const snap = await getDoc(pagoRef)
 
-    // --------------------------------------------------
+    // --------------------------------------------
     // SI YA EXISTE
-    // --------------------------------------------------
+    // --------------------------------------------
     if (snap.exists()) {
       const data = snap.data()
       const estado = (data.estado || '').toLowerCase()
 
-      // 🔒 No tocar pagos cerrados
       if (['aprobado', 'fallido', 'monto_invalido'].includes(estado)) {
         return res.status(200).json({
           ok: true,
@@ -36,7 +40,6 @@ export default async function handler(req, res) {
         })
       }
 
-      // Ya estaba pendiente → no hacer nada
       return res.status(200).json({
         ok: true,
         mensaje: 'Pago pendiente ya existente',
@@ -44,13 +47,17 @@ export default async function handler(req, res) {
       })
     }
 
-    // --------------------------------------------------
+    // --------------------------------------------
     // CREAR PAGO PENDIENTE
-    // --------------------------------------------------
+    // --------------------------------------------
     await setDoc(pagoRef, {
       estado: 'pendiente',
       metodo: 'mp',
       userId,
+
+      usuarioEmail,
+      usuarioNombre,
+
       creadoEn: serverTimestamp(),
       origen: 'redirect_mp',
     })

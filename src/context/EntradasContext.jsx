@@ -517,6 +517,8 @@ export function EntradasProvider({ children }) {
           return manejarMercadoPago({
             evento: eventoCompleto,
             usuarioId,
+            usuarioNombre: user.nombre || user.displayName || '',
+            usuarioEmail: user.email || '',
             eventoId: evento.id,
             loteSel: {
               id: 'multi',
@@ -649,6 +651,8 @@ export function EntradasProvider({ children }) {
           ],
         },
         usuarioId,
+        usuarioNombre,
+        usuarioEmail,
         eventoId: evento.id,
       })
     } catch (err) {
