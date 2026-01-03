@@ -24,12 +24,9 @@ function readRaw(req) {
 // --------------------------------------------------
 function verifySignature(req, raw, secret) {
   if (!secret) return true
-
   const sig = req.headers['x-signature']
   if (!sig) return false
-
   const expected = crypto.createHmac('sha256', secret).update(raw).digest('hex')
-
   return sig === expected
 }
 
@@ -45,46 +42,52 @@ export default async function handler(req, res) {
     return res.status(200).end('ignored')
   }
 
+  // --------------------------------------------------
+  // Leer RAW BODY
+  // --------------------------------------------------
   let raw = ''
   try {
     raw = await readRaw(req)
   } catch (e) {
     console.error('❌ error leyendo raw body', e)
-    return res.status(200).end('read_error')
+    return res.status(200).json({ ok: false, error: 'read_error' })
   }
 
   console.log('📦 RAW BODY:', raw)
 
-  // ⚠️ responder SIEMPRE 200 inmediato a MP
-  res.status(200).json({ ok: true })
-
-  const MPWEBHOOKSECRET = process.env.MPWEBHOOKSECRET
-  if (!verifySignature(req, raw, MPWEBHOOKSECRET)) {
-    console.error('❌ firma inválida')
-    return
-  }
-
+  // --------------------------------------------------
+  // Parse JSON
+  // --------------------------------------------------
   let body = {}
   try {
     body = raw ? JSON.parse(raw) : {}
   } catch (e) {
     console.error('❌ JSON inválido', e)
-    return
+    return res.status(200).json({ ok: false, error: 'json_invalid' })
   }
 
   console.log('🧩 BODY PARSEADO:', body)
 
   // --------------------------------------------------
-  // Normalizar evento Mercado Pago
+  // Verificar firma (si existe secret)
+  // --------------------------------------------------
+  const MPWEBHOOKSECRET = process.env.MPWEBHOOKSECRET
+  if (!verifySignature(req, raw, MPWEBHOOKSECRET)) {
+    console.error('❌ firma inválida')
+    return res.status(200).json({ ok: false, error: 'bad_signature' })
+  }
+
+  // --------------------------------------------------
+  // Normalizar evento MP
   // --------------------------------------------------
   const topic =
-    body.type || body.topic || req.query?.type || req.query?.topic || null
+    body.type || body.topic || req.query?.topic || req.query?.type || null
 
   const refId =
     body?.data?.id ||
     body?.id ||
-    req.query?.['data.id'] ||
     req.query?.id ||
+    req.query?.['data.id'] ||
     null
 
   console.log('🔎 topic:', topic)
@@ -92,33 +95,39 @@ export default async function handler(req, res) {
 
   if (!topic || !refId) {
     console.log('ℹ️ evento ignorado (sin topic o id)')
-    return
+    return res.status(200).json({ ok: true, ignored: true })
   }
 
   if (!['payment', 'merchant_order'].includes(topic)) {
     console.log('ℹ️ topic no manejado:', topic)
-    return
+    return res.status(200).json({ ok: true, ignored: true })
   }
 
-  // --------------------------------------------------
-  // 🔑 DOC ID CORRECTO SEGÚN TOPIC
-  // --------------------------------------------------
   const docId = topic === 'payment' ? `payment_${refId}` : `order_${refId}`
 
   console.log('🧾 docId:', docId)
 
   // --------------------------------------------------
-  // Firestore
+  // Firestore (ANTES de responder)
   // --------------------------------------------------
   try {
+    console.log('📡 [firebaseAdmin] getAdmin() llamado')
     const admin = getAdmin()
     const db = admin.firestore()
     const now = admin.firestore.FieldValue.serverTimestamp()
+
+    console.log('🧪 [webhook] transaction START', {
+      collection: 'webhook_events',
+      docId,
+      projectId: process.env.FIREBASE_PROJECT_ID,
+    })
 
     const ref = db.collection('webhook_events').doc(docId)
 
     await db.runTransaction(async tx => {
       const snap = await tx.get(ref)
+      console.log('🧪 [webhook] tx.get exists?', snap.exists)
+
       if (snap.exists) {
         console.log('ℹ️ webhook ya registrado, se ignora')
         return
@@ -126,16 +135,24 @@ export default async function handler(req, res) {
 
       tx.set(ref, {
         topic,
-        refId, // paymentId o merchantOrderId
+        refId,
         receivedAt: now,
         rawBodyLen: raw.length,
         xRequestId: req.headers['x-request-id'] || null,
         processed: false,
       })
+
+      console.log('🧪 [webhook] tx.set EJECUTADO', docId)
     })
 
     console.log('✅ webhook_events creado:', docId)
+
+    // --------------------------------------------------
+    // RESPONDER AL FINAL (CRÍTICO)
+    // --------------------------------------------------
+    return res.status(200).json({ ok: true })
   } catch (e) {
     console.error('❌ error escribiendo Firestore', e)
+    return res.status(200).json({ ok: false, error: 'firestore_error' })
   }
 }

@@ -3,6 +3,7 @@ const { onDocumentCreated } = require('firebase-functions/v2/firestore')
 const { setGlobalOptions } = require('firebase-functions/v2')
 const admin = require('firebase-admin')
 const fetch = require('node-fetch')
+const functions = require('firebase-functions')
 
 admin.initializeApp()
 
@@ -55,9 +56,11 @@ exports.processWebhookEvent = onDocumentCreated(
     // ⛔ Idempotencia SOLO real
     if (processed) return
 
-    const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN
-    const MP_COLLECTOR_ID = Number(process.env.MP_COLLECTOR_ID || 0)
+    const MP_ACCESS_TOKEN =
+      require('firebase-functions').config().mp?.access_token
 
+    const MP_COLLECTOR_ID = Number(process.env.MP_COLLECTOR_ID || 0)
+    console.log('🔑 MP_ACCESS_TOKEN presente?', !!MP_ACCESS_TOKEN)
     if (!MP_ACCESS_TOKEN) {
       await snap.ref.set({ note: 'mp_access_token_missing' }, { merge: true })
       return
@@ -70,11 +73,28 @@ exports.processWebhookEvent = onDocumentCreated(
       // ==================================================
       // 🔵 PAYMENT (ÚNICO EVENTO DEFINITIVO)
       // ==================================================
+      const IS_TEST = refId => refId.startsWith('TEST_')
+
       if (topic === 'payment') {
-        const payment = await mpGet(
-          `https://api.mercadopago.com/v1/payments/${refId}`,
-          MP_ACCESS_TOKEN
-        )
+        let payment
+
+        if (IS_TEST(refId)) {
+          console.log('🧪 MODO TEST ACTIVADO', refId)
+
+          payment = {
+            id: 'TEST_MP_ID',
+            status: 'approved',
+            status_detail: 'accredited',
+            transaction_amount: 1,
+            external_reference: refId,
+            collector_id: MP_COLLECTOR_ID || 0,
+          }
+        } else {
+          payment = await mpGet(
+            `https://api.mercadopago.com/v1/payments/${refId}`,
+            MP_ACCESS_TOKEN
+          )
+        }
 
         if (MP_COLLECTOR_ID && payment.collector_id !== MP_COLLECTOR_ID) {
           await snap.ref.set(

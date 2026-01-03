@@ -1,44 +1,36 @@
+// /api/_lib/firebaseAdmin.js
 import admin from 'firebase-admin'
 
 console.log('🔥 [firebaseAdmin] módulo cargado')
 
-const projectId = process.env.FIREBASE_PROJECT_ID
-
-console.log('🔧 [firebaseAdmin] ENV FIREBASE_PROJECT_ID:', projectId)
-
-if (!projectId) {
-  console.error('❌ [firebaseAdmin] FIREBASE_PROJECT_ID NO DEFINIDO')
-}
-
-if (!admin.apps.length) {
-  try {
-    console.log('🚀 [firebaseAdmin] initializeApp START')
-
-    admin.initializeApp({
-      projectId,
-    })
-
-    console.log('✅ [firebaseAdmin] initializeApp OK')
-    console.log(
-      '📦 [firebaseAdmin] apps:',
-      admin.apps.map(a => a.name)
-    )
-  } catch (err) {
-    console.error('💥 [firebaseAdmin] initializeApp ERROR', err)
-  }
-} else {
-  console.log('ℹ️ [firebaseAdmin] app ya inicializada')
-}
+let app
 
 export function getAdmin() {
-  console.log('📡 [firebaseAdmin] getAdmin() llamado')
-
-  try {
-    const db = admin.firestore()
-    console.log('✅ [firebaseAdmin] firestore() OK')
+  if (app) {
+    console.log('♻️ [firebaseAdmin] usando app existente')
     return admin
-  } catch (err) {
-    console.error('💥 [firebaseAdmin] firestore() ERROR', err)
-    throw err
   }
+
+  const b64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64
+
+  if (!b64) {
+    console.error('❌ FIREBASE_SERVICE_ACCOUNT_BASE64 NO DEFINIDA')
+    throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_BASE64')
+  }
+
+  console.log('🔐 [firebaseAdmin] decodificando service account')
+
+  const serviceAccount = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'))
+
+  app = admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+  })
+
+  console.log('✅ [firebaseAdmin] initializeApp OK')
+  console.log(
+    '📦 apps:',
+    admin.apps.map(a => a.name)
+  )
+
+  return admin
 }
