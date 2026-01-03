@@ -50,13 +50,9 @@ exports.processWebhookEvent = onDocumentCreated(
     const data = snap.data()
     if (!data || !data.topic || !data.refId) return
 
-    const {
-      topic, // 'payment' | 'merchant_order'
-      refId, // paymentId | orderId
-      processed,
-    } = data
+    const { topic, refId, processed } = data
 
-    // Idempotencia dura
+    // ⛔ Idempotencia SOLO real
     if (processed) return
 
     const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN
@@ -71,9 +67,9 @@ exports.processWebhookEvent = onDocumentCreated(
     const now = admin.firestore.FieldValue.serverTimestamp()
 
     try {
-      // --------------------------------------------------
-      // 🔵 CASO 1: EVENTO PAYMENT
-      // --------------------------------------------------
+      // ==================================================
+      // 🔵 PAYMENT (ÚNICO EVENTO DEFINITIVO)
+      // ==================================================
       if (topic === 'payment') {
         const payment = await mpGet(
           `https://api.mercadopago.com/v1/payments/${refId}`,
@@ -128,13 +124,11 @@ exports.processWebhookEvent = onDocumentCreated(
             updatedAt: now,
           })
         } else {
-          const estado =
-            payment.status === 'rejected' || payment.status === 'cancelled'
-              ? 'rechazado'
-              : 'pendiente_mp'
-
           await pagoRef.update({
-            estado,
+            estado:
+              payment.status === 'rejected' || payment.status === 'cancelled'
+                ? 'rechazado'
+                : 'pendiente_mp',
             mpStatus: payment.status,
             mpDetail: payment.status_detail,
             mpPaymentId: payment.id,
@@ -154,9 +148,9 @@ exports.processWebhookEvent = onDocumentCreated(
         return
       }
 
-      // --------------------------------------------------
-      // 🟣 CASO 2: EVENTO MERCHANT_ORDER
-      // --------------------------------------------------
+      // ==================================================
+      // 🟣 MERCHANT_ORDER (NO DEFINITIVO)
+      // ==================================================
       if (topic === 'merchant_order') {
         const order = await mpGet(
           `https://api.mercadopago.com/merchant_orders/${refId}`,
@@ -165,61 +159,13 @@ exports.processWebhookEvent = onDocumentCreated(
 
         const payments = Array.isArray(order.payments) ? order.payments : []
 
-        if (!payments.length) {
-          await snap.ref.set(
-            { note: 'order_sin_pagos', processed: true },
-            { merge: true }
-          )
-          return
-        }
-
-        for (const p of payments) {
-          if (!p.external_reference) continue
-
-          const pagoRef = db.collection('pagos').doc(p.external_reference)
-          const pagoSnap = await pagoRef.get()
-          if (!pagoSnap.exists) continue
-
-          const pago = pagoSnap.data()
-
-          if (cents(p.transaction_amount) !== cents(pago.total)) {
-            await pagoRef.update({
-              estado: 'monto_invalido',
-              mpStatus: p.status,
-              mpPaymentId: p.id,
-              updatedAt: now,
-            })
-            continue
-          }
-
-          if (p.status === 'approved') {
-            await pagoRef.update({
-              estado: 'aprobado',
-              mpStatus: p.status,
-              mpPaymentId: p.id,
-              approvedAt: now,
-              updatedAt: now,
-            })
-          } else {
-            const estado =
-              p.status === 'rejected' || p.status === 'cancelled'
-                ? 'rechazado'
-                : 'pendiente_mp'
-
-            await pagoRef.update({
-              estado,
-              mpStatus: p.status,
-              mpPaymentId: p.id,
-              updatedAt: now,
-            })
-          }
-        }
-
+        // Solo log / traza
         await snap.ref.set(
           {
-            processed: true,
+            processed: false,
             paymentsCount: payments.length,
             processedAt: now,
+            note: 'merchant_order_seen',
           },
           { merge: true }
         )
