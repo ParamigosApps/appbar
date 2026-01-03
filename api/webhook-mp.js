@@ -2,17 +2,14 @@
 import crypto from 'crypto'
 import { getAdmin } from './_lib/firebaseAdmin.js'
 
-export const config = {
-  runtime: 'nodejs',
-  api: { bodyParser: false },
-}
+export const config = { runtime: 'nodejs', api: { bodyParser: false } }
 
 function readRaw(req) {
-  return new Promise((resolve, reject) => {
-    let data = ''
-    req.on('data', c => (data += c))
-    req.on('end', () => resolve(data))
-    req.on('error', reject)
+  return new Promise((res, rej) => {
+    let d = ''
+    req.on('data', c => (d += c))
+    req.on('end', () => res(d))
+    req.on('error', rej)
   })
 }
 
@@ -28,12 +25,10 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(200).end()
 
   const raw = await readRaw(req)
+  res.status(200).json({ ok: true }) // responder inmediato a MP
 
-  // responder inmediato a MP
-  res.status(200).json({ ok: true })
-
-  const MP_WEBHOOK_SECRET = process.env.MP_WEBHOOK_SECRET
-  if (!verifySignature(req, raw, MP_WEBHOOK_SECRET)) return
+  const MPWEBHOOKSECRET = process.env.MPWEBHOOKSECRET
+  if (!verifySignature(req, raw, MPWEBHOOKSECRET)) return
 
   let body
   try {
@@ -42,8 +37,9 @@ export default async function handler(req, res) {
     return
   }
 
-  const topic = body.type || body.topic
-  const paymentId = body?.data?.id || req.query?.['data.id']
+  const topic = body.type || body.topic || req.query?.type || req.query?.topic
+  const action = body.action || null
+  const paymentId = body?.data?.id || req.query?.['data.id'] || req.query?.id
 
   if (topic !== 'payment' || !paymentId) return
 
@@ -53,18 +49,19 @@ export default async function handler(req, res) {
 
   const ref = db.collection('webhook_events').doc(`payment_${paymentId}`)
 
-  try {
-    await db.runTransaction(async tx => {
-      const snap = await tx.get(ref)
-      if (snap.exists) return
-      tx.set(ref, {
-        topic,
-        paymentId,
-        receivedAt: now,
-        processed: false,
-      })
+  await db.runTransaction(async tx => {
+    const snap = await tx.get(ref)
+    if (snap.exists) return
+
+    tx.set(ref, {
+      topic,
+      action,
+      paymentId,
+      x_request_id: req.headers['x-request-id'] || null,
+      x_signature: req.headers['x-signature'] || null,
+      rawbodylen: raw.length,
+      receivedAt: now,
+      processed: false,
     })
-  } catch (error) {
-    console.error('❌ Error saving webhook event:', error)
-  }
+  })
 }
