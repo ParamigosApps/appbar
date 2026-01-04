@@ -7,11 +7,9 @@ import { updateDoc } from 'firebase/firestore'
 import { calcularCuposEvento } from '../entradas/entradasEventos.js'
 import { showLoading, hideLoading } from '../../services/loadingService.js'
 
-import { descontarCuposArray } from '../entradas/entradasCupos.js'
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
+import { db } from '../../Firebase'
 
-// --------------------------------------------------------------
-// Normaliza cantidad desde abrirResumenLote()
-// --------------------------------------------------------------
 function normalizarCantidad(cantidad, max = 9999) {
   let v = Number(cantidad)
   if (!Number.isFinite(v) || v < 1) v = 1
@@ -19,10 +17,6 @@ function normalizarCantidad(cantidad, max = 9999) {
   return v
 }
 
-// ======================================================================
-// FREE — EVENTO CON LOTE
-// 1 entrada = 1 QR = 1 documento
-// ======================================================================
 export async function pedirEntradaFreeConLote({
   evento,
   loteSel,
@@ -30,23 +24,12 @@ export async function pedirEntradaFreeConLote({
   usuarioNombre,
   usuarioEmail,
   cantidadSel,
-  cargarEntradasUsuario,
-  mostrarQrAlGenerar = false,
-  noMostrarSwal = false,
 }) {
   if (!loteSel) {
-    console.error('❌ pedirEntradaFreeConLote llamado sin loteSel', {
-      evento,
-      cantidadSel,
-    })
-    return Swal.fire(
-      'Error',
-      'No se pudo asignar el lote de la entrada.',
-      'error'
-    )
+    return Swal.fire('Error', 'Lote inválido.', 'error')
   }
 
-  // 🔒 RECALCULAR CUPOS REALES (ANTI FRAUDE)
+  // 🔒 Validación UI (ANTI UX MALA, no seguridad)
   const { maxUser, lotesInfo } = await calcularCuposEvento(evento.id, usuarioId)
 
   const loteIndex = Number.isFinite(loteSel.index)
@@ -55,259 +38,131 @@ export async function pedirEntradaFreeConLote({
     ? loteSel.loteIndice
     : null
 
-  if (loteIndex === null) {
-    return Swal.fire('Error', 'Lote inválido.', 'error')
-  }
-
   const loteActual = lotesInfo.find(l => l.index === loteIndex)
 
   if (!loteActual || loteActual.restantes <= 0) {
-    return Swal.fire(
-      'Sin cupos',
-      'Este lote ya no tiene disponibilidad.',
-      'info'
-    )
+    return Swal.fire('Sin cupos', 'Este lote no tiene disponibilidad.', 'info')
   }
 
-  // 🔐 límite FINAL
   const maxPermitido = Math.min(loteActual.restantes, maxUser)
-
-  if (maxPermitido <= 0) {
-    return Swal.fire(
-      'Límite alcanzado',
-      'Ya no podés generar más entradas.',
-      'info'
-    )
-  }
-
-  const operacionId =
-    typeof window !== 'undefined' &&
-    window.crypto &&
-    typeof window.crypto.randomUUID === 'function'
-      ? window.crypto.randomUUID()
-      : `${Date.now()}-${Math.floor(Math.random() * 1e9)}`
-
   const cantidad = normalizarCantidad(cantidadSel, maxPermitido)
-  const generadas = []
 
-  for (let i = 0; i < cantidad; i++) {
-    if (i >= maxPermitido) break
-
-    // 1️⃣ Crear entrada SIN QR
-    const ref = await crearEntradaBase({
-      usuarioId,
-      usuarioNombre,
-      evento,
-      metodo: 'free',
-      precioUnitario: 0,
-      lote: {
-        id: loteSel?.id ?? null,
-        nombre: loteSel?.nombre ?? 'Entrada general',
-      },
-      loteIndice: loteIndex,
-      cantidad: 1,
-      estado: 'aprobada',
-      aprobadaPor: 'sistema',
-      operacionId,
-      qr: null, // ⬅️ después lo actualizamos
-    })
-
-    // 2️⃣ Firmar con ID real
-    const firma = firmarEntradaCorta(ref.id)
-    const qrData = `E|${ref.id}|${firma}`
-
-    // 3️⃣ Guardar QR definitivo
-    await updateDoc(ref, { qr: qrData })
-
-    generadas.push({ id: ref.id, qr: qrData })
-
-    if (mostrarQrAlGenerar) {
-      console.log('🔍 QR generado:', qrData)
-    }
+  if (cantidad <= 0) {
+    return Swal.fire('Límite alcanzado', 'No tenés cupos.', 'info')
   }
 
-  if (generadas.length > 0 && loteIndex !== null) {
-    try {
-      await descontarCuposArray({
-        eventoId: evento.id,
-        loteIndice: loteIndex,
-        cantidad: generadas.length,
-      })
-    } catch (e) {
-      console.error('❌ Error descontando cupos FREE', e)
-      // NO cancelar: las entradas ya existen
-    }
-  }
-  // 🔒 Clonar entradas con QR ANTES de otros awaits
-  const entradasParaMail = generadas.map(e => ({
-    id: e.id,
-    qr: e.qr,
-  }))
-  await cargarEntradasUsuario(usuarioId)
-  console.log(
-    '🧪 Payloads para mail:',
-    entradasParaMail.map(e => e.qr)
-  )
-  // --------------------------------------------------------------
-  // 📧 ENVIAR MAIL CON QRs (FREE CON LOTE)
-  // --------------------------------------------------------------
-  try {
-    await enviarEntradasPorMail({
-      email: usuarioEmail,
-      nombre: usuarioNombre,
-      evento,
-      entradas: entradasParaMail,
-    })
-  } catch (e) {
-    console.warn('⚠️ No se pudo enviar mail de entradas:', e)
-  }
-
-  if (noMostrarSwal) {
-    return generadas
-  }
-  const res = await Swal.fire({
-    title: cantidad === 1 ? '¡Entrada generada!' : '¡Entradas generadas!',
-    html: `
-      <p style="font-size:18px;font-weight:600;text-align:center;">
-        ${cantidad} entrada(s) para <b>${evento.nombre}</b> 🎟️
-      </p>
-    `,
-    icon: 'success',
-    showCancelButton: true,
-    confirmButtonText: 'Ir a Mis Entradas',
-    cancelButtonText: 'Seguir en eventos',
-    customClass: {
-      confirmButton: 'swal-btn-confirm',
-      cancelButton: 'swal-btn-cancel',
-    },
-    buttonsStyling: false,
-    timerProgressBar: true,
-    timer: 3500,
+  // ======================================================
+  // ⏳ LOADING
+  // ======================================================
+  showLoading({
+    title: 'Generando entradas',
+    text: 'Estamos procesando tus entradas gratuitas…',
   })
 
-  if (res.isConfirmed) {
-    document.dispatchEvent(new Event('abrir-mis-entradas'))
-  }
+  try {
+    // 👉 SOLO PEDIDO (NO crear entradas acá)
+    await addDoc(collection(db, 'entradasGratisPendientes'), {
+      eventoId: evento.id,
+      loteIndice: loteIndex,
+      cantidad,
+      usuarioId,
+      usuarioNombre,
+      usuarioEmail,
+      creadoEn: serverTimestamp(),
+      origen: 'frontend',
+    })
 
-  return generadas
+    hideLoading()
+
+    await Swal.fire({
+      icon: 'success',
+      title: 'Entradas en proceso',
+      html: `
+        <p style="font-size:16px;text-align:center;">
+          Tus <b>${cantidad}</b> entrada(s) para <b>${evento.nombre}</b>
+          se están generando.<br/>
+          Las recibirás por mail y en <b>Mis Entradas</b> en unos instantes 🎟️
+        </p>
+      `,
+      confirmButtonText: 'Ir a Mis Entradas',
+      customClass: {
+        confirmButton: 'swal-btn-confirm',
+      },
+      buttonsStyling: false,
+    })
+
+    document.dispatchEvent(new Event('abrir-mis-entradas'))
+  } catch (err) {
+    hideLoading()
+    console.error('❌ Error solicitando entradas gratis', err)
+
+    Swal.fire(
+      'Error',
+      'No se pudieron procesar las entradas. Intentá nuevamente.',
+      'error'
+    )
+  }
 }
 
-// ======================================================================
-// FREE — EVENTO SIN LOTES
-// ======================================================================
 export async function pedirEntradaFreeSinLote({
   evento,
   usuarioId,
   usuarioNombre,
   usuarioEmail,
   cantidadSel,
-  cargarEntradasUsuario,
 }) {
-  const { maxUser: maxUserReal } = await calcularCuposEvento(
-    evento.id,
-    usuarioId
-  )
+  const { maxUser } = await calcularCuposEvento(evento.id, usuarioId)
 
-  const maxPermitido = Number(maxUserReal || 0)
+  const cantidad = normalizarCantidad(cantidadSel, maxUser)
 
-  if (maxPermitido <= 0) {
+  if (cantidad <= 0) {
     return Swal.fire('Sin cupos', 'No tenés cupos disponibles.', 'info')
   }
 
-  const operacionId =
-    typeof window !== 'undefined' &&
-    window.crypto &&
-    typeof window.crypto.randomUUID === 'function'
-      ? window.crypto.randomUUID()
-      : `${Date.now()}-${Math.floor(Math.random() * 1e9)}`
-
-  const cantidad = normalizarCantidad(cantidadSel, maxPermitido)
-  const generadas = []
-
-  // ======================================================
-  // ✅ UN SOLO LOOP — 1 entrada = 1 QR = 1 documento
-  // ======================================================
-
-  for (let i = 0; i < cantidad; i++) {
-    // 1️⃣ Crear entrada SIN QR
-
-    try {
-      showLoading({
-        title: 'Generando entradas',
-        text: 'Estamos creando tus entradas gratuitas...',
-      })
-      const ref = await crearEntradaBase({
-        usuarioId,
-        usuarioNombre,
-        evento,
-        lote: null,
-        metodo: 'free',
-        precioUnitario: 0,
-        cantidad: 1,
-        estado: 'aprobada',
-        aprobadaPor: 'sistema',
-        operacionId,
-        qr: null, // ⬅️ se setea después
-      })
-      // 2️⃣ Firmar con ID real
-      const firma = firmarEntradaCorta(ref.id)
-      const qrData = `E|${ref.id}|${firma}`
-
-      // 3️⃣ Guardar QR definitivo
-      await updateDoc(ref, { qr: qrData })
-
-      generadas.push({ id: ref.id, qr: qrData })
-    } finally {
-      hideLoading()
-    }
-  }
-
-  // ======================================================
-  // 📧 MAIL — usar solo QRs ya generados
-  // ======================================================
-  const entradasParaMail = generadas.map(e => ({
-    id: e.id,
-    qr: e.qr,
-  }))
-
-  await cargarEntradasUsuario(usuarioId)
-
-  try {
-    await enviarEntradasPorMail({
-      email: usuarioEmail,
-      nombre: usuarioNombre,
-      evento,
-      entradas: entradasParaMail,
-    })
-  } catch (e) {
-    console.warn('⚠️ No se pudo enviar mail de entradas:', e)
-  }
-
-  const fin = await Swal.fire({
-    title: cantidad === 1 ? '¡Entrada generada!' : '¡Entradas generadas!',
-    html: `
-      <p style="font-size:18px;font-weight:600;text-align:center;">
-        ${cantidad} entrada(s) para <b>${evento.nombre}</b> 🎟️
-      </p>
-    `,
-    icon: 'success',
-    showCancelButton: true,
-    confirmButtonText: 'Ir a Mis Entradas',
-    cancelButtonText: 'Seguir en eventos',
-    customClass: {
-      confirmButton: 'swal-btn-confirm',
-      cancelButton: 'swal-btn-cancel',
-    },
-    buttonsStyling: false,
-    timer: 3500,
-    timerProgressBar: true,
+  showLoading({
+    title: 'Generando entradas',
+    text: 'Estamos procesando tus entradas gratuitas…',
   })
 
-  if (fin.isConfirmed) {
-    document.dispatchEvent(new Event('abrir-mis-entradas'))
-  }
+  try {
+    await addDoc(collection(db, 'entradasGratisPendientes'), {
+      eventoId: evento.id,
+      loteIndice: null,
+      cantidad,
+      usuarioId,
+      usuarioNombre,
+      usuarioEmail,
+      creadoEn: serverTimestamp(),
+      origen: 'frontend',
+    })
 
-  return generadas
+    hideLoading()
+
+    await Swal.fire({
+      icon: 'success',
+      title: 'Entradas en proceso',
+      html: `
+        <p style="font-size:16px;text-align:center;">
+          Tus <b>${cantidad}</b> entrada(s) para <b>${evento.nombre}</b>
+          se están generando.<br/>
+          Las recibirás por mail y en <b>Mis Entradas</b> en unos instantes 🎟️
+        </p>
+      `,
+      confirmButtonText: 'Ir a Mis Entradas',
+      customClass: { confirmButton: 'swal-btn-confirm' },
+      buttonsStyling: false,
+    })
+
+    document.dispatchEvent(new Event('abrir-mis-entradas'))
+  } catch (err) {
+    hideLoading()
+    console.error(err)
+    Swal.fire(
+      'Error',
+      'No se pudieron procesar las entradas. Intentá nuevamente.',
+      'error'
+    )
+  }
 }
 
 export async function entregarEntradasGratisPostPago({

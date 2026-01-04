@@ -4,6 +4,8 @@ const {
   onDocumentCreated,
   onDocumentUpdated,
 } = require('firebase-functions/v2/firestore')
+const { descontarCuposArray } = require('./utils/descontarCuposArray')
+
 const { setGlobalOptions } = require('firebase-functions/v2')
 const admin = require('firebase-admin')
 const {
@@ -231,5 +233,39 @@ exports.generarEntradasDesdePagoFirestore = onDocumentUpdated(
     }
 
     await generarEntradasPagasDesdePago(event.params.pagoId, after)
+  }
+)
+
+exports.procesarEntradasGratis = onDocumentCreated(
+  'entradasGratisPendientes/{id}',
+  async event => {
+    const snap = event.data
+    if (!snap) return
+
+    const data = snap.data()
+    const { eventoId, loteIndice, cantidad, usuarioId } = data
+
+    if (!eventoId || loteIndice == null || !cantidad || !usuarioId) {
+      await snap.ref.update({ estado: 'error', error: 'datos_invalidos' })
+      return
+    }
+
+    try {
+      // 🔻 DESCONTAR CUPOS
+      await descontarCuposArray({ eventoId, loteIndice, cantidad })
+
+      // 🎟️ crear entradas acá (si querés)
+      // o llamar a tu generador de entradas
+
+      await snap.ref.update({
+        estado: 'procesado',
+        procesadoAt: admin.firestore.FieldValue.serverTimestamp(),
+      })
+    } catch (err) {
+      await snap.ref.update({
+        estado: 'error',
+        error: err.message,
+      })
+    }
   }
 )

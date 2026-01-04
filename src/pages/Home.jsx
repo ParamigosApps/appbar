@@ -49,7 +49,7 @@ export default function Home() {
         icon: 'error',
         title: 'Pago rechazado',
         text: 'No se realizó ningún cargo.',
-        confirmButtonText: 'OK',
+        confirmButtonText: 'Entendido',
         buttonsStyling: false,
         customClass: {
           confirmButton: 'swal-btn-confirm',
