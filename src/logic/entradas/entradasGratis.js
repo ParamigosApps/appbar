@@ -7,6 +7,8 @@ import { updateDoc } from 'firebase/firestore'
 import { calcularCuposEvento } from '../entradas/entradasEventos.js'
 import { showLoading, hideLoading } from '../../services/loadingService.js'
 
+import { descontarCuposArray } from '../entradas/entradasCupos.js'
+
 // --------------------------------------------------------------
 // Normaliza cantidad desde abrirResumenLote()
 // --------------------------------------------------------------
@@ -78,7 +80,13 @@ export async function pedirEntradaFreeConLote({
     )
   }
 
-  const operacionId = crypto.randomUUID()
+  const operacionId =
+    typeof window !== 'undefined' &&
+    window.crypto &&
+    typeof window.crypto.randomUUID === 'function'
+      ? window.crypto.randomUUID()
+      : `${Date.now()}-${Math.floor(Math.random() * 1e9)}`
+
   const cantidad = normalizarCantidad(cantidadSel, maxPermitido)
   const generadas = []
 
@@ -118,6 +126,18 @@ export async function pedirEntradaFreeConLote({
     }
   }
 
+  if (generadas.length > 0 && loteIndex !== null) {
+    try {
+      await descontarCuposArray({
+        eventoId: evento.id,
+        loteIndice: loteIndex,
+        cantidad: generadas.length,
+      })
+    } catch (e) {
+      console.error('❌ Error descontando cupos FREE', e)
+      // NO cancelar: las entradas ya existen
+    }
+  }
   // 🔒 Clonar entradas con QR ANTES de otros awaits
   const entradasParaMail = generadas.map(e => ({
     id: e.id,
@@ -194,7 +214,13 @@ export async function pedirEntradaFreeSinLote({
     return Swal.fire('Sin cupos', 'No tenés cupos disponibles.', 'info')
   }
 
-  const operacionId = crypto.randomUUID()
+  const operacionId =
+    typeof window !== 'undefined' &&
+    window.crypto &&
+    typeof window.crypto.randomUUID === 'function'
+      ? window.crypto.randomUUID()
+      : `${Date.now()}-${Math.floor(Math.random() * 1e9)}`
+
   const cantidad = normalizarCantidad(cantidadSel, maxPermitido)
   const generadas = []
 

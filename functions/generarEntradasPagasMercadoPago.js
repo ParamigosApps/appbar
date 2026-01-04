@@ -1,6 +1,7 @@
 // functions/generarEntradasPagasMercadoPago.js
 const crypto = require('crypto')
 const { getAdmin } = require('./firebaseAdmin')
+const { descontarCuposArray } = require('./utils/descontarCuposArray')
 
 // --------------------------------------------------
 // 🎟️ GENERAR ENTRADAS PAGAS DESDE PAGO APROBADO
@@ -82,6 +83,7 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
 
   let batch = db.batch()
   let ops = 0
+  const cuposADescontar = []
 
   try {
     for (const item of itemsSolicitados) {
@@ -93,6 +95,15 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
         : Number.isFinite(item.index)
         ? item.index
         : null
+
+      // 🔻 ACUMULAR CUPOS A DESCONTAR (NO DESCONTAR TODAVÍA)
+      if (Number.isFinite(loteIndice)) {
+        cuposADescontar.push({
+          eventoId,
+          loteIndice,
+          cantidad,
+        })
+      }
 
       for (let i = 0; i < cantidad; i++) {
         const entradaRef = db.collection('entradas').doc()
@@ -154,6 +165,11 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
 
     if (ops > 0) {
       await batch.commit()
+    }
+
+    // 🔻 DESCONTAR CUPOS SOLO SI LAS ENTRADAS YA SE CREARON
+    for (const c of cuposADescontar) {
+      await descontarCuposArray(c)
     }
 
     await pagoRef.update({
