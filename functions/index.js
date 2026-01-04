@@ -13,6 +13,8 @@ const {
 } = require('./generarEntradasPagasMercadoPago.js')
 admin.initializeApp()
 
+const { crearEntradaBaseAdmin } = require('./utils/crearEntradaBaseAdmin')
+
 setGlobalOptions({
   region: 'us-central1',
   maxInstances: 10,
@@ -245,17 +247,52 @@ exports.procesarEntradasGratis = onDocumentCreated(
     const data = snap.data()
     const { eventoId, loteIndice, cantidad, usuarioId } = data
 
-    if (!eventoId || loteIndice == null || !cantidad || !usuarioId) {
+    const qty = Number(cantidad)
+    if (!eventoId || !Number.isFinite(qty) || qty <= 0 || !usuarioId) {
       await snap.ref.update({ estado: 'error', error: 'datos_invalidos' })
       return
     }
 
     try {
+      // 🔹 Cargar evento
+      const eventoRef = admin.firestore().collection('eventos').doc(eventoId)
+      const eventoSnap = await eventoRef.get()
+
+      if (!eventoSnap.exists) {
+        throw new Error('Evento inexistente')
+      }
+
+      const evento = {
+        id: eventoId,
+        ...eventoSnap.data(),
+      }
+
+      // 🔹 Resolver lote (si aplica)
+      let lote = null
+      if (Number.isFinite(loteIndice)) {
+        if (!Array.isArray(evento.lotes) || !evento.lotes[loteIndice]) {
+          throw new Error(`Lote índice ${loteIndice} inexistente`)
+        }
+        lote = evento.lotes[loteIndice]
+      }
+
       // 🔻 DESCONTAR CUPOS
       await descontarCuposArray({ eventoId, loteIndice, cantidad })
 
-      // 🎟️ crear entradas acá (si querés)
-      // o llamar a tu generador de entradas
+      // 🎟️ CREAR ENTRADAS
+      for (let i = 0; i < cantidad; i++) {
+        await crearEntradaBaseAdmin({
+          usuarioId,
+          usuarioNombre: data.usuarioNombre || '',
+          usuarioEmail: data.usuarioEmail || '',
+          evento,
+          lote,
+          loteIndice,
+          metodo: 'free',
+          precioUnitario: 0,
+          estado: 'aprobado',
+        })
+      }
 
       await snap.ref.update({
         estado: 'procesado',
@@ -264,7 +301,7 @@ exports.procesarEntradasGratis = onDocumentCreated(
     } catch (err) {
       await snap.ref.update({
         estado: 'error',
-        error: err.message,
+        error: err.message || 'error_desconocido',
       })
     }
   }
