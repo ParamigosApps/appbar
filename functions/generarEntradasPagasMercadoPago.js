@@ -72,6 +72,14 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
     throw new Error('Pago inválido para generar entradas')
   }
 
+  const eventoSnap = await db.collection('eventos').doc(eventoId).get()
+
+  if (!eventoSnap.exists) {
+    throw new Error('Evento inexistente')
+  }
+
+  const evento = eventoSnap.data()
+
   let batch = db.batch()
   let ops = 0
 
@@ -99,7 +107,21 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
 
         batch.set(entradaRef, {
           usuarioId,
+          usuarioNombre: pago.usuarioNombre || '',
+          usuarioEmail: pago.usuarioEmail || '',
+
           eventoId,
+          eventoNombre: evento.nombre || evento.titulo || '',
+          lugar: evento.lugar || '',
+          fechaEvento: evento.fechaInicio?.toDate
+            ? evento.fechaInicio
+            : evento.fechaInicio
+            ? admin.firestore.Timestamp.fromDate(new Date(evento.fechaInicio))
+            : null,
+
+          horaInicio: evento.horaInicio || '',
+          horaFin: evento.horaFin || '',
+
           pagoId,
 
           lote: {
