@@ -9,6 +9,8 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import Swal from 'sweetalert2'
 import { abrirLoginGlobal } from '../../utils/utils'
 
+import { enableNetwork, disableNetwork } from 'firebase/firestore'
+
 export default function EntradasEventos() {
   const { user, adminUser } = useAuth()
 
@@ -177,8 +179,11 @@ export default function EntradasEventos() {
 
                   return
                 }
-
-                pedirEntrada(evento)
+                console.log('USER:', user?.uid)
+                pedirEntrada(evento, {
+                  usuarioId,
+                  usuarioNombre,
+                })
               }}
             >
               {tieneLotes ? 'Ver entradas' : 'Pedir entrada'}

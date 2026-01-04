@@ -8,7 +8,7 @@ import { calcularCuposEvento } from '../entradas/entradasEventos.js'
 import { showLoading, hideLoading } from '../../services/loadingService.js'
 
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
-import { db } from '../../Firebase'
+import { db } from '../../Firebase.js'
 
 function normalizarCantidad(cantidad, max = 9999) {
   let v = Number(cantidad)

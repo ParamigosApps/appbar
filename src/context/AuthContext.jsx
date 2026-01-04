@@ -292,11 +292,17 @@ export function AuthProvider({ children }) {
   }
 
   useEffect(() => {
+    // 🔒 Esperar a que Auth esté listo Y definido
+    if (!authListo) return
+
+    // Auth listo puede ser user o null, pero ya estable
     cargarAuthConfig()
-  }, [])
+  }, [authListo])
 
   async function cargarAuthConfig() {
     try {
+      if (!auth.currentUser && auth.currentUser !== null) return
+
       const ref = doc(db, 'configuracion', 'auth')
       const snap = await getDoc(ref)
 

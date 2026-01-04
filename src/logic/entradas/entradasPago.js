@@ -64,14 +64,8 @@ export async function manejarMercadoPago({
   usuarioEmail,
 }) {
   const trace = traceId('MP')
-  console.log(`[${trace}] [MP][0] INVOCADO`, {
-    eventoId,
-    usuarioId,
-    hasEvento: !!evento,
-    hasLoteSel: !!loteSel,
-    detallesLen: Array.isArray(loteSel?.detalles) ? loteSel.detalles.length : 0,
-  })
 
+  console.log('CACA TRACE')
   // -----------------------------------------
   // VALIDACIÓN INPUT
   // -----------------------------------------

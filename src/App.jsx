@@ -28,7 +28,6 @@ import AdminEmpleados from './components/admin/AdminEmpleados.jsx'
 import LectorQr from './components/qr/LectorQr.jsx'
 import { ToastContainer } from 'react-toastify'
 import PagoResultado from './pages/PagoResultado.jsx'
-console.log('🟢 VITE_MP_PUBLIC_KEY:', import.meta.env.VITE_MP_PUBLIC_KEY)
 export default function App() {
   return (
     <BrowserRouter>

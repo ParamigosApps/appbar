@@ -59,11 +59,19 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: false, error: 'bad_signature' })
   }
 
-  const topic =
-    body.type || body.topic || req.query?.topic || req.query?.type || null
-
+  let topic =
+    body.type ||
+    body.topic ||
+    (typeof body.action === 'string'
+      ? body.action.split('.')[0] // "payment.updated" → "payment"
+      : null) ||
+    req.query?.topic ||
+    req.query?.type ||
+    null
+  console.log('🧠 topic normalizado:', topic)
   const refId =
     body?.data?.id ||
+    body?.data?.payment_id ||
     body?.id ||
     req.query?.id ||
     req.query?.['data.id'] ||

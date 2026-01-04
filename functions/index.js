@@ -67,7 +67,6 @@ exports.processWebhookEvent = onDocumentCreated(
       await snap.ref.set({ error: 'refId_missing' }, { merge: true })
       return
     }
-    const processed = data.processed
 
     // ⛔ Idempotencia SOLO real
     if (processed) return
@@ -124,7 +123,7 @@ exports.processWebhookEvent = onDocumentCreated(
           )
           return
         }
-
+        console.log('🧾 PAYMENT RAW:', payment)
         const pagoId = payment.external_reference
         if (!pagoId) {
           await snap.ref.set(
@@ -254,24 +253,38 @@ exports.procesarEntradasGratis = onDocumentCreated(
 
     const data = snap.data()
     const { eventoId, loteIndice, cantidad, usuarioId } = data
-    if (data.estado === 'procesado') {
-      console.log('ℹ️ Entrada gratis ya procesada')
+
+    // ⛔ Idempotencia dura
+    if (data.estado === 'procesado' || data.estado === 'procesando') {
+      console.log('ℹ️ Entrada gratis ya tomada')
       return
     }
 
     const qty = Number(cantidad)
     if (!eventoId || !Number.isFinite(qty) || qty <= 0 || !usuarioId) {
-      await snap.ref.update({ estado: 'error', error: 'datos_invalidos' })
+      await snap.ref.update({
+        estado: 'error',
+        error: 'datos_invalidos',
+      })
       return
     }
 
+    const db = admin.firestore()
+    const now = admin.firestore.FieldValue.serverTimestamp()
+
     try {
+      // 🔹 Marcar como procesando LO PRIMERO
+      await snap.ref.update({
+        estado: 'procesando',
+        procesandoAt: now,
+      })
+
       // 🔹 Cargar evento
-      const eventoRef = admin.firestore().collection('eventos').doc(eventoId)
+      const eventoRef = db.collection('eventos').doc(eventoId)
       const eventoSnap = await eventoRef.get()
 
       if (!eventoSnap.exists) {
-        throw new Error('Evento inexistente')
+        throw new Error('evento_inexistente')
       }
 
       const evento = {
@@ -283,22 +296,20 @@ exports.procesarEntradasGratis = onDocumentCreated(
       let lote = null
       if (Number.isFinite(loteIndice)) {
         if (!Array.isArray(evento.lotes) || !evento.lotes[loteIndice]) {
-          throw new Error(`Lote índice ${loteIndice} inexistente`)
+          throw new Error(`lote_${loteIndice}_inexistente`)
         }
         lote = evento.lotes[loteIndice]
-      }
-      await snap.ref.update({
-        estado: 'procesando',
-        procesandoAt: admin.firestore.FieldValue.serverTimestamp(),
-      })
 
-      // 🔻 DESCONTAR CUPOS
-      if (Number.isFinite(loteIndice)) {
-        await descontarCuposArray({ eventoId, loteIndice, cantidad })
+        // 🔻 DESCONTAR CUPOS ANTES DE CREAR
+        await descontarCuposArray({
+          eventoId,
+          loteIndice,
+          cantidad: qty,
+        })
       }
 
-      // 🎟️ CREAR ENTRADAS
-      for (let i = 0; i < cantidad; i++) {
+      // 🎟️ CREAR ENTRADAS (una por una)
+      for (let i = 0; i < qty; i++) {
         await crearEntradaBaseAdmin({
           usuarioId,
           usuarioNombre: data.usuarioNombre || '',
@@ -312,14 +323,18 @@ exports.procesarEntradasGratis = onDocumentCreated(
         })
       }
 
+      // ✅ FINAL OK
       await snap.ref.update({
         estado: 'procesado',
-        procesadoAt: admin.firestore.FieldValue.serverTimestamp(),
+        procesadoAt: now,
       })
     } catch (err) {
+      console.error('❌ procesarEntradasGratis error:', err)
+
       await snap.ref.update({
         estado: 'error',
         error: err.message || 'error_desconocido',
+        errorAt: now,
       })
     }
   }

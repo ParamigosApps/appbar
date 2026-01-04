@@ -223,7 +223,7 @@ export function EntradasProvider({ children }) {
   // --------------------------------------------------------------
   // FUNCIÓN PRINCIPAL: PEDIR ENTRADA
   // --------------------------------------------------------------
-  async function pedirEntrada(evento) {
+  async function pedirEntrada(evento, payload = {}) {
     try {
       showLoading({
         title: 'Cargando evento',
@@ -249,9 +249,14 @@ export function EntradasProvider({ children }) {
         return
       }
 
-      const usuarioId = user.uid
-      const usuarioNombre = user.displayName || 'Usuario'
-      const usuarioEmail = user.email || null
+      const usuarioId = payload.usuarioId || user?.uid
+      const usuarioNombre =
+        payload.usuarioNombre || user?.displayName || 'Usuario'
+      const usuarioEmail = user?.email || null
+
+      if (!usuarioId) {
+        throw new Error('usuarioId requerido para pedir entrada')
+      }
 
       // ==========================================================
       // 📊 CALCULAR CUPOS REALES
