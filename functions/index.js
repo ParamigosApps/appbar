@@ -57,9 +57,17 @@ exports.processWebhookEvent = onDocumentCreated(
     if (!snap) return
 
     const data = snap.data()
-    if (!data || !data.topic || !data.refId) return
 
-    const { topic, refId, processed } = data
+    const topic = data.topic || data.type
+    const refId = data.refId || data.paymentId || data.data?.id || data.id
+
+    const processed = data.processed
+
+    if (!topic || !refId) {
+      await snap.ref.set({ error: 'refId_missing' }, { merge: true })
+      return
+    }
+    const processed = data.processed
 
     // ⛔ Idempotencia SOLO real
     if (processed) return
@@ -88,7 +96,7 @@ exports.processWebhookEvent = onDocumentCreated(
       const IS_TEST = refId =>
         refId.startsWith('TEST_') || refId.startsWith('payment_test_')
 
-      if (topic === 'payment') {
+      if (topic === 'payment' || topic === 'payments') {
         let payment
 
         if (IS_TEST(refId)) {
@@ -246,6 +254,10 @@ exports.procesarEntradasGratis = onDocumentCreated(
 
     const data = snap.data()
     const { eventoId, loteIndice, cantidad, usuarioId } = data
+    if (data.estado === 'procesado') {
+      console.log('ℹ️ Entrada gratis ya procesada')
+      return
+    }
 
     const qty = Number(cantidad)
     if (!eventoId || !Number.isFinite(qty) || qty <= 0 || !usuarioId) {
@@ -275,9 +287,15 @@ exports.procesarEntradasGratis = onDocumentCreated(
         }
         lote = evento.lotes[loteIndice]
       }
+      await snap.ref.update({
+        estado: 'procesando',
+        procesandoAt: admin.firestore.FieldValue.serverTimestamp(),
+      })
 
       // 🔻 DESCONTAR CUPOS
-      await descontarCuposArray({ eventoId, loteIndice, cantidad })
+      if (Number.isFinite(loteIndice)) {
+        await descontarCuposArray({ eventoId, loteIndice, cantidad })
+      }
 
       // 🎟️ CREAR ENTRADAS
       for (let i = 0; i < cantidad; i++) {
