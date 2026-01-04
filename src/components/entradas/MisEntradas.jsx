@@ -150,11 +150,11 @@ export default function MisEntradas() {
         if (!mapRef.current[eventoKey]) {
           mapRef.current[eventoKey] = {
             eventoId: p.eventoId,
-            nombreEvento: p.eventoNombre,
-            lugar: p.lugar,
-            fechaEvento: p.fechaEvento,
-            horaInicio: p.horaInicio,
-            horaFin: p.horaFin,
+            nombreEvento: p.eventoNombre ?? '',
+            lugar: p.lugar ?? '',
+            fechaEvento: p.fechaEvento ?? null,
+            horaInicio: p.horaInicio ?? '',
+            horaFin: p.horaFin ?? '',
             lotes: {},
           }
         }
