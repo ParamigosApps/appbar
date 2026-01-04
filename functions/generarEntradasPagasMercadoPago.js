@@ -102,6 +102,7 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
           eventoId,
           loteIndice,
           cantidad,
+          usuarioId,
         })
       }
 

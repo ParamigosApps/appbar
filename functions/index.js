@@ -71,14 +71,9 @@ exports.processWebhookEvent = onDocumentCreated(
     // ⛔ Idempotencia SOLO real
     if (processed) return
 
-    const mpAccessToken =
-      process.env.MP_ACCESS_TOKEN ||
-      require('firebase-functions').config().mp?.access_token
-    const MP_COLLECTOR_ID = Number(
-      process.env.MP_COLLECTOR_ID ||
-        require('firebase-functions').config().mp?.collector_id ||
-        0
-    )
+    const mpAccessToken = process.env.MP_ACCESS_TOKEN
+    const MP_COLLECTOR_ID = Number(process.env.MP_COLLECTOR_ID || 0)
+
     console.log('🔑 MP_ACCESS_TOKEN presente?', !!mpAccessToken)
     if (!mpAccessToken) {
       await snap.ref.set({ note: 'mp_access_token_missing' }, { merge: true })
@@ -305,6 +300,7 @@ exports.procesarEntradasGratis = onDocumentCreated(
           eventoId,
           loteIndice,
           cantidad: qty,
+          usuarioId,
         })
       }
 
