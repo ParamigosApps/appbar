@@ -1,21 +1,20 @@
-import crypto from 'crypto'
-import { getAdmin } from './firebaseAdmin.js'
+// functions/generarEntradasPagasMercadoPago.js
+const crypto = require('crypto')
+const { getAdmin } = require('./firebaseAdmin')
 
 // --------------------------------------------------
-// 🔥 GENERAR ENTRADAS PAGAS DESDE PAGO APROBADO
+// 🎟️ GENERAR ENTRADAS PAGAS DESDE PAGO APROBADO
 // --------------------------------------------------
-export async function generarEntradasPagasDesdePago(pagoId, pago) {
-  // ----------------------------------------------
-  // INIT FIREBASE (SEGURO EN SERVERLESS)
-  // ----------------------------------------------
+async function generarEntradasPagasDesdePago(pagoId, pago) {
   console.log(
     '🎟️ generarEntradasPagasDesdePago INICIO',
     pagoId,
     pago?.itemsSolicitados?.length
   )
+
   const admin = getAdmin()
   const db = admin.firestore()
-  const serverTimestamp = admin.firestore.FieldValue.serverTimestamp
+  const serverTimestamp = admin.firestore.FieldValue.serverTimestamp()
 
   const pagoRef = db.collection('pagos').doc(pagoId)
 
@@ -31,19 +30,16 @@ export async function generarEntradasPagasDesdePago(pagoId, pago) {
 
     const data = snap.data()
 
-    // Ya generado → salir silenciosamente
     if (data.entradasPagasGeneradas === true) {
       return { yaGeneradas: true }
     }
 
-    // Lock activo pero viejo → permitir reintento
     if (
       data.entradasPagasGeneradas === 'procesando' &&
       data.entradasPagasLockAt?.toDate
     ) {
       const lockAge = Date.now() - data.entradasPagasLockAt.toDate().getTime()
 
-      // 2 minutos de timeout
       if (lockAge < 2 * 60 * 1000) {
         return { locked: true }
       }
@@ -51,33 +47,33 @@ export async function generarEntradasPagasDesdePago(pagoId, pago) {
 
     tx.update(pagoRef, {
       entradasPagasGeneradas: 'procesando',
-      entradasPagasLockAt: serverTimestamp(),
+      entradasPagasLockAt: serverTimestamp,
     })
 
     return { locked: false }
   })
 
-  if (lockResult?.yaGeneradas) return
-  if (lockResult?.locked) return
+  if (lockResult?.yaGeneradas || lockResult?.locked) {
+    console.log('ℹ️ Entradas ya generadas o lock activo', pagoId)
+    return
+  }
 
   // --------------------------------------------------
-  // VALIDACIÓN DE DATOS
+  // VALIDACIÓN
   // --------------------------------------------------
   const { usuarioId, eventoId, itemsSolicitados = [] } = pago
 
   if (!usuarioId || !eventoId || !Array.isArray(itemsSolicitados)) {
     await pagoRef.update({
       entradasPagasGeneradas: 'error',
-      entradasPagasError: 'Pago inválido para generar entradas',
-      entradasPagasErrorAt: serverTimestamp(),
+      entradasPagasError: 'Pago inválido',
+      entradasPagasErrorAt: serverTimestamp,
     })
     throw new Error('Pago inválido para generar entradas')
   }
 
   let batch = db.batch()
-  let operaciones = 0
-
-  console.log('📦 itemsSolicitados:', JSON.stringify(itemsSolicitados))
+  let ops = 0
 
   try {
     for (const item of itemsSolicitados) {
@@ -93,14 +89,13 @@ export async function generarEntradasPagasDesdePago(pagoId, pago) {
       for (let i = 0; i < cantidad; i++) {
         const entradaRef = db.collection('entradas').doc()
 
-        // 🔐 FIRMA QR ANTIFRAUDE
         const firma = crypto
           .createHash('sha256')
           .update(`${entradaRef.id}|${pagoId}|${eventoId}`)
           .digest('hex')
           .slice(0, 12)
 
-        const qrData = `E|${entradaRef.id}|${firma}`
+        const qr = `E|${entradaRef.id}|${firma}`
 
         batch.set(entradaRef, {
           usuarioId,
@@ -121,44 +116,41 @@ export async function generarEntradasPagasDesdePago(pagoId, pago) {
           aprobadoPor: 'mercadopago',
           usado: false,
 
-          qr: qrData,
-
-          creadoEn: serverTimestamp(),
+          qr,
+          creadoEn: serverTimestamp,
         })
 
-        operaciones++
+        ops++
 
-        // Firestore límite ~500 operaciones
-        if (operaciones >= 450) {
+        if (ops >= 450) {
           await batch.commit()
           batch = db.batch()
-          operaciones = 0
+          ops = 0
         }
       }
     }
 
-    if (operaciones > 0) {
+    if (ops > 0) {
       await batch.commit()
     }
-    console.log('Entradas antes de dar el paso final')
 
-    // --------------------------------------------------
-    // ✅ FINALIZAR
-    // --------------------------------------------------
     await pagoRef.update({
       entradasPagasGeneradas: true,
-      entradasPagasAt: serverTimestamp(),
+      entradasPagasAt: serverTimestamp,
     })
-    console.log('✅ Entradas generadas OK para pago', pagoId)
+
+    console.log('✅ Entradas generadas OK', pagoId)
   } catch (err) {
-    console.error('❌ Error generando entradas:', err)
+    console.error('❌ Error generando entradas', err)
 
     await pagoRef.update({
       entradasPagasGeneradas: 'error',
       entradasPagasError: err.message || 'Error desconocido',
-      entradasPagasErrorAt: serverTimestamp(),
+      entradasPagasErrorAt: serverTimestamp,
     })
 
     throw err
   }
 }
+
+module.exports = { generarEntradasPagasDesdePago }

@@ -1,15 +1,11 @@
 // functions/index.js
 
-/*
 const {
   onDocumentCreated,
   onDocumentUpdated,
 } = require('firebase-functions/v2/firestore')
 const { setGlobalOptions } = require('firebase-functions/v2')
 const admin = require('firebase-admin')
-const fetch = require('node-fetch')
-const { defineString } = require('firebase-functions/params')
-const MP_ACCESS_TOKEN = defineString('MP_ACCESS_TOKEN')
 const {
   generarEntradasPagasDesdePago,
 } = require('./generarEntradasPagasMercadoPago.js')
@@ -64,9 +60,14 @@ exports.processWebhookEvent = onDocumentCreated(
     // ⛔ Idempotencia SOLO real
     if (processed) return
 
-    const mpAccessToken = MP_ACCESS_TOKEN.value()
-
-    const MP_COLLECTOR_ID = Number(process.env.MP_COLLECTOR_ID || 0)
+    const mpAccessToken =
+      process.env.MP_ACCESS_TOKEN ||
+      require('firebase-functions').config().mp?.access_token
+    const MP_COLLECTOR_ID = Number(
+      process.env.MP_COLLECTOR_ID ||
+        require('firebase-functions').config().mp?.collector_id ||
+        0
+    )
     console.log('🔑 MP_ACCESS_TOKEN presente?', !!mpAccessToken)
     if (!mpAccessToken) {
       await snap.ref.set({ note: 'mp_access_token_missing' }, { merge: true })
@@ -212,31 +213,23 @@ exports.processWebhookEvent = onDocumentCreated(
   }
 )
 
-exports.onPagoAprobado = onDocumentUpdated('pagos/{pagoId}', async event => {
-  const before = event.data.before.data()
-  const after = event.data.after.data()
-
-  if (!before || !after) return
-
-  // 🔑 solo transición a aprobado
-  if (before.estado !== 'aprobado' && after.estado === 'aprobado') {
-    console.log('🎟️ Generando entradas para pago', event.params.pagoId)
+exports.generarEntradasDesdePagoFirestore = onDocumentUpdated(
+  'pagos/{pagoId}',
+  async event => {
+    const after = event.data.after.data()
+    if (!after) {
+      console.log('after no existe')
+      return
+    }
+    if (after.estado !== 'aprobado') {
+      console.log('estado no es aprobado')
+      return
+    }
+    if (after.entradasPagasGeneradas === true) {
+      console.log('entradas ya generadas')
+      return
+    }
 
     await generarEntradasPagasDesdePago(event.params.pagoId, after)
   }
-})
-*/
-
-const admin = require('firebase-admin')
-
-let app
-
-function getAdmin() {
-  if (!app) {
-    app = admin.initializeApp()
-    console.log('✅ [functions/firebaseAdmin] initializeApp OK')
-  }
-  return admin
-}
-
-module.exports = { getAdmin }
+)

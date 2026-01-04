@@ -1,5 +1,5 @@
 // /api/webhook-mp.js
-/*
+
 import crypto from 'crypto'
 import { getAdmin } from './_lib/firebaseAdmin.js'
 
@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     return res.status(200).end('ignored')
   }
 
-let raw = ''
+  let raw = ''
   try {
     raw = await readRaw(req)
   } catch (e) {
@@ -43,7 +43,7 @@ let raw = ''
 
   console.log('📦 RAW BODY:', raw)
 
-let body = {}
+  let body = {}
   try {
     body = raw ? JSON.parse(raw) : {}
   } catch (e) {
@@ -53,13 +53,13 @@ let body = {}
 
   console.log('🧩 BODY PARSEADO:', body)
 
-const MPWEBHOOKSECRET = process.env.MPWEBHOOKSECRET
+  const MPWEBHOOKSECRET = process.env.MPWEBHOOKSECRET
   if (!verifySignature(req, raw, MPWEBHOOKSECRET)) {
     console.error('❌ firma inválida')
     return res.status(200).json({ ok: false, error: 'bad_signature' })
   }
 
-const topic =
+  const topic =
     body.type || body.topic || req.query?.topic || req.query?.type || null
 
   const refId =
@@ -86,7 +86,7 @@ const topic =
 
   console.log('🧾 docId:', docId)
 
-try {
+  try {
     console.log('📡 [firebaseAdmin] getAdmin() llamado')
     const admin = getAdmin()
     const db = admin.firestore()
@@ -123,21 +123,9 @@ try {
 
     console.log('✅ webhook_events creado:', docId)
 
-return res.status(200).json({ ok: true })
+    return res.status(200).json({ ok: true })
   } catch (e) {
     console.error('❌ error escribiendo Firestore', e)
     return res.status(200).json({ ok: false, error: 'firestore_error' })
   }
-}
-*/
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(200).end('ignored')
-  }
-
-  // opcional: verificar firma
-  console.log('🔥 Webhook MP recibido', req.query)
-
-  // Mercado Pago SOLO necesita 200
-  return res.status(200).json({ ok: true })
 }
