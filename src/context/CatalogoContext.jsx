@@ -8,12 +8,6 @@ import Swal from 'sweetalert2'
 import { useCarrito } from './CarritoContext'
 import { useEvento } from './EventosContext.jsx' // 👈 SINGULAR
 
-import { getFirestore } from 'firebase/firestore'
-import { getApp } from 'firebase/app'
-const snap = await getDocs(collection(db, 'Productos'))
-console.log('Productos:', snap.size)
-console.log('🔥 Firebase app:', getApp().options.projectId)
-// 🔑 CONTEXTO SE DEFINE UNA SOLA VEZ (AFUERA)
 const CatalogoContext = createContext(null)
 
 // 🔑 HOOK DESPUÉS
