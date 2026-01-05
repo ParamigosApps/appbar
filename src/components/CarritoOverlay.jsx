@@ -29,21 +29,11 @@ export default function CarritoOverlay() {
 
   useEffect(() => {
     const handler = () => {
-      cerrarCarrito() // reset por seguridad
-      setTimeout(() => {
-        document.dispatchEvent(new Event('__open_carrito_internal'))
-      }, 0)
+      abrirCarrito()
     }
 
     document.addEventListener('abrir-carrito', handler)
     return () => document.removeEventListener('abrir-carrito', handler)
-  }, [])
-
-  useEffect(() => {
-    const handler = () => abrirCarrito()
-    document.addEventListener('__open_carrito_internal', handler)
-    return () =>
-      document.removeEventListener('__open_carrito_internal', handler)
   }, [abrirCarrito])
 
   if (!panelAbierto) return null
@@ -75,10 +65,10 @@ export default function CarritoOverlay() {
                 className="btn swal-btn-confirm"
                 onClick={() => {
                   cerrarCarrito()
-                  const btnCat = document.querySelector(
-                    '[data-accordion-target="catalogo"]'
-                  )
-                  btnCat?.click()
+
+                  setTimeout(() => {
+                    document.dispatchEvent(new Event('abrir-catalogo'))
+                  }, 0)
                 }}
               >
                 Ir al catálogo

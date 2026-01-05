@@ -106,6 +106,7 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
           loteIndice,
           cantidad,
           usuarioId,
+          compraId: pagoId, // USAR pagoId COMO ID ÚNICO PARA DESCUENTO
         })
       }
 

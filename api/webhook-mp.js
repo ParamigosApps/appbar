@@ -199,27 +199,6 @@ export default async function handler(req, res) {
       // --------------------------------------------------
       // 4️⃣ ENTRADAS PAGAS (ORQUESTACIÓN)
       // --------------------------------------------------
-      if (pago.tipo === 'entrada') {
-        console.log('🎟️ pago tipo entrada → procesar entradas')
-
-        // solo pagos aprobados
-        if (pago.estado !== 'aprobado') {
-          console.log('ℹ️ entrada no aprobada, skip', {
-            pagoId,
-            estado: pago.estado,
-          })
-        } else {
-          const { generarEntradasPagasDesdePago } = await import(
-            './generarEntradasPagasMercadoPago.js'
-          )
-
-          await generarEntradasPagasDesdePago(pagoId, pago)
-        }
-      }
-
-      // --------------------------------------------------
-      // 5️⃣ COMPRAS (MARCAR COMO PAGADA)
-      // --------------------------------------------------
       if (pago.tipo === 'compra') {
         console.log('🛒 pago tipo compra → marcar compra')
 
@@ -227,20 +206,6 @@ export default async function handler(req, res) {
           console.log('ℹ️ compra no aprobada según MP, skip', {
             pagoId,
             mpStatus: payment.status,
-          })
-        } else {
-          const mod = await import('./generarCompraPagasMercadoPago.js')
-          const marcarCompraPagadaDesdePago =
-            mod.default?.marcarCompraPagadaDesdePago
-
-          if (typeof marcarCompraPagadaDesdePago !== 'function') {
-            console.error('❌ marcarCompraPagadaDesdePago NO es función', mod)
-            return
-          }
-          await marcarCompraPagadaDesdePago({
-            pagoId,
-            compraId: pago.compraId,
-            payment,
           })
         }
       }

@@ -57,7 +57,13 @@ export function CarritoProvider({ children }) {
   const syncLocalStorage = data =>
     localStorage.setItem('carrito', JSON.stringify(data))
 
-  const abrirCarrito = () => setPanelAbierto(true)
+  const abrirCarrito = () => {
+    setPanelAbierto(true)
+
+    // 🔒 cerrar catálogo al abrir carrito
+    document.dispatchEvent(new Event('cerrar-catalogo'))
+  }
+
   const cerrarCarrito = () => setPanelAbierto(false)
 
   const calcularTotal = () =>

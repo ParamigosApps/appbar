@@ -1,6 +1,7 @@
 // src/pages/Home.jsx
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+
 import Swal from 'sweetalert2'
 
 import Navbar from '../components/Navbar.jsx'
@@ -126,8 +127,10 @@ export default function Home() {
           title: 'Pago rechazado',
           html: `
       <p style="text-align:center">
-        No se realizó ningún cargo.<br/>
-        Podés reintentar el pago desde el carrito.
+        El pedido fue generado como <b>pendiente</b> 
+      </p>
+      <p style="font-size:14px;color:#555;text-align:center">
+        Podés verlo o completarlo desde el carrito.
       </p>
     `,
           confirmButtonText: 'Volver al carrito',
@@ -148,8 +151,8 @@ export default function Home() {
           title: 'Pedido pendiente',
           html: `
       <p style="text-align:center">
-        Tu pedido fue generado como <b>pendiente</b> ⏳
-      </p>
+        Tu pedido fue generado como <b>pendiente</b>.
+    </p>
       <p style="font-size:14px;color:#555;text-align:center">
         Podés verlo o completarlo desde el carrito.
       </p>

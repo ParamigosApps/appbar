@@ -95,6 +95,23 @@ export default function MenuAcordeon() {
     return () => document.removeEventListener('abrir-login', handler)
   }, [])
 
+  useEffect(() => {
+    const handler = () => {
+      setAbierto(prev => (prev === 'catalogo' ? null : prev))
+    }
+
+    document.addEventListener('cerrar-catalogo', handler)
+    return () => document.removeEventListener('cerrar-catalogo', handler)
+  }, [])
+  useEffect(() => {
+    const handler = () => {
+      setAbierto(prev => (prev === 'catalogo' ? prev : 'catalogo'))
+    }
+
+    document.addEventListener('abrir-catalogo', handler)
+    return () => document.removeEventListener('abrir-catalogo', handler)
+  }, [])
+
   // ------------------------------------------------------------
   // NUEVO: Evento global "abrir-mis-entradas"
   // ------------------------------------------------------------

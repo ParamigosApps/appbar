@@ -305,6 +305,7 @@ exports.procesarEntradasGratis = onDocumentCreated(
           loteIndice,
           cantidad: qty,
           usuarioId,
+          compraId: snap.id,
         })
       }
 
@@ -343,24 +344,36 @@ exports.procesarEntradasGratis = onDocumentCreated(
 // ==================================================
 // 🧾 PROCESAR COMPRA APROBADA (DESDE MP)
 // ==================================================
-exports.procesarCompraDesdePagoFirestore = onDocumentUpdated(
-  'compras/{compraId}',
+
+exports.procesarPagoMPFirestore = onDocumentUpdated(
+  'pagos/{pagoId}',
   async event => {
     const after = event.data.after.data()
     if (!after) return
 
-    // Solo Mercado Pago
-    if (after.origenPago !== 'mp') return
-
-    // Solo cuando queda aprobado
+    // Solo pagos MP aprobados
     if (after.estado !== 'aprobado') return
+    if (after.tipo !== 'compra') return
+    if (!after.compraId) return
 
-    // Idempotencia dura
-    if (after.pagado === true) {
-      console.log('ℹ️ Compra ya marcada como pagada')
-      return
-    }
+    const admin = require('firebase-admin')
+    const db = admin.firestore()
 
-    await marcarCompraPagadaDesdePago(event.params.compraId, after)
+    const compraRef = db.collection('compras').doc(after.compraId)
+    const compraSnap = await compraRef.get()
+
+    if (!compraSnap.exists) return
+
+    const compra = compraSnap.data()
+
+    // Idempotencia
+    if (compra.pagado === true) return
+
+    await compraRef.update({
+      estado: 'aprobado',
+      pagado: true,
+      pagadoAt: admin.firestore.FieldValue.serverTimestamp(),
+      mpPaymentId: after.mpPaymentId || null,
+    })
   }
 )
