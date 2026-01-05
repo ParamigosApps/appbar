@@ -43,7 +43,7 @@ export default function AdminPage() {
 
     const unsub = escucharCantidadEntradasPendientes(setEntradasPendientes)
     return () => unsub && unsub()
-  }, [entradasPendientes])
+  }, []) // 👈 SOLO UNA VEZ
 
   // --------------------------------------------------------------
   // Render dinámico

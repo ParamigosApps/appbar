@@ -217,10 +217,14 @@ export default function EditarEvento({ editarId, setSeccion }) {
               return {
                 id: idx + '-' + Date.now(),
                 ...l,
+
                 cantidadInicial,
                 cantidad,
+
                 _originalCantidadInicial: cantidadInicial,
                 _originalCantidad: cantidad,
+
+                isNew: false, // 🔒 lote existente
               }
             })
           : []
@@ -306,6 +310,7 @@ export default function EditarEvento({ editarId, setSeccion }) {
         maxPorUsuario: 0,
         _originalCantidadInicial: 0,
         _originalCantidad: 0,
+        isNew: true,
       },
     ])
   }
@@ -623,6 +628,8 @@ export default function EditarEvento({ editarId, setSeccion }) {
         </button>
 
         {lotes.map(lote => {
+          const esLoteNuevo = lote.isNew === true
+
           // vendidas reales según original (modelo "cantidad"=restantes)
           const oi = Number(lote._originalCantidadInicial ?? 0)
           const oc = Number(lote._originalCantidad ?? 0)
@@ -641,6 +648,26 @@ export default function EditarEvento({ editarId, setSeccion }) {
                   Eliminar
                 </button>
               </div>
+              {/* ------------------- NOMBRE DEL LOTE ------------------- */}
+              <label className="form-label m-0 mt-2">Nombre del lote</label>
+
+              <input
+                type="text"
+                className="form-control form-control-sm"
+                placeholder="Ej: General, VIP, Anticipada"
+                value={lote.nombre || ''}
+                disabled={!esLoteNuevo}
+                onChange={e =>
+                  actualizarLote(lote.id, 'nombre', e.target.value)
+                }
+              />
+
+              {!esLoteNuevo && (
+                <small className="text-muted d-block mt-1">
+                  🔒 El nombre no puede modificarse porque el lote ya fue
+                  creado.
+                </small>
+              )}
 
               <label className="form-label m-0 mt-2">
                 Descripción del lote
@@ -667,8 +694,11 @@ export default function EditarEvento({ editarId, setSeccion }) {
               {/* EJEMPLO: si tenés inputs de horario, limitarlos por horaInicio */}
               <div className="row g-2 mb-2">
                 <div className="row g-2 mb-2">
-                  <div className="col-6">
-                    <label className="form-label m-0">Desde</label>
+                  <label className="form-label m-0 mt-2">
+                    Ingreso permitido del lote
+                  </label>
+                  <div className="col-4">
+                    <label className="form-label m-0">A partir de:</label>
                     <input
                       type="time"
                       className="form-control form-control-sm"
@@ -683,8 +713,8 @@ export default function EditarEvento({ editarId, setSeccion }) {
                     />
                   </div>
 
-                  <div className="col-6">
-                    <label className="form-label m-0">Hasta</label>
+                  <div className="col-4">
+                    <label className="form-label m-0">Hasta las:</label>
                     <input
                       type="time"
                       className="form-control form-control-sm"
@@ -698,6 +728,12 @@ export default function EditarEvento({ editarId, setSeccion }) {
                       required
                     />
                   </div>
+                  <p className="text-muted small mt-1 mb-0">
+                    <span className="text-danger">¡Atención! </span>Si el
+                    usuario intenta escanear entradas de este lote fuera de el
+                    horario establecido{' '}
+                    <strong>Son rechazadas por el sistema QR.</strong>
+                  </p>
                 </div>
               </div>
 
@@ -728,14 +764,51 @@ export default function EditarEvento({ editarId, setSeccion }) {
                 required
               />
 
-              <small className="text-muted d-block">
-                Vendidas: {vendidas} · Mínimo permitido: {minPermitido}
-              </small>
+              {!esLoteNuevo && (
+                <>
+                  <small className="text-muted d-block">
+                    Vendidas: {vendidas} · Mínimo permitido: {minPermitido}
+                  </small>
 
-              <small className="text-muted d-block">
-                Restantes calculadas:{' '}
-                {Math.max((Number(lote.cantidadInicial) || 0) - vendidas, 0)}
-              </small>
+                  <small className="text-muted d-block">
+                    Restantes calculadas:{' '}
+                    {Math.max(
+                      (Number(lote.cantidadInicial) || 0) - vendidas,
+                      0
+                    )}
+                  </small>
+                </>
+              )}
+
+              {/* ------------------- MÁX. POR USUARIO ------------------- */}
+              <label className="form-label m-0 mt-2">Máx. por usuario</label>
+
+              <input
+                type="number"
+                className="form-control form-control-sm"
+                min={0}
+                value={Number(lote?.maxPorUsuario) || 2}
+                disabled={!esLoteNuevo}
+                onChange={e =>
+                  actualizarLote(
+                    lote.id,
+                    'maxPorUsuario',
+                    Number(e.target.value) || 0
+                  )
+                }
+              />
+              {!esLoteNuevo && (
+                <small className="text-muted d-block mt-1">
+                  🔒 No se puede modificar el máximo por usuario porque el lote
+                  ya fue creado.
+                </small>
+              )}
+              {esLoteNuevo && (
+                <p className="text-muted small mt-1 mb-0">
+                  Recomendación: Máximo 2 entradas por usuario para lotes FREE y
+                  8 entradas para lotes pagos.
+                </p>
+              )}
             </div>
           )
         })}

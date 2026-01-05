@@ -1,7 +1,7 @@
 // --------------------------------------------------------------
 // src/services/entradasAdmin.js — ADMIN ENTRADAS (PENDIENTES)
 // --------------------------------------------------------------
-import { db } from '../Firebase.js'
+import { auth, db } from '../Firebase.js'
 import {
   addDoc,
   getDoc,
@@ -46,54 +46,81 @@ function fechaToMs(valor) {
 // 🔍 ESCUCHAR LISTA DE ENTRADAS PENDIENTES (ADMIN)
 // --------------------------------------------------------------
 export function escucharEntradasPendientes(setLista) {
+  if (!auth.currentUser) {
+    setLista([])
+    return () => {}
+  }
+
   const q = query(collection(db, 'entradasPendientes'))
 
-  return onSnapshot(q, snap => {
-    const arr = snap.docs.map(d => {
-      const data = d.data()
-      const cantidad = Number(data.cantidad) || 1
+  return onSnapshot(
+    q,
+    snap => {
+      const arr = snap.docs.map(d => {
+        const data = d.data()
+        const cantidad = Number(data.cantidad) || 1
 
-      // 💰 Precio canónico
-      const precioUnitario =
-        Number(data.lote?.precio) ||
-        Number(data.precioUnitario) ||
-        Number(data.precio) ||
-        0
+        const precioUnitario =
+          Number(data.lote?.precio) ||
+          Number(data.precioUnitario) ||
+          Number(data.precio) ||
+          0
 
-      return {
-        id: d.id,
-        ...data,
+        return {
+          id: d.id,
+          ...data,
+          cantidad,
+          precioUnitario,
+          precio: precioUnitario,
+          monto: precioUnitario * cantidad,
+          lote: data.lote ?? null,
+          loteNombre: data.lote?.nombre || data.loteNombre || 'Entrada general',
+          loteIndice: Number.isFinite(data.loteIndice) ? data.loteIndice : null,
+          pagado: data.pagado ?? false,
+        }
+      })
 
-        cantidad,
-        precioUnitario,
-        precio: precioUnitario, // legacy UI
-        monto: precioUnitario * cantidad,
-
-        // 🟢 Lote garantizado
-        lote: data.lote ?? null,
-        loteNombre: data.lote?.nombre || data.loteNombre || 'Entrada general',
-
-        loteIndice: Number.isFinite(data.loteIndice) ? data.loteIndice : null,
-
-        pagado: data.pagado ?? false,
+      arr.sort((a, b) => fechaToMs(b.creadoEn) - fechaToMs(a.creadoEn))
+      setLista(arr)
+    },
+    err => {
+      if (err.code === 'permission-denied') {
+        console.warn('🔒 Sin permiso para ver entradas pendientes')
+        setLista([])
+      } else {
+        console.error(err)
       }
-    })
-
-    arr.sort((a, b) => fechaToMs(b.creadoEn) - fechaToMs(a.creadoEn))
-
-    setLista(arr)
-  })
+    }
+  )
 }
 
 // --------------------------------------------------------------
 // 🔴 ESCUCHAR CANTIDAD DE ENTRADAS PENDIENTES (BADGE)
 // --------------------------------------------------------------
 export function escucharCantidadEntradasPendientes(setCantidad) {
+  // 🔒 SIN USUARIO → NO ESCUCHAR
+  if (!auth.currentUser) {
+    setCantidad(0)
+    return () => {}
+  }
+
   const q = query(collection(db, 'entradasPendientes'))
 
-  return onSnapshot(q, snap => {
-    setCantidad(snap.size)
-  })
+  return onSnapshot(
+    q,
+    snap => {
+      setCantidad(snap.size)
+    },
+    err => {
+      // 🔇 Cortar ruido infinito
+      if (err.code === 'permission-denied') {
+        console.warn('🔒 Sin permiso para entradasPendientes')
+        setCantidad(0)
+      } else {
+        console.error('❌ Snapshot error:', err)
+      }
+    }
+  )
 }
 
 // --------------------------------------------------------------

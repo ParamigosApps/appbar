@@ -6,8 +6,9 @@ async function descontarCuposArray({
   loteIndice,
   cantidad,
   usuarioId,
+  compraId, // 🔑 ID ÚNICO (pago / compra / external_reference)
 }) {
-  if (!eventoId || loteIndice == null || !cantidad || !usuarioId) {
+  if (!eventoId || loteIndice == null || !cantidad || !usuarioId || !compraId) {
     throw new Error('Parámetros inválidos para descontar cupos')
   }
 
@@ -15,21 +16,40 @@ async function descontarCuposArray({
   const db = admin.firestore()
 
   const eventoRef = db.collection('eventos').doc(eventoId)
+
   const cupoUsuarioRef = db
     .collection('eventos')
     .doc(eventoId)
     .collection('cuposUsuarios')
     .doc(`${usuarioId}_${loteIndice}`)
 
+  const descuentoProcesadoRef = db
+    .collection('eventos')
+    .doc(eventoId)
+    .collection('descuentosProcesados')
+    .doc(compraId)
+
   await db.runTransaction(async tx => {
+    // --------------------------------------------------
+    // 🔒 Idempotencia: si ya se procesó, NO descontar
+    // --------------------------------------------------
+    const procesadoSnap = await tx.get(descuentoProcesadoRef)
+    if (procesadoSnap.exists) {
+      return
+    }
+
     const eventoSnap = await tx.get(eventoRef)
-    if (!eventoSnap.exists) throw new Error('Evento inexistente')
+    if (!eventoSnap.exists) {
+      throw new Error('Evento inexistente')
+    }
 
     const evento = eventoSnap.data()
     const lotes = Array.isArray(evento.lotes) ? [...evento.lotes] : []
 
     const lote = lotes[loteIndice]
-    if (!lote) throw new Error('Lote inexistente')
+    if (!lote) {
+      throw new Error('Lote inexistente')
+    }
 
     const maxPorUsuario = Number(lote.maxPorUsuario || 0)
     const restantes = Number(lote.cantidad || 0)
@@ -45,13 +65,17 @@ async function descontarCuposArray({
       throw new Error(`Supera el máximo por usuario (${maxPorUsuario})`)
     }
 
-    // 🔻 descontar cupo global
+    // --------------------------------------------------
+    // 🔻 Descontar cupo global
+    // --------------------------------------------------
     lote.cantidad = restantes - cantidad
     lotes[loteIndice] = lote
 
     tx.update(eventoRef, { lotes })
 
-    // 🔻 registrar cupo individual
+    // --------------------------------------------------
+    // 🔻 Registrar cupo individual
+    // --------------------------------------------------
     tx.set(
       cupoUsuarioRef,
       {
@@ -62,6 +86,18 @@ async function descontarCuposArray({
       },
       { merge: true }
     )
+
+    // --------------------------------------------------
+    // 🔒 Marcar descuento como procesado
+    // --------------------------------------------------
+    tx.set(descuentoProcesadoRef, {
+      compraId,
+      eventoId,
+      loteIndice,
+      cantidad,
+      usuarioId,
+      procesadoEn: admin.firestore.FieldValue.serverTimestamp(),
+    })
   })
 }
 

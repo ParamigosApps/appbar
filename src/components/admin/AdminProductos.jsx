@@ -42,9 +42,11 @@ export default function AdminProductos() {
   const MAX_DESC = 120
 
   useEffect(() => {
+    if (!window.firebaseAuthUserReady) return
+
     const unsubscribe = escucharProductos(lista => setProductos(lista))
     return () => unsubscribe && unsubscribe()
-  }, [])
+  }, [window.firebaseAuthUserReady])
 
   useEffect(() => {
     if (!imagenFile) {

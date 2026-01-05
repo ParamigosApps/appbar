@@ -39,15 +39,16 @@ const ROLES = {
     badge: 'warning',
   },
   4: {
-    label: 'Nivel 4 – Dueño',
+    label: 'Nivel 4 – Acceso total',
     desc: 'Acceso total al sistema',
     badge: 'danger',
   },
 }
 
 export default function AdminEmpleados() {
-  const { empleado } = useAuth() // 👈 empleado logueado
-  const nivelActual = Number(empleado?.nivel || 0)
+  const { adminUser, user } = useAuth()
+
+  const nivelActual = Number(adminUser?.nivel || user?.nivel || 0)
 
   const [empleados, setEmpleados] = useState([])
 
@@ -109,6 +110,10 @@ export default function AdminEmpleados() {
     e.preventDefault()
     if (!validarCampos(true)) return
 
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      Swal.fire('Error', 'Ingresa un email inválido', 'error')
+      return
+    }
     try {
       const existe = await getDocs(
         query(collection(db, 'empleados'), where('email', '==', email))
@@ -118,14 +123,11 @@ export default function AdminEmpleados() {
         return
       }
 
-      const cred = await createUserWithEmailAndPassword(auth, email, pass)
-
       await addDoc(collection(db, 'empleados'), {
-        uid: cred.user.uid,
         nombre,
         email,
         nivel,
-        password: pass, // login manual
+        password: pass,
         creadoEn: new Date(),
       })
 

@@ -133,10 +133,14 @@ export async function calcularCuposEvento(eventoId, usuarioId) {
     return {
       ...lote,
       index,
-      restantes: disponiblesFinal, // ✅ ESTE ES EL QUE USA EL SWAL
-      restantesLote, // debug / admin
+
+      // 🔑 CLAVE: el Swal usa `cantidad`
+      cantidad: disponiblesFinal,
+
+      // extras (debug / admin)
+      restantesLote,
       maxPorUsuario: Number(lote.maxPorUsuario) || 0,
-      totalUsuarioLote, // debug opcional
+      totalUsuarioLote,
     }
   })
 

@@ -266,10 +266,18 @@ export function EntradasProvider({ children }) {
         usuarioId
       )
 
+      // 🔑 Asegurar datos por usuario en cada lote
+      const lotesInfoConUsuario = lotesInfo.map(l => ({
+        ...l,
+        usadasPorUsuario: Number(l.usadasPorUsuario || 0),
+        maxPorUsuario: Number(l.maxPorUsuario || 0),
+        cantidad: Number(l.cantidad || 0),
+      }))
+
       const eventoCompleto = {
         ...eventoData,
         ...evento,
-        id: evento.id, // 🔒 BLINDADO
+        id: evento.id,
         horaInicio: eventoData?.horaInicio || evento.horaInicio || '',
         horaFin: eventoData?.horaFin || evento.horaFin || '',
       }
@@ -304,8 +312,9 @@ export function EntradasProvider({ children }) {
 
         const seleccion = await abrirSeleccionLotesMultiPro(
           eventoParaSeleccion,
-          lotesInfo
+          lotesInfoConUsuario
         )
+
         if (!seleccion) return
 
         // ----------------------------------------------------------

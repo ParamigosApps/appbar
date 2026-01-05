@@ -264,7 +264,9 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const handler = async () => {
       if (!auth.currentUser) return
-
+      auth.currentUser.getIdTokenResult().then(token => {
+        console.log('CLAIMS:', token.claims)
+      })
       const ref = doc(db, 'usuarios', auth.currentUser.uid)
       const snap = await getDoc(ref)
 

@@ -180,6 +180,17 @@ export function CarritoProvider({ children }) {
       if (carrito.length === 0)
         return Swal.fire('Carrito vacío', 'Añadí productos primero.', 'info')
 
+      // 🔒 VALIDAR SESIÓN REAL (OBLIGATORIO PARA MP)
+      if (!user?.uid) {
+        await Swal.fire(
+          'Sesión inválida',
+          'Debes iniciar sesión nuevamente para pagar',
+          'warning'
+        )
+        abrirLoginGlobal()
+        return
+      }
+
       // 🔒 VALIDAR EVENTO ACTIVO (OBLIGATORIO)
 
       let eventoActivo = evento
@@ -414,7 +425,19 @@ export function CarritoProvider({ children }) {
         const initPoint = await crearPreferenciaCompra({
           carrito,
           pagoId: pedido.pagoId,
+          usuarioId: user.uid,
+          usuarioNombre: user.nombre || user.displayName || 'Cliente',
+          usuarioEmail: user.email || '',
         })
+
+        if (!initPoint) {
+          await Swal.fire(
+            'Error',
+            'No se pudo iniciar el pago con Mercado Pago',
+            'error'
+          )
+          return
+        }
 
         setCarrito([])
         syncLocalStorage([])

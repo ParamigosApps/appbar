@@ -333,6 +333,7 @@ export default function MisEntradas() {
                       l.ticketsPendientes.length == 0
                     const todasUsadas = aprobadas > 0 && usadas === aprobadas
                     const algunasUsadas = usadas > 0 && usadas < aprobadas
+
                     const textoUsadas =
                       usadas === 1 ? 'Entrada usada' : 'Entradas usadas'
                     const textoAlgunasDisponibles =
@@ -341,10 +342,14 @@ export default function MisEntradas() {
                         : 'Entradas disponibles'
 
                     const puedeAbrirQr = aprobadas > 0
+
+                    // 🔑 KEY ESTABLE (NO usar solo index)
+                    const loteKey =
+                      l.lote?.id || l.lote?.nombre || `${g.eventoId}_${i}`
+
                     return (
-                      <>
+                      <Fragment key={loteKey}>
                         <div
-                          key={i}
                           className={`ticket-card rounded-4 shadow-sm ${
                             puedeAbrirQr ? 'ticket-clickable' : ''
                           } ${todasUsadas ? 'ticket-usado' : ''}`}
@@ -352,7 +357,6 @@ export default function MisEntradas() {
                           tabIndex={puedeAbrirQr ? 0 : -1}
                           onClick={() => {
                             if (!puedeAbrirQr) return
-
                             abrirModalQr({
                               ...g,
                               lote: l.lote || null,
@@ -387,8 +391,8 @@ export default function MisEntradas() {
                           <div className="ticket-info text-muted">
                             Cantidad: <strong>{total}</strong>
                             {todasDisponibles &&
-                              algunasUsadas == 0 &&
-                              pendientes == 0 && (
+                              usadas === 0 &&
+                              pendientes === 0 && (
                                 <span className="ms-2 text-success fw-semibold">
                                   · Todas disponibles
                                 </span>
@@ -443,7 +447,7 @@ export default function MisEntradas() {
                           )}
                         </div>
 
-                        {/* CTA separado, más limpio */}
+                        {/* CTA separado */}
                         {puedeAbrirQr && !todasUsadas && (
                           <button
                             className="btn btn-link p-0 fw-semibold text-primary"
@@ -454,9 +458,9 @@ export default function MisEntradas() {
                                 ticketsAprobados: l.ticketsAprobados,
                               })
                             }
-                          ></button>
+                          />
                         )}
-                      </>
+                      </Fragment>
                     )
                   })}
               </div>
