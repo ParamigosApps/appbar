@@ -197,8 +197,8 @@ export function EventoProvider({ children }) {
     if (!elegido) return false
 
     const eventoFinal = {
-      id: elegido.id,
       ...elegido,
+      id: elegido.id,
 
       // normalizados
       fechaInicio: elegido.fechaInicio || null,

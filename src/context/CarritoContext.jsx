@@ -154,7 +154,14 @@ export function CarritoProvider({ children }) {
   // FINALIZAR COMPRA — versión perfecta
   // --------------------------------------------------------------
   async function finalizarCompra() {
+    let pagoId = null
     try {
+      if (window.__compraEnProceso) {
+        console.warn('⛔ finalizarCompra bloqueado (doble ejecución)')
+        return
+      }
+      window.__compraEnProceso = true
+      console.log('✅ finalizarCompra ENTER', { hasUser: !!user })
       if (!user) {
         const res = await swalRequiereLogin()
 
@@ -164,6 +171,7 @@ export function CarritoProvider({ children }) {
 
         return
       }
+      console.log('✅ checkpoint A')
       // VALIDACIONES PREVIAS
       const limite = await validarLimitePendientes(user.uid)
       if (limite) {
@@ -183,6 +191,7 @@ export function CarritoProvider({ children }) {
 
       // 🔒 VALIDAR SESIÓN REAL (OBLIGATORIO PARA MP)
       if (!user?.uid) {
+        console.log('✅ checkpoint B')
         await Swal.fire(
           'Sesión inválida',
           'Debes iniciar sesión nuevamente para pagar',
@@ -195,7 +204,7 @@ export function CarritoProvider({ children }) {
       // 🔒 VALIDAR EVENTO ACTIVO (OBLIGATORIO)
 
       let eventoActivo = evento
-
+      console.log('✅ checkpoint C')
       if (!eventoActivo?.id) {
         const elegido = await pedirSeleccionEvento()
         if (!elegido) return
@@ -208,7 +217,7 @@ export function CarritoProvider({ children }) {
         title: 'Generando pedido',
         text: 'Estamos creando tu pedido..',
       })
-
+      console.log('✅ checkpoint D')
       // 🟡 VALIDAR STOCK REAL (OBLIGATORIO)
       const erroresStock = await validarStockCarrito(carrito)
       if (erroresStock.length > 0) {
@@ -249,7 +258,7 @@ export function CarritoProvider({ children }) {
         abrirCarrito()
         return
       }
-
+      console.log('✅ checkpoint E cERrar carrito')
       // FIN DE VALIDACIONES
       cerrarCarrito()
       const total = calcularTotal()
@@ -404,8 +413,8 @@ export function CarritoProvider({ children }) {
           title: 'Redirigiendo a Mercado Pago',
           text: 'Casi terminamos...',
         })
-        // 1️⃣ Crear pedido (compra)
-        const pedido = await crearPedido({
+
+        const pedidoMp = await crearPedido({
           carrito,
           total,
           lugar: 'Tienda',
@@ -414,12 +423,11 @@ export function CarritoProvider({ children }) {
           evento: eventoActivo,
         })
 
-        if (!pedido) {
+        if (!pedidoMp) {
           await Swal.fire('Error', 'No se pudo crear el pedido.', 'error')
           return
         }
 
-        // 2️⃣ 🔑 CREAR PAGO EN FIRESTORE (CLAVE DEL BUG)
         const pagoPayload = {
           tipo: 'compra',
           estado: 'pendiente',
@@ -431,23 +439,23 @@ export function CarritoProvider({ children }) {
           total,
           origenPago: 'mp',
 
-          compraId: pedido.id,
-          numeroPedido: pedido.numeroPedido,
+          compraId: pedidoMp.id,
+          numeroPedido: pedidoMp.numeroPedido,
 
           createdAt: serverTimestamp(),
           paymentStartedAt: serverTimestamp(),
         }
 
         const pagoRef = await addDoc(collection(db, 'pagos'), pagoPayload)
-        const pagoId = pagoRef.id
-        await updateDoc(doc(db, 'compras', pedido.id), {
+        pagoId = pagoRef.id
+        console.log('🛒 Nuevo pago creado:', pagoId)
+        await updateDoc(doc(db, 'compras', pedidoMp.id), {
           pagoId,
         })
-        // 3️⃣ Persistir pagoId (para PagoResultado.jsx)
+
         localStorage.setItem('pagoIdEnProceso', pagoId)
 
-        // 4️⃣ Crear preferencia Mercado Pago
-        const resp = await crearPreferenciaCompra({
+        const url = await crearPreferenciaCompra({
           carrito,
           pagoId,
           usuarioId: user.uid,
@@ -455,12 +463,7 @@ export function CarritoProvider({ children }) {
           usuarioEmail: user.email || '',
         })
 
-        const url =
-          typeof resp === 'string'
-            ? resp
-            : resp?.init_point || resp?.url || resp?.sandbox_init_point || ''
-
-        if (!url || !url.startsWith('http')) {
+        if (!url) {
           await Swal.fire(
             'Error',
             'Mercado Pago no devolvió un link válido',
@@ -469,41 +472,17 @@ export function CarritoProvider({ children }) {
           return
         }
 
-        // 5️⃣ Limpiar carrito y redirigir
         setCarrito([])
         syncLocalStorage([])
 
         window.location.href = url
         return
       }
-
-      //       // 📧 Generar y enviar ticket con PDF adjunto
-      // try {
-      //   console.log('MAIL DEBUG →', {
-      //     pedidoId: pedido.id,
-      //     usuarioEmail: pedido.usuarioEmail,
-      //     userEmail: user?.email,
-      //   })
-      //   if (pedido.usuarioEmail) {
-      //     await fetch('/api/confirmar-pedido', {
-      //       method: 'POST',
-      //       headers: { 'Content-Type': 'application/json' },
-      //       body: JSON.stringify({
-      //         pedidoId: pedido.id,
-      //         to: pedido.usuarioEmail,
-      //         nombre: pedido.usuarioNombre,
-      //       }),
-      //     })
-      //   } else {
-      //     console.warn('⚠️ Pedido sin email, no se envía comprobante')
-      //   }
-      // } catch (err) {
-      //   console.warn('⚠️ No se pudo enviar el mail:', err)
-      // }
     } catch (err) {
       console.error('❌ Error finalizar compra:', err)
       Swal.fire('Error', err.message || 'Ocurrió un error', 'error')
     } finally {
+      window.__compraEnProceso = false
       hideLoading()
     }
   }

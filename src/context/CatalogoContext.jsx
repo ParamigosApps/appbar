@@ -8,6 +8,11 @@ import Swal from 'sweetalert2'
 import { useCarrito } from './CarritoContext'
 import { useEvento } from './EventosContext.jsx' // 👈 SINGULAR
 
+import { getFirestore } from 'firebase/firestore'
+import { getApp } from 'firebase/app'
+const snap = await getDocs(collection(db, 'Productos'))
+console.log('Productos:', snap.size)
+console.log('🔥 Firebase app:', getApp().options.projectId)
 // 🔑 CONTEXTO SE DEFINE UNA SOLA VEZ (AFUERA)
 const CatalogoContext = createContext(null)
 
@@ -44,9 +49,9 @@ export function CatalogoProvider({ children }) {
   async function cargarCatalogo() {
     try {
       const snap = await getDocs(collection(db, 'productos'))
+      console.log('📦 productos firestore:', snap.size)
       const lista = snap.docs.map(doc => new Producto(doc.id, doc.data()))
       setProductos(lista)
-      setTotalFirestore(lista.length)
     } catch (err) {
       console.error('Error cargando catálogo:', err)
     }

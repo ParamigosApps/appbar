@@ -17,7 +17,6 @@ import facebookIcon from '../../assets/img/facebook.png'
 
 import { db } from '../../Firebase.js'
 import { doc, getDoc } from 'firebase/firestore'
-import PaymentListener from '../../context/PaymentListener'
 
 import { swalConfirmWarning } from '../../utils/swalUtils.js'
 // --------------------------------------------------------------
@@ -80,11 +79,6 @@ export default function MenuAcordeon() {
     puedeEditarPerfil,
   } = useAuth()
   const contadorMisEntradas = misEntradas?.length ?? 0
-
-  const pagoId = localStorage.getItem('pagoIdEnProceso')
-  {
-    pagoId && <PaymentListener pagoId={pagoId} />
-  }
 
   // ------------------------------------------------------------
   // Evento global para abrir login

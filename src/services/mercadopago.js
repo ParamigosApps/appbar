@@ -94,6 +94,9 @@ export async function crearPreferenciaCompra({
   usuarioNombre,
   usuarioEmail,
 }) {
+  if (!pagoId) {
+    throw new Error('pagoId faltante en crearPreferenciaCompra')
+  }
   try {
     if (!usuarioId) throw new Error('Usuario no autenticado')
 

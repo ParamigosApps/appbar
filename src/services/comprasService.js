@@ -1,10 +1,5 @@
 // --------------------------------------------------------------
 // src/services/comprasService.js — MASTER DEFINITIVA (CORREGIDA)
-// - Guarda usuarioNombre/usuarioEmail correctamente
-// - Crea compra vinculada a un pagoId (para MP)
-// - Reserva stock y genera QR
-// - Deja expiraEn para liberar stock por jobs/cron si aplicás
-// --------------------------------------------------------------
 
 import Swal from 'sweetalert2'
 import { db, auth } from '../Firebase.js'
@@ -28,9 +23,6 @@ import {
 } from './generarQrService.js'
 import { showLoading, hideLoading } from './loadingService.js'
 
-// --------------------------------------------------------------
-// 📌 FECHA HUMANA
-// --------------------------------------------------------------
 export function obtenerFechaCompra() {
   const fecha = new Date().toLocaleString('es-AR', {
     dateStyle: 'short',
@@ -41,9 +33,6 @@ export function obtenerFechaCompra() {
   return `${soloFecha} - ${soloHora.trim()} HS`
 }
 
-// --------------------------------------------------------------
-// 📌 AUTOINCREMENTAL — Pedido #1001 → #1002 → #1003...
-// --------------------------------------------------------------
 async function obtenerNumeroPedido() {
   const ref = doc(db, 'configuracion', 'pedidos')
   const snap = await getDoc(ref)
@@ -180,17 +169,6 @@ export async function crearPedido({
   const numeroPedido = await obtenerNumeroPedido()
   const fechaHumana = obtenerFechaCompra()
 
-  // 🔑 pagoId: vínculo fuerte con pagos/{pagoId} (para Mercado Pago)
-  // - Para "caja" también sirve si querés unificar, pero no es obligatorio.
-  // - Para MP ES CLAVE.
-  // Nota: si "randomUUID" de node te da problemas en browser, usá crypto.randomUUID().
-  // const pagoId =
-  //   typeof window !== 'undefined' &&
-  //   window.crypto &&
-  //   typeof window.crypto.randomUUID === 'function'
-  //     ? window.crypto.randomUUID()
-  //     : `${Date.now()}-${Math.floor(Math.random() * 1e9)}`
-
   // Texto QR lógico
   const qrText = JSON.stringify({ tipo: 'compra', ticketId })
 
@@ -241,7 +219,7 @@ export async function crearPedido({
     ticketId,
 
     // VÍNCULO CON PAGO (CLAVE)
-    pagoId,
+    pagoId: '',
 
     // Evento
     eventoId,
@@ -294,12 +272,12 @@ export async function crearPedido({
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
-
+  const pagoId = pagoRef.id
   // --------------------------------------------------
   // 2️⃣ VINCULAR COMPRA ↔ PAGO (CLAVE) MODIFICADO
   // --------------------------------------------------
   await updateDoc(ref, {
-    pagoId: pagoRef.id,
+    pagoId,
     updatedAt: serverTimestamp(),
   })
   try {
@@ -325,7 +303,7 @@ export async function crearPedido({
     return {
       id: ref.id,
       ticketId,
-      pagoId, // 👈 CLAVE para Mercado Pago
+      pagoId,
       numeroPedido,
       fechaHumana,
       total,
@@ -342,7 +320,7 @@ export async function crearPedido({
     return {
       id: ref.id,
       ticketId,
-      pagoId: pagoRef.id,
+      pagoId,
       numeroPedido,
       fechaHumana,
       total,

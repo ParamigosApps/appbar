@@ -119,6 +119,7 @@ export default function CarritoOverlay() {
 
               <button
                 id="btn-pedidos"
+                type="button"
                 className="swal-btn-confirm"
                 onClick={finalizarCompra}
               >

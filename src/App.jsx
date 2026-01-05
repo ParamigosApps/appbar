@@ -27,10 +27,15 @@ import AdminEmpleados from './components/admin/AdminEmpleados.jsx'
 import LectorQr from './components/qr/LectorQr.jsx'
 import { ToastContainer } from 'react-toastify'
 import PagoResultado from './pages/PagoResultado.jsx'
+import PaymentListener from './context/PaymentListener'
+
 export default function App() {
+  const pagoIdEnProceso = localStorage.getItem('pagoIdEnProceso')
+
   return (
     <>
       <NotificacionesListener />
+      {pagoIdEnProceso && <PaymentListener pagoId={pagoIdEnProceso} />}
       {/* 🔔 TOASTIFY GLOBAL */}
       <ToastContainer
         position="top-center"
