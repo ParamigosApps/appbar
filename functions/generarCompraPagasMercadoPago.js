@@ -1,4 +1,4 @@
-// functions/generarCompraPagadaMercadoPago.js
+// functions/generarCompraPagasMercadoPago.js
 const { getAdmin } = require('./firebaseAdmin')
 
 // --------------------------------------------------
@@ -78,12 +78,20 @@ async function marcarCompraPagadaDesdePago({ pagoId, compraId, payment }) {
   // 📝 Update final
   // --------------------------------------------------
   await compraRef.update({
-    estado: nuevoEstado,
-    pagado,
+    // 🔑 estado de negocio
+    estado: pagado ? 'aprobado' : nuevoEstado,
+    pagado: pagado,
+
+    // 🔗 vínculo de pago
     pagoId,
-    pagoEstadoMp: payment.status,
-    pagoEstadoDetalleMp: payment.status_detail || null,
-    pagoAprobadoAt: pagado ? serverTimestamp : null,
+    metodo: 'mp',
+    origenPago: 'mp',
+
+    // 🕒 timestamps estándar de la app
+    updatedAt: serverTimestamp,
+    paymentApprovedAt: pagado ? serverTimestamp : null,
+
+    // 🧹 limpieza de locks
     compraPagoProcesando: false,
     compraPagoProcesadoAt: serverTimestamp,
   })

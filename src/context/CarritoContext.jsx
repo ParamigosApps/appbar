@@ -166,12 +166,13 @@ export function CarritoProvider({ children }) {
         const res = await swalRequiereLogin()
 
         if (res.isConfirmed) {
+          cerrarCarrito()
           abrirLoginGlobal()
         }
 
         return
       }
-      console.log('✅ checkpoint A')
+
       // VALIDACIONES PREVIAS
       const limite = await validarLimitePendientes(user.uid)
       if (limite) {

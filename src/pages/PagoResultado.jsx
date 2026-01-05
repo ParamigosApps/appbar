@@ -84,6 +84,8 @@ export default function PagoResultado() {
         }
 
         const pago = snap.data()
+        const tipo = pago.tipo || 'compra'
+
         const estado = normalizarEstado(pago.estado)
 
         console.log('📄 Estado Firestore:', {
@@ -95,7 +97,11 @@ export default function PagoResultado() {
 
         // ------------------ APROBADO ------------------
         if (estado === 'aprobado') {
-          localStorage.setItem('avisoPostPago', 'aprobado')
+          localStorage.setItem(
+            'avisoPostPago',
+            tipo === 'entrada' ? 'entrada_aprobada' : 'compra_aprobada'
+          )
+
           localStorage.removeItem('pagoIdEnProceso')
 
           clearInterval(intervalRef.current)
@@ -106,7 +112,11 @@ export default function PagoResultado() {
 
         // ------------------ RECHAZADO ------------------
         if (estado === 'rechazado') {
-          localStorage.setItem('avisoPostPago', 'rechazado')
+          localStorage.setItem(
+            'avisoPostPago',
+            tipo === 'entrada' ? 'entrada_rechazada' : 'compra_rechazada'
+          )
+
           localStorage.removeItem('pagoIdEnProceso')
 
           clearInterval(intervalRef.current)
@@ -119,7 +129,10 @@ export default function PagoResultado() {
         if (intentosRef.current >= MAX_INTENTOS) {
           console.warn('⏳ Timeout: pago sigue pendiente')
 
-          localStorage.setItem('avisoPostPago', 'verificando')
+          localStorage.setItem(
+            'avisoPostPago',
+            tipo === 'entrada' ? 'entrada_pendiente' : 'compra_pendiente'
+          )
 
           clearInterval(intervalRef.current)
           hideLoading()

@@ -1,7 +1,7 @@
 // --------------------------------------------------------------
 // src/components/CarritoOverlay.jsx — VERSIÓN FINAL 2025
 // --------------------------------------------------------------
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 
 import { useCarrito } from '../context/CarritoContext.jsx'
@@ -14,6 +14,7 @@ export default function CarritoOverlay() {
   const {
     carrito,
     panelAbierto,
+    abrirCarrito,
     cerrarCarrito,
     sumarProducto,
     restarProducto,
@@ -24,10 +25,28 @@ export default function CarritoOverlay() {
 
   const { pedidosPendientes, pedidosPagados } = usePedidos()
   const [verPedidos, setVerPedidos] = useState(false)
+  const totalPedidos = pedidosPendientes.length + pedidosPagados.length
+
+  useEffect(() => {
+    const handler = () => {
+      cerrarCarrito() // reset por seguridad
+      setTimeout(() => {
+        document.dispatchEvent(new Event('__open_carrito_internal'))
+      }, 0)
+    }
+
+    document.addEventListener('abrir-carrito', handler)
+    return () => document.removeEventListener('abrir-carrito', handler)
+  }, [])
+
+  useEffect(() => {
+    const handler = () => abrirCarrito()
+    document.addEventListener('__open_carrito_internal', handler)
+    return () =>
+      document.removeEventListener('__open_carrito_internal', handler)
+  }, [abrirCarrito])
 
   if (!panelAbierto) return null
-
-  const totalPedidos = pedidosPendientes.length + pedidosPagados.length
 
   return createPortal(
     <div className="carrito-overlay open">
