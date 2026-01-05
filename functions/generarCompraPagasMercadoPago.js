@@ -9,14 +9,18 @@ async function marcarCompraPagadaDesdePago({ pagoId, compraId, payment }) {
   const db = admin.firestore()
   const serverTimestamp = admin.firestore.FieldValue.serverTimestamp()
 
-  // --------------------------------------------------
-  // 🔎 Buscar compra por pagoId
-  // --------------------------------------------------
-  // 🔎 Compra directa por compraId (fuente de verdad)
+  if (!payment?.status) {
+    throw new Error('Payment inválido')
+  }
   if (!compraId) {
     console.error('❌ compraId faltante para pago', pagoId)
     return
   }
+  console.log('🛒 marcarCompraPagadaDesdePago EJECUTANDO', {
+    pagoId,
+    compraId,
+    mpStatus: payment.status,
+  })
 
   const compraRef = db.collection('compras').doc(compraId)
   const compraSnap = await compraRef.get()

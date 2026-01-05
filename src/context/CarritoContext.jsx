@@ -192,7 +192,6 @@ export function CarritoProvider({ children }) {
 
       // 🔒 VALIDAR SESIÓN REAL (OBLIGATORIO PARA MP)
       if (!user?.uid) {
-        console.log('✅ checkpoint B')
         await Swal.fire(
           'Sesión inválida',
           'Debes iniciar sesión nuevamente para pagar',
@@ -205,7 +204,7 @@ export function CarritoProvider({ children }) {
       // 🔒 VALIDAR EVENTO ACTIVO (OBLIGATORIO)
 
       let eventoActivo = evento
-      console.log('✅ checkpoint C')
+
       if (!eventoActivo?.id) {
         const elegido = await pedirSeleccionEvento()
         if (!elegido) return
@@ -218,7 +217,7 @@ export function CarritoProvider({ children }) {
         title: 'Generando pedido',
         text: 'Estamos creando tu pedido..',
       })
-      console.log('✅ checkpoint D')
+
       // 🟡 VALIDAR STOCK REAL (OBLIGATORIO)
       const erroresStock = await validarStockCarrito(carrito)
       if (erroresStock.length > 0) {
@@ -259,7 +258,7 @@ export function CarritoProvider({ children }) {
         abrirCarrito()
         return
       }
-      console.log('✅ checkpoint E cERrar carrito')
+
       // FIN DE VALIDACIONES
       cerrarCarrito()
       const total = calcularTotal()

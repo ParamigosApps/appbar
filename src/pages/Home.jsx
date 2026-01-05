@@ -115,7 +115,7 @@ export default function Home() {
         }).then(r => {
           if (r.isConfirmed) {
             navigate('/')
-            abrirPedidos()
+            abrirCarrito()
           }
         })
         break
