@@ -13,7 +13,7 @@ const {
 } = require('./generarEntradasPagasMercadoPago.js')
 const {
   marcarCompraPagadaDesdePago,
-} = require('./generarCompraPagadaMercadoPago.js')
+} = require('./generarCompraPagasMercadoPago.js')
 
 const { crearEntradaBaseAdmin } = require('./utils/crearEntradaBaseAdmin')
 

@@ -5,8 +5,6 @@ const { getAdmin } = require('./firebaseAdmin')
 // 🛒 MARCAR COMPRA COMO PAGADA DESDE MP
 // --------------------------------------------------
 async function marcarCompraPagadaDesdePago({ pagoId, compraId, payment }) {
-  console.log('🛒 marcarCompraPagadaDesdePago INICIO', pagoId)
-
   const admin = getAdmin()
   const db = admin.firestore()
   const serverTimestamp = admin.firestore.FieldValue.serverTimestamp()
