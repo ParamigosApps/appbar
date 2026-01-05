@@ -4,6 +4,8 @@ import { getDocs, collection } from 'firebase/firestore'
 import Swal from 'sweetalert2'
 import { formatearEventoLinea } from '../utils/eventoUI'
 import { swalEventosNoVigentes } from '../utils/swalUtils'
+import { useLocation } from 'react-router-dom'
+
 const EventosContext = createContext(null)
 
 // ----------------------------------------
@@ -21,9 +23,11 @@ export function EventoProvider({ children }) {
   const [evento, setEvento] = useState(null)
   const [hayEventosVigentes, setHayEventosVigentes] = useState(null)
 
+  const location = useLocation()
+
   const enPago =
-    window.location.pathname.includes('/pago') ||
-    window.location.pathname.includes('/resultado')
+    location.pathname.startsWith('/pago') ||
+    location.pathname.startsWith('/resultado')
 
   useEffect(() => {
     if (enPago) {

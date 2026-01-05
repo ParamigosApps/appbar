@@ -95,11 +95,7 @@ export async function crearPreferenciaCompra({
   usuarioEmail,
 }) {
   try {
-    if (!usuarioId) {
-      throw new Error('Usuario no autenticado')
-    }
-
-    let total = 0
+    if (!usuarioId) throw new Error('Usuario no autenticado')
 
     const itemsMP = carrito.map((p, idx) => {
       const precio = normalizarPrecio(p.precio)
@@ -114,8 +110,6 @@ export async function crearPreferenciaCompra({
         throw new Error('Item inválido para Mercado Pago')
       }
 
-      total += cantidad * precio
-
       return {
         id: p.id || `producto_${idx + 1}_${p.nombre}`,
         title: String(p.nombre),
@@ -125,14 +119,6 @@ export async function crearPreferenciaCompra({
         currency_id: 'ARS',
         category_id: 'retail',
       }
-    })
-
-    console.log('🧾 Preferencia COMPRA payload', {
-      pagoId,
-      total,
-      usuarioEmail,
-      usuarioNombre,
-      itemsMP,
     })
 
     const res = await fetch('/api/crear-preferencia', {
@@ -147,17 +133,22 @@ export async function crearPreferenciaCompra({
       }),
     })
 
-    const data = await res.json()
+    const data = await res.json().catch(() => null)
 
-    if (!res.ok || !data?.init_point) {
-      console.error('❌ Backend MP error:', data)
+    // Devuelve SIEMPRE string o null (así evitás /[object Object] para siempre)
+    const initPoint =
+      typeof data?.init_point === 'string'
+        ? data.init_point
+        : typeof data?.initPoint === 'string'
+        ? data.initPoint
+        : null
+
+    if (!res.ok || !initPoint) {
+      console.error('❌ Backend MP error:', { status: res.status, data })
       return null
     }
 
-    return {
-      init_point: data.init_point,
-      total,
-    }
+    return initPoint
   } catch (err) {
     console.error('❌ Error crearPreferenciaCompra:', err)
     return null

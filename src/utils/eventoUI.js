@@ -65,6 +65,7 @@ export function renderEventoHtml(evento) {
     <div style="
       margin-top:6px;
       padding:6px 10px;
+      width:auto;
       background:#fff7ed;
       border-left:3px solid #f59e0b;
       border-radius:4px;

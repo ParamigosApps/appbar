@@ -7,12 +7,15 @@ const { descontarCuposArray } = require('./utils/descontarCuposArray')
 // 🎟️ GENERAR ENTRADAS PAGAS DESDE PAGO APROBADO
 // --------------------------------------------------
 async function generarEntradasPagasDesdePago(pagoId, pago) {
-  console.log(
-    '🎟️ generarEntradasPagasDesdePago INICIO',
-    pagoId,
-    pago?.itemsSolicitados?.length
-  )
-
+  if (pago.tipo !== 'entrada') {
+    // MODIFICADO
+    console.log('🧯 Skip: pago NO es entrada', {
+      pagoId,
+      tipo: pago.tipo,
+      compraId: pago.compraId,
+    })
+    return
+  }
   const admin = getAdmin()
   const db = admin.firestore()
   const serverTimestamp = admin.firestore.FieldValue.serverTimestamp()

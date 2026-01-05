@@ -11,9 +11,13 @@ const admin = require('firebase-admin')
 const {
   generarEntradasPagasDesdePago,
 } = require('./generarEntradasPagasMercadoPago.js')
-admin.initializeApp()
+const {
+  marcarCompraPagadaDesdePago,
+} = require('./generarCompraPagadaMercadoPago.js')
 
 const { crearEntradaBaseAdmin } = require('./utils/crearEntradaBaseAdmin')
+
+admin.initializeApp()
 
 setGlobalOptions({
   region: 'us-central1',
@@ -333,5 +337,30 @@ exports.procesarEntradasGratis = onDocumentCreated(
         errorAt: now,
       })
     }
+  }
+)
+
+// ==================================================
+// 🧾 PROCESAR COMPRA APROBADA (DESDE MP)
+// ==================================================
+exports.procesarCompraDesdePagoFirestore = onDocumentUpdated(
+  'compras/{compraId}',
+  async event => {
+    const after = event.data.after.data()
+    if (!after) return
+
+    // Solo Mercado Pago
+    if (after.origenPago !== 'mp') return
+
+    // Solo cuando queda aprobado
+    if (after.estado !== 'aprobado') return
+
+    // Idempotencia dura
+    if (after.pagado === true) {
+      console.log('ℹ️ Compra ya marcada como pagada')
+      return
+    }
+
+    await marcarCompraPagadaDesdePago(event.params.compraId, after)
   }
 )

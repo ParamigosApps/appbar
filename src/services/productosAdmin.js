@@ -156,7 +156,7 @@ export async function eliminarProducto(id, imagenPath = null) {
 // callback recibe: [{ id, ...data }]
 // --------------------------------------------------------------
 export function escucharProductos(callback) {
-  const q = query(collection(db, 'productos'), orderBy('creadoEn', 'desc'))
+  const q = query(collection(db, 'productos'))
   return onSnapshot(q, snap => {
     const lista = snap.docs.map(d => ({ id: d.id, ...d.data() }))
     callback(lista)

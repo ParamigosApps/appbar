@@ -184,12 +184,12 @@ export async function crearPedido({
   // - Para "caja" también sirve si querés unificar, pero no es obligatorio.
   // - Para MP ES CLAVE.
   // Nota: si "randomUUID" de node te da problemas en browser, usá crypto.randomUUID().
-  const pagoId =
-    typeof window !== 'undefined' &&
-    window.crypto &&
-    typeof window.crypto.randomUUID === 'function'
-      ? window.crypto.randomUUID()
-      : `${Date.now()}-${Math.floor(Math.random() * 1e9)}`
+  // const pagoId =
+  //   typeof window !== 'undefined' &&
+  //   window.crypto &&
+  //   typeof window.crypto.randomUUID === 'function'
+  //     ? window.crypto.randomUUID()
+  //     : `${Date.now()}-${Math.floor(Math.random() * 1e9)}`
 
   // Texto QR lógico
   const qrText = JSON.stringify({ tipo: 'compra', ticketId })
@@ -276,7 +276,32 @@ export async function crearPedido({
     itemsSolicitados: [],
     gratisEntregadas: false,
   })
+  // --------------------------------------------------
+  // 1️⃣ CREAR DOC EN PAGOS (TIPO COMPRA) MODIFICADO
+  // --------------------------------------------------
+  const pagoRef = await addDoc(collection(db, 'pagos'), {
+    tipo: 'compra',
+    metodo: origenPago === 'mp' ? 'mp' : 'caja',
+    estado: 'pendiente',
 
+    compraId: ref.id,
+    usuarioId,
+    usuarioNombre,
+    usuarioEmail,
+
+    total: Number(total) || 0,
+
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+
+  // --------------------------------------------------
+  // 2️⃣ VINCULAR COMPRA ↔ PAGO (CLAVE) MODIFICADO
+  // --------------------------------------------------
+  await updateDoc(ref, {
+    pagoId: pagoRef.id,
+    updatedAt: serverTimestamp(),
+  })
   try {
     // --------------------------------------------------
     // 2) GENERAR QR VISUAL
@@ -317,7 +342,7 @@ export async function crearPedido({
     return {
       id: ref.id,
       ticketId,
-      pagoId,
+      pagoId: pagoRef.id,
       numeroPedido,
       fechaHumana,
       total,

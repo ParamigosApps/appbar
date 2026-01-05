@@ -26,27 +26,30 @@ import { CarritoProvider } from './context/CarritoContext.jsx'
 import { CatalogoProvider } from './context/CatalogoContext.jsx'
 import { QrProvider } from './context/QrContext.jsx'
 import { EntradasProvider } from './context/EntradasContext.jsx'
+import { BrowserRouter } from 'react-router-dom'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <FirebaseProvider>
-      <EventoProvider>
-        <AuthProvider>
-          <ThemeProvider>
-            <PedidosProvider>
-              <CarritoProvider>
-                <CatalogoProvider>
-                  <QrProvider>
-                    <EntradasProvider>
-                      <App />
-                    </EntradasProvider>
-                  </QrProvider>
-                </CatalogoProvider>
-              </CarritoProvider>
-            </PedidosProvider>
-          </ThemeProvider>
-        </AuthProvider>
-      </EventoProvider>
+      <BrowserRouter>
+        <EventoProvider>
+          <AuthProvider>
+            <ThemeProvider>
+              <PedidosProvider>
+                <CarritoProvider>
+                  <CatalogoProvider>
+                    <QrProvider>
+                      <EntradasProvider>
+                        <App />
+                      </EntradasProvider>
+                    </QrProvider>
+                  </CatalogoProvider>
+                </CarritoProvider>
+              </PedidosProvider>
+            </ThemeProvider>
+          </AuthProvider>
+        </EventoProvider>
+      </BrowserRouter>
     </FirebaseProvider>
   </React.StrictMode>
 )

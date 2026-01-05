@@ -3,6 +3,7 @@
 // --------------------------------------------------------------
 import { useEffect, useState } from 'react'
 import Swal from 'sweetalert2'
+import { useAuth } from '../../context/AuthContext.jsx'
 
 import {
   crearProducto,
@@ -22,6 +23,9 @@ export default function AdminProductos() {
     stock: '',
     destacado: false,
   })
+
+  const { user, loading } = useAuth()
+
   const [editStockId, setEditStockId] = useState(null)
   const [stockTemp, setStockTemp] = useState('')
 
@@ -42,11 +46,15 @@ export default function AdminProductos() {
   const MAX_DESC = 120
 
   useEffect(() => {
-    if (!window.firebaseAuthUserReady) return
+    console.log('👂 AdminProductos escuchando productos')
 
-    const unsubscribe = escucharProductos(lista => setProductos(lista))
+    const unsubscribe = escucharProductos(lista => {
+      console.log('📦 productos recibidos:', lista.length)
+      setProductos(lista)
+    })
+
     return () => unsubscribe && unsubscribe()
-  }, [window.firebaseAuthUserReady])
+  }, [])
 
   useEffect(() => {
     if (!imagenFile) {

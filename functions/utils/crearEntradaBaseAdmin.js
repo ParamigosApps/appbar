@@ -1,7 +1,5 @@
 // functions/utils/crearEntradaBaseAdmin.js
-const admin = require('firebase-admin')
-
-const db = admin.firestore()
+const { getAdmin } = require('../firebaseAdmin')
 
 /**
  * Crea una entrada normalizada en Firestore (BACKEND)
@@ -25,6 +23,11 @@ async function crearEntradaBaseAdmin({
   if (!usuarioId) throw new Error('usuarioId requerido')
   if (!evento?.id) throw new Error('evento inválido')
   if (!evento?.fechaInicio) throw new Error('evento.fechaInicio requerido')
+
+  // 🔑 ADMIN SIEMPRE DENTRO DE LA FUNCIÓN
+  const admin = getAdmin()
+  const db = admin.firestore()
+  const serverTimestamp = admin.firestore.FieldValue.serverTimestamp()
 
   const eventoSnapshot = {
     eventoId: evento.id,
@@ -67,7 +70,7 @@ async function crearEntradaBaseAdmin({
 
     qr: qr || '',
 
-    creadoEn: admin.firestore.FieldValue.serverTimestamp(),
+    creadoEn: serverTimestamp,
   }
 
   return await db.collection('entradas').add(entrada)

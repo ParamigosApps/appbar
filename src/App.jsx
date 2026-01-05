@@ -1,8 +1,7 @@
 // --------------------------------------------------------------
 // App.jsx — Rutas Admin con QR Entradas / QR Caja (VERSIÓN FINAL)
 // --------------------------------------------------------------
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-
+import { Routes, Route } from 'react-router-dom'
 // Estilos globales
 
 import Layout from './components/layout/Layout.jsx'
@@ -30,7 +29,7 @@ import { ToastContainer } from 'react-toastify'
 import PagoResultado from './pages/PagoResultado.jsx'
 export default function App() {
   return (
-    <BrowserRouter>
+    <>
       <NotificacionesListener />
       {/* 🔔 TOASTIFY GLOBAL */}
       <ToastContainer
@@ -114,6 +113,6 @@ export default function App() {
       />
       {/* 🔒 FIREBASE PHONE AUTH (OBLIGATORIO) */}
       <div id="recaptcha-container"></div>
-    </BrowserRouter>
+    </>
   )
 }

@@ -65,7 +65,6 @@ export async function manejarMercadoPago({
 }) {
   const trace = traceId('MP')
 
-  console.log('CACA TRACE')
   // -----------------------------------------
   // VALIDACIÓN INPUT
   // -----------------------------------------
@@ -90,17 +89,10 @@ export async function manejarMercadoPago({
       title: 'Redirigiendo a Mercado Pago',
       text: 'Aguarda unos instantes..',
     })
-    console.group(`[${trace}] [MP][1] INPUT SNAPSHOT`)
-    console.log('eventoId:', eventoId)
-    console.log('usuarioId:', usuarioId)
-    console.log('evento.nombre:', evento?.nombre)
-    console.log('loteSel:', loteSel)
-    console.groupEnd()
 
     // -----------------------------------------
     // ARMAR ITEMS
     // -----------------------------------------
-    console.log(`[${trace}] [MP][2] armando items...`)
 
     const items = loteSel.detalles.map((d, i) => {
       console.group(`[${trace}] [MP][2.${i}] detalle`)
@@ -166,9 +158,9 @@ export async function manejarMercadoPago({
     // -----------------------------------------
     // CREAR PAGO EN FIRESTORE
     // -----------------------------------------
-    console.log(`[${trace}] [MP][6] addDoc(/pagos) START`)
 
     const payloadPago = {
+      tipo: 'entrada', // MODIFICADO
       metodo: 'mp',
       estado: 'pendiente',
 
@@ -186,28 +178,15 @@ export async function manejarMercadoPago({
       paymentStartedAt: serverTimestamp(),
     }
 
-    console.log(`[${trace}] [MP][6.1] payloadPago`, payloadPago)
-
     const pagoRef = await addDoc(collection(db, 'pagos'), payloadPago)
 
     const pagoId = pagoRef.id
 
     safeLocalStorageSet('pagoIdEnProceso', pagoId, trace)
-    console.log(`[${trace}] [MP][7] pago creado OK`, { pagoId })
 
     // -----------------------------------------
     // CREAR PREFERENCIA MP
     // -----------------------------------------
-    console.log(`[${trace}] [MP][8] crearPreferenciaEntrada START`, {
-      eventoId,
-      pagoId,
-      itemsLen: items.length,
-    })
-    console.log(`CACA [${trace}] [MP][8.0] user data`, {
-      usuarioId,
-      usuarioNombre,
-      usuarioEmail,
-    })
 
     const resp = await crearPreferenciaEntrada({
       eventoId,
@@ -223,14 +202,10 @@ export async function manejarMercadoPago({
       imagenEventoUrl: evento.imagenEventoUrl || evento.imagen || '',
     })
 
-    console.log(`[${trace}] [MP][9] crearPreferenciaEntrada RESP`, resp)
-
     const url =
       typeof resp === 'string'
         ? resp
         : resp?.init_point || resp?.url || resp?.sandbox_init_point || ''
-
-    console.log(`[${trace}] [MP][9.1] url resuelta`, { url })
 
     if (!url || typeof url !== 'string' || !url.startsWith('http')) {
       console.group(`[${trace}] [MP][X] RESPUESTA INVÁLIDA / SIN init_point`)
@@ -454,14 +429,10 @@ export async function manejarTransferencia({
       },
     })
 
-    console.log(`[${trace}] [TR][3] Swal resultado`, res)
-
     if (!res || res.isDismissed) {
       console.log(`[${trace}] [TR][END] cancelado por usuario`)
       return
     }
-
-    console.log(`[${trace}] [TR][4] creando solicitudes pendientes...`)
 
     for (const d of lista) {
       const loteIndice = Number.isFinite(d?.lote?.index)

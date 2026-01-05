@@ -2,12 +2,13 @@
 // src/context/CarritoContext.jsx — VERSIÓN FINAL DEFINITIVA
 // Carrito funcional + Toastify + límite 3 + apertura Pendientes
 // --------------------------------------------------------------
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
+import { db } from '../Firebase.js'
+import { updateDoc, doc } from 'firebase/firestore'
 import { createContext, useContext, useState } from 'react'
 import Swal from 'sweetalert2'
 import { toastSuccess, toastInfo, toastWarning } from '../utils/toastifyUtils'
-
 import { useAuth } from './AuthContext.jsx'
-import { useFirebase } from './FirebaseContext.jsx'
 import { usePedidos } from './PedidosContext.jsx'
 import { validarStockCarrito } from '../services/stockService.js'
 import {
@@ -43,7 +44,7 @@ const format = n => n.toLocaleString('es-AR')
 // PROVIDER
 // --------------------------------------------------------------
 export function CarritoProvider({ children }) {
-  const { user } = useFirebase()
+  const { user } = useAuth()
   const { abrirPendientes } = usePedidos() || {}
 
   const { evento, seleccionarEvento, pedirSeleccionEvento } = useEvento()
@@ -399,7 +400,12 @@ export function CarritoProvider({ children }) {
 
       // 🟢 MERCADO PAGO
       if (metodoSeleccionado === 'mp') {
-        pedido = await crearPedido({
+        showLoading({
+          title: 'Redirigiendo a Mercado Pago',
+          text: 'Casi terminamos...',
+        })
+        // 1️⃣ Crear pedido (compra)
+        const pedido = await crearPedido({
           carrito,
           total,
           lugar: 'Tienda',
@@ -409,40 +415,66 @@ export function CarritoProvider({ children }) {
         })
 
         if (!pedido) {
-          await Swal.fire({
-            title: 'Límite alcanzado',
-            text: 'Ya alcanzaste el máximo de pedidos permitidos.',
-            icon: 'info',
-            customClass: {
-              popup: 'swal-popup-custom',
-              htmlContainer: 'swal-text-center',
-              confirmButton: 'swal-btn-confirm',
-            },
-            buttonsStyling: false,
-          })
+          await Swal.fire('Error', 'No se pudo crear el pedido.', 'error')
           return
         }
-        const initPoint = await crearPreferenciaCompra({
+
+        // 2️⃣ 🔑 CREAR PAGO EN FIRESTORE (CLAVE DEL BUG)
+        const pagoPayload = {
+          tipo: 'compra',
+          estado: 'pendiente',
+
+          usuarioId: user.uid,
+          usuarioNombre: user.nombre || user.displayName || '',
+          usuarioEmail: user.email || '',
+
+          total,
+          origenPago: 'mp',
+
+          compraId: pedido.id,
+          numeroPedido: pedido.numeroPedido,
+
+          createdAt: serverTimestamp(),
+          paymentStartedAt: serverTimestamp(),
+        }
+
+        const pagoRef = await addDoc(collection(db, 'pagos'), pagoPayload)
+        const pagoId = pagoRef.id
+        await updateDoc(doc(db, 'compras', pedido.id), {
+          pagoId,
+        })
+        // 3️⃣ Persistir pagoId (para PagoResultado.jsx)
+        localStorage.setItem('pagoIdEnProceso', pagoId)
+
+        // 4️⃣ Crear preferencia Mercado Pago
+        const resp = await crearPreferenciaCompra({
           carrito,
-          pagoId: pedido.pagoId,
+          pagoId,
           usuarioId: user.uid,
           usuarioNombre: user.nombre || user.displayName || 'Cliente',
           usuarioEmail: user.email || '',
         })
 
-        if (!initPoint) {
+        const url =
+          typeof resp === 'string'
+            ? resp
+            : resp?.init_point || resp?.url || resp?.sandbox_init_point || ''
+
+        if (!url || !url.startsWith('http')) {
           await Swal.fire(
             'Error',
-            'No se pudo iniciar el pago con Mercado Pago',
+            'Mercado Pago no devolvió un link válido',
             'error'
           )
           return
         }
 
+        // 5️⃣ Limpiar carrito y redirigir
         setCarrito([])
         syncLocalStorage([])
 
-        window.location.href = initPoint
+        window.location.href = url
+        return
       }
 
       //       // 📧 Generar y enviar ticket con PDF adjunto
