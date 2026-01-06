@@ -40,22 +40,29 @@ export default function EditarEvento({ editarId, setSeccion }) {
   function toInputDate(value) {
     if (!value) return ''
 
+    let d
+
     // Firestore Timestamp
     if (value?.seconds) {
-      return new Date(value.seconds * 1000).toISOString().slice(0, 10)
+      d = new Date(value.seconds * 1000)
     }
-
     // Date
-    if (value instanceof Date) {
-      return value.toISOString().slice(0, 10)
+    else if (value instanceof Date) {
+      d = value
     }
-
     // String YYYY-MM-DD
-    if (typeof value === 'string') {
+    else if (typeof value === 'string') {
       return value
+    } else {
+      return ''
     }
 
-    return ''
+    // ⛔ NO usar toISOString
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+
+    return `${year}-${month}-${day}`
   }
 
   // --------------------------------------------------------------

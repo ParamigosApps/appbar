@@ -3,19 +3,25 @@
 // --------------------------------------------------------------
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../Firebase.js'
-
+import Swal from 'sweetalert2'
 /* ============================================================
    VALIDAR HORARIO FREE (EVENTO + LOTE)
    ============================================================ */
 function validarHorarioFree(lote, evento) {
   if (!lote?.desdeHora || !lote?.hastaHora) return { ok: true }
-  if (!evento?.fechaInicio) return { ok: true }
+  if (!evento?.fechaInicio || !evento?.fechaFin) return { ok: true }
 
-  const base = evento.fechaInicio.toDate()
+  const inicioEvento = evento.fechaInicio.toDate()
+  const finEvento = evento.fechaFin.toDate()
+  const ahora = new Date()
 
-  const fechaStr = `${base.getFullYear()}-${String(
-    base.getMonth() + 1
-  ).padStart(2, '0')}-${String(base.getDate()).padStart(2, '0')}`
+  // Fecha base: si ya pasamos medianoche, usamos HOY
+  const fechaBase =
+    ahora.getDate() !== inicioEvento.getDate() ? ahora : inicioEvento
+
+  const fechaStr = `${fechaBase.getFullYear()}-${String(
+    fechaBase.getMonth() + 1
+  ).padStart(2, '0')}-${String(fechaBase.getDate()).padStart(2, '0')}`
 
   const { start, end } = intervaloEvento(
     fechaStr,
@@ -23,22 +29,27 @@ function validarHorarioFree(lote, evento) {
     lote.hastaHora
   )
 
-  const now = new Date()
-
-  if (now < start)
+  if (ahora < start) {
     return {
       ok: false,
-      motivo: `Horario FREE inicia a las <b>${lote.desdeHora}</b>`,
+      tipo: 'antes',
+      start,
+      end,
     }
+  }
 
-  if (now > end)
+  if (ahora > end) {
     return {
       ok: false,
-      motivo: `Horario FREE finalizó a las <b>${lote.hastaHora}</b>`,
+      tipo: 'despues',
+      start,
+      end,
     }
+  }
 
   return { ok: true }
 }
+
 /* ============================================================
    DECODIFICAR QR
    ============================================================ */
@@ -266,10 +277,41 @@ export async function validarTicket(payload, eventoForzado = null) {
       const val = validarHorarioFree(lote, evento)
 
       if (!val.ok) {
-        return rechazoEntrada('Free fuera de horario', val.motivo)
+        const ahora = new Date().toLocaleTimeString('es-AR', {
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+
+        const limite = lote.hastaHora
+
+        await Swal.fire({
+          icon: 'error',
+          title: 'Entrada fuera de horario',
+          html: `
+          <div style="font-size:15px;line-height:1.6;text-align:left">
+            🎟 <b>Lote:</b> ${lote.nombre}<br>
+            ⛔ <b>Límite de ingreso:</b> ${limite} hs<br>
+            🕒 <b>Hora actual:</b> ${ahora}<br><br>
+            Esta entrada <b>NO puede ser validada</b>.
+          </div>
+        `,
+          confirmButtonText: 'Rechazar entrada',
+          allowOutsideClick: false,
+          allowEscapeKey: false,
+          customClass: {
+            confirmButton: 'swal-btn-confirm',
+          },
+          buttonsStyling: false,
+        })
+
+        return rechazoEntrada(
+          'Ingreso fuera de horario',
+          `Límite ${limite} hs — Hora actual ${ahora}`
+        )
       }
     }
   }
+
   const lote = evento.lotes?.[data.loteIndice] || null
 
   const color = colorPorLote(data)

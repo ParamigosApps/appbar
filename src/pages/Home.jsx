@@ -67,7 +67,7 @@ export default function Home() {
         Swal.fire({
           icon: 'error',
           title: 'Pago rechazado',
-          text: 'No se realizó ningún cargo. Las entradas no fueron emitidas.',
+          text: 'No se realizó ningún cargo. Solo se generaron las entradas gratuitas.',
           confirmButtonText: 'Entendido',
           customClass: {
             confirmButton: 'swal-btn-confirm',
