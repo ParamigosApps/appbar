@@ -377,7 +377,7 @@ exports.procesarPagoMPFirestore = onDocumentUpdated(
     if (compra.pagado === true) return
 
     await compraRef.update({
-      estado: 'aprobado',
+      estado: 'pagado',
       pagado: true,
       pagadoAt: admin.firestore.FieldValue.serverTimestamp(),
       mpPaymentId: after.mpPaymentId || null,
