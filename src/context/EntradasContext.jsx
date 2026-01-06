@@ -38,7 +38,7 @@ import {
 
 import { showLoading, hideLoading } from '../services/loadingService'
 import { formatearSoloFecha } from '../utils/utils'
-
+import { mostrarResultadoEntradasGratis } from '../utils/swalUtils'
 // --------------------------------------------------------------
 // CONTEXTO
 // --------------------------------------------------------------
@@ -84,21 +84,25 @@ export function EntradasProvider({ children }) {
     const errAgrupadas = {}
 
     fallidas.forEach(e => {
-      const nombreLote = e.lote?.nombre || e.loteNombre || e.nombre || 'Entrada'
+      const lote =
+        e.lote?.nombre || e.loteNombre || e.nombre || 'Entrada general'
 
-      const error = e.error || 'No se pudo generar la entrada'
+      const motivoBase = e.error || 'No se pudo generar la entrada'
+      const solicitadas = Number(e.cantidad || 0)
+      const permitidas = Number.isFinite(e.maxDisponible)
+        ? Number(e.maxDisponible)
+        : null
 
-      const key = `${nombreLote}__${error}`
-
-      if (!errAgrupadas[key]) {
-        errAgrupadas[key] = {
-          nombreLote,
-          error,
-          cantidad: 0,
+      if (!errAgrupadas[lote]) {
+        errAgrupadas[lote] = {
+          lote,
+          solicitadas: 0,
+          permitidas,
+          motivoBase,
         }
       }
 
-      errAgrupadas[key].cantidad += Number(e.cantidad || 0)
+      errAgrupadas[lote].solicitadas += solicitadas
     })
 
     const errHtml = Object.values(errAgrupadas)
@@ -213,40 +217,153 @@ export function EntradasProvider({ children }) {
   // ----------------------------------------------------------
   // CARGAR ENTRADAS USUARIO
   // ----------------------------------------------------------
+  // ----------------------------------------------------------
+  // 🚨 RESULTADO FINAL ENTRADAS GRATIS (UN SOLO SWAL)
+  // ----------------------------------------------------------
   useEffect(() => {
-    if (!user || misEntradas.length === 0) return
+    if (!user?.uid) return
     if (flujoPagoActivo) return
-
-    // 🚫 No notificar en páginas de resultado de pago
-    if (window.location.pathname.includes('pago-resultado')) return
-
-    const nuevasGratis = misEntradas.filter(
-      e =>
-        e.metodo === 'free' &&
-        e._notificada !== true &&
-        !entradasPendientes.some(
-          p => p.estado === 'error' && p.usuarioId === user.uid
-        )
-    )
-
-    if (nuevasGratis.length === 0) return
+    if (window.location.pathname.includes('/pago-resultado')) return
     if (Swal.isVisible()) return
 
-    Swal.fire({
-      icon: 'success',
-      title: '🎟 Entradas listas',
-      text: 'Tus entradas gratuitas ya fueron generadas.',
-      confirmButtonText: 'Ver mis entradas',
-      buttonsStyling: false,
-      customClass: {
-        confirmButton: 'swal-btn-confirm',
-      },
-    })
-  }, [misEntradas, flujoPagoActivo])
+    // Solo entradas GRATIS no notificadas
+    const gratis = entradasPendientes.filter(
+      e => e._tipo === 'gratis' && !e.notificado
+    )
 
-  // ----------------------------------------------------------
-  // ESCUCHAR ENTRADAS GENERADAS (REALTIME)
-  // ----------------------------------------------------------
+    if (gratis.length === 0) return
+
+    // Agrupar por evento
+    const porEvento = {}
+    gratis.forEach(e => {
+      if (!porEvento[e.eventoId]) porEvento[e.eventoId] = []
+      porEvento[e.eventoId].push(e)
+    })
+
+    // Procesar evento por evento
+    for (const eventoId of Object.keys(porEvento)) {
+      const items = porEvento[eventoId]
+
+      // Esperar a que TODAS estén resueltas
+      const todasResueltas = items.every(
+        e => e.estado === 'procesado' || e.estado === 'error'
+      )
+      if (!todasResueltas) continue
+
+      const exitosas = items.filter(e => e.estado === 'procesado')
+      const fallidas = items.filter(e => e.estado === 'error')
+
+      if (exitosas.length === 0 && fallidas.length === 0) continue
+
+      const evento = eventos.find(ev => ev.id === eventoId) || null
+
+      // -----------------------------
+      // 🔐 LOCK OPTIMISTA (CLAVE)
+      // -----------------------------
+      items.forEach(e => {
+        updateDoc(doc(db, 'entradasGratisPendientes', e.id), {
+          notificado: true,
+        })
+      })
+
+      // -----------------------------
+      // 🧾 ARMAR HTML RESULTADO
+      // -----------------------------
+      const okAgrupadas = {}
+      exitosas.forEach(e => {
+        const nombre = e.lote?.nombre || e.loteNombre || e.nombre || 'Entrada'
+        okAgrupadas[nombre] =
+          (okAgrupadas[nombre] || 0) + Number(e.cantidad || 0)
+      })
+
+      const okHtml = Object.entries(okAgrupadas)
+        .map(([nombre, cant]) => `<li><b>${nombre}</b> x${cant}</li>`)
+        .join('')
+
+      const errAgrupadas = {}
+      fallidas.forEach(e => {
+        const nombre = e.lote?.nombre || e.loteNombre || e.nombre || 'Entrada'
+        const error = e.error || 'No se pudo generar la entrada'
+        const key = `${nombre}__${error}`
+
+        if (!errAgrupadas[key]) {
+          errAgrupadas[key] = {
+            nombre,
+            error,
+            cantidad: 0,
+            maxDisponible: e.maxDisponible,
+          }
+        }
+
+        errAgrupadas[key].cantidad += Number(e.cantidad || 0)
+      })
+
+      const errHtml = Object.values(errAgrupadas)
+        .map(e => {
+          const cupoInfo =
+            typeof e.maxDisponible === 'number'
+              ? `<br/><small>
+                Disponibles: ${e.maxDisponible}
+              </small>`
+              : ''
+
+          return `
+          <li>
+            <b>${e.nombre}</b> x${e.cantidad}<br/>
+            <small style="color:#b00020;">${e.error}</small>
+            ${cupoInfo}
+          </li>
+        `
+        })
+        .join('')
+
+      const html = `
+      <div style="text-align:center; margin-bottom:10px;">
+        <h2 style="margin-bottom:4px;">🎟 ${evento?.nombre || 'Evento'}</h2>
+        ${
+          evento?.fechaInicio
+            ? `<small>${formatearSoloFecha(evento.fechaInicio)}</small>`
+            : ''
+        }
+      </div>
+
+      ${
+        okHtml
+          ? `
+          <h4 style="margin-top:16px;">✅ Entradas confirmadas</h4>
+          <ul style="text-align:left;">${okHtml}</ul>
+        `
+          : ''
+      }
+
+      ${
+        errHtml
+          ? `
+          <h4 style="margin-top:16px; color:#b00020;">
+            ❌ Entradas no generadas
+          </h4>
+          <ul style="text-align:left;">${errHtml}</ul>
+        `
+          : ''
+      }
+    `
+
+      // -----------------------------
+      // 🔔 SWAL FINAL (UNO SOLO)
+      // -----------------------------
+      mostrarResultadoEntradasGratis({
+        evento,
+        exitosas,
+        fallidas,
+        onConfirm: () =>
+          document.dispatchEvent(new Event('abrir-mis-entradas')),
+      })
+
+      // ⚠️ IMPORTANTE: salir para evitar múltiples Swals simultáneos
+      break
+    }
+  }, [entradasPendientes, flujoPagoActivo, user, eventos])
+
   useEffect(() => {
     if (!user?.uid) {
       setMisEntradas([])
@@ -310,58 +427,6 @@ export function EntradasProvider({ children }) {
       unsubGratis()
     }
   }, [user])
-  // ----------------------------------------------------------
-  // 🚨 ESCUCHAR ERRORES EN ENTRADAS GRATIS
-  // ----------------------------------------------------------
-  useEffect(() => {
-    if (!user?.uid) return
-    if (flujoPagoActivo) return
-    if (window.location.pathname.includes('/pago-resultado')) return
-
-    const gratis = entradasPendientes.filter(e => e._tipo === 'gratis')
-    if (gratis.length === 0) return
-
-    const todasResueltas = gratis.every(
-      e => e.estado === 'procesado' || e.estado === 'error'
-    )
-
-    if (!todasResueltas) return
-
-    const exitosas = gratis.filter(e => e.estado === 'procesado')
-    const fallidas = gratis.filter(e => e.estado === 'error' && !e.notificado)
-
-    if (Swal.isVisible()) return
-    if (exitosas.length === 0 && fallidas.length === 0) return
-
-    const eventoId = gratis[0]?.eventoId
-    const evento = eventos.find(e => e.id === eventoId) || null
-
-    Swal.fire({
-      icon: fallidas.length > 0 ? 'warning' : 'success',
-      title: 'Resultado de tus entradas',
-      html: renderResultadoEntradas({ evento, exitosas, fallidas }),
-      showCancelButton: true,
-      confirmButtonText: 'Ir a mis entradas',
-      cancelButtonText: 'Cerrar',
-      buttonsStyling: false,
-      reverseButtons: true,
-      customClass: {
-        confirmButton: 'swal-btn-confirm',
-        cancelButton: 'swal-btn-cancel',
-      },
-    }).then(res => {
-      if (res.isConfirmed) {
-        document.dispatchEvent(new Event('abrir-mis-entradas'))
-      }
-    })
-
-    // 🔐 marcar errores como notificados
-    fallidas.forEach(f =>
-      updateDoc(doc(db, 'entradasGratisPendientes', f.id), {
-        notificado: true,
-      })
-    )
-  }, [entradasPendientes, flujoPagoActivo])
 
   async function cargarEntradasUsadas(uid) {
     try {
@@ -614,7 +679,7 @@ export function EntradasProvider({ children }) {
               icon: 'info',
               title: 'Entradas en proceso',
               html: `
-              <p>Tus entradas se están generando.</p>
+              
               <p>Esto puede demorar unos segundos.</p>
               <p><b>Las vas a ver automáticamente en “Mis Entradas”.</b></p>
             `,

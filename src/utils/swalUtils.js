@@ -1,4 +1,5 @@
 import Swal from 'sweetalert2'
+import { formatearSoloFecha } from './utils'
 
 export function swalSuccess({
   title = 'Operación exitosa',
@@ -233,5 +234,151 @@ export function swalEventosNoVigentes({ eventos = [] }) {
       confirmButton: 'swal-btn-confirm',
     },
     buttonsStyling: false,
+  })
+}
+
+export function mostrarResultadoEntradasGratis({
+  evento,
+  exitosas = [],
+  fallidas = [],
+  onConfirm,
+}) {
+  // ==========================================================
+  // ✅ AGRUPAR EXITOSAS POR LOTE
+  // ==========================================================
+  const okAgrupadas = {}
+
+  exitosas.forEach(e => {
+    const lote = e.lote?.nombre || e.loteNombre || e.nombre || 'Entrada general'
+
+    if (!okAgrupadas[lote]) {
+      okAgrupadas[lote] = {
+        lote,
+        solicitadas: 0,
+        generadas: 0,
+      }
+    }
+
+    okAgrupadas[lote].solicitadas += Number(e.cantidad || 0)
+    okAgrupadas[lote].generadas += Number(e.cantidad || 0)
+  })
+
+  const okHtml = Object.entries(okAgrupadas)
+    .map(
+      ([nombre, cant]) => `
+    <div class="swal-row ok">
+      <div class="swal-row-title">${nombre}</div>
+      <div class="swal-row-value">x${cant}</div>
+    </div>
+  `
+    )
+    .join('')
+
+  // ==========================================================
+  // ❌ AGRUPAR FALLIDAS POR LOTE + CUPO
+  // ==========================================================
+  const errAgrupadas = {}
+
+  fallidas.forEach(e => {
+    const lote = e.lote?.nombre || e.loteNombre || e.nombre || 'Entrada general'
+
+    if (!errAgrupadas[lote]) {
+      errAgrupadas[lote] = {
+        lote,
+        solicitadas: 0,
+        maxPorUsuario: e.maxPorUsuario ?? null,
+        usadas: Number(e.usadasPorUsuario || 0),
+        pendientes: Number(e.pendientesPorUsuario || 0),
+        motivo: e.error || 'No se pudo generar la entrada',
+      }
+    }
+
+    errAgrupadas[lote].solicitadas += Number(e.cantidad || 0)
+  })
+  const errHtml = Object.values(errAgrupadas)
+    .map(e => {
+      let detalle = ''
+
+      if (Number.isFinite(e.maxPorUsuario)) {
+        const disponibles = e.maxPorUsuario - e.usadas - e.pendientes
+
+        if (disponibles > 0) {
+          detalle = `
+          Tenés ${e.usadas} ·
+          Solicitaste ${e.solicitadas} ·
+          Podés solicitar hasta ${disponibles}
+        `
+        } else {
+          detalle = `
+          Ya alcanzaste el máximo permitido (${e.maxPorUsuario})
+        `
+        }
+      }
+
+      return `
+      <div class="swal-row error">
+        <div class="swal-row-title">${e.lote}</div>
+        <div class="swal-row-sub">
+          ${e.motivo}
+          ${detalle ? `<div class="swal-row-hint">${detalle}</div>` : ''}
+        </div>
+      </div>
+    `
+    })
+    .join('')
+
+  // ==========================================================
+  // 🎨 HTML FINAL
+  // ==========================================================
+  const html = `
+    <div class="swal-event-header">
+  <h2>🎟 ${evento?.nombre || 'Evento'}</h2>
+  ${
+    evento?.fechaInicio
+      ? `<small>${formatearSoloFecha(evento.fechaInicio)}</small>`
+      : ''
+  }
+</div>
+
+${
+  okHtml
+    ? `<div class="swal-block">
+      <h4 class="swal-block-title success">Entradas confirmadas</h4>
+      ${okHtml}
+    </div>`
+    : ''
+}
+
+${
+  errHtml
+    ? `<div class="swal-block">
+      <h4 class="swal-block-title error">Entradas no generadas</h4>
+      ${errHtml}
+    </div>`
+    : ''
+}
+
+  `
+
+  // ==========================================================
+  // 🔔 SWAL FINAL
+  // ==========================================================
+  return Swal.fire({
+    icon: fallidas.length > 0 ? 'warning' : 'success',
+    title: 'Resultado de tu solicitud',
+    html,
+    showCancelButton: true,
+    confirmButtonText: 'Ir a mis entradas',
+    cancelButtonText: 'Cerrar',
+    buttonsStyling: false,
+    reverseButtons: true,
+    customClass: {
+      confirmButton: 'swal-btn-confirm',
+      cancelButton: 'swal-btn-cancel',
+    },
+  }).then(res => {
+    if (res.isConfirmed && typeof onConfirm === 'function') {
+      onConfirm()
+    }
   })
 }

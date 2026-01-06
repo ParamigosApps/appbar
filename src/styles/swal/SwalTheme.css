@@ -1104,3 +1104,48 @@
   border-radius: 6px;
   margin-left: 6px;
 }
+.swal-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background: #1f1f1f;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+.swal-row.ok {
+  border-left: 4px solid #2ecc71;
+}
+
+.swal-row.error {
+  border-left: 4px solid #e74c3c;
+}
+
+.swal-row-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.swal-row-value {
+  font-weight: 700;
+}
+
+.swal-row-sub {
+  font-size: 13px;
+  color: #ccc;
+}
+
+.swal-row-hint {
+  font-size: 12px;
+  margin-top: 4px;
+  color: #ffb74d;
+}
+
+.swal-block-title.success {
+  color: #2ecc71;
+}
+
+.swal-block-title.error {
+  color: #e74c3c;
+}
