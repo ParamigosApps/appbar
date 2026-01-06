@@ -150,13 +150,16 @@ export default function MisEntradas() {
         if (!mapRef.current[eventoKey]) {
           mapRef.current[eventoKey] = {
             eventoId: p.eventoId,
-            nombreEvento: p.eventoNombre ?? '',
+            nombreEvento: p.nombre || 'Evento',
             lugar: p.lugar ?? '',
             fechaEvento: p.fechaEvento ?? null,
             horaInicio: p.horaInicio ?? '',
             horaFin: p.horaFin ?? '',
             lotes: {},
           }
+        } else {
+          // 🔒 NO tocar nombreEvento si ya existe
+          mapRef.current[eventoKey].nombreEvento ||= p.eventoNombre
         }
 
         // Si el lote no existe
@@ -291,13 +294,13 @@ export default function MisEntradas() {
             const tieneEntradasAprobadas = Object.values(g.lotes).some(
               l => l.ticketsAprobados.length > 0
             )
-
+            console.log(g.nombreEvento)
             return (
               <div key={idx} className="card p-3 shadow-sm rounded-4">
                 <h5 className="fw-bold m-0">{g.nombreEvento}</h5>
 
                 <p className="mb-0 mt-1">
-                  📅 Fecha:{' '}
+                  📅 Fecha :{' '}
                   <strong> {formatearSoloFecha(g.fechaEvento)} </strong>— 🕑
                   Hora:
                   <strong>

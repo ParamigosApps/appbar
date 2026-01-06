@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { db } from '../Firebase'
-import { toast } from 'react-toastify'
 
 export default function PaymentListener({ pagoId }) {
   useEffect(() => {
@@ -15,12 +14,10 @@ export default function PaymentListener({ pagoId }) {
       const pago = snap.data()
 
       if (pago.estado === 'aprobado') {
-        toast.success('✅ Pago aprobado. Tus entradas ya están disponibles')
         localStorage.removeItem('pagoIdEnProceso')
       }
 
       if (pago.estado === 'rechazado') {
-        toast.error('❌ El pago fue rechazado')
         localStorage.removeItem('pagoIdEnProceso')
       }
     })

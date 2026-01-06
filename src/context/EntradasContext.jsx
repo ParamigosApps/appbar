@@ -503,7 +503,7 @@ export function EntradasProvider({ children }) {
       </button>
 
       <button id="transfer" class="method-btn method-transfer">
-        TRANSFERENCIA
+        Transferencia
       </button>
     </div>
   `,

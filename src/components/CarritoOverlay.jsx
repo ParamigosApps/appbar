@@ -9,7 +9,7 @@ import { usePedidos } from '../context/PedidosContext.jsx'
 
 import './CarritoOverlay.css'
 import PedidosSection from './pedidos/PedidosSection.jsx'
-
+import { useEvento } from '../context/EventosContext.jsx'
 export default function CarritoOverlay() {
   const {
     carrito,
@@ -26,6 +26,7 @@ export default function CarritoOverlay() {
   const { pedidosPendientes, pedidosPagados } = usePedidos()
   const [verPedidos, setVerPedidos] = useState(false)
   const totalPedidos = pedidosPendientes.length + pedidosPagados.length
+  const { evento, pedirSeleccionEvento } = useEvento()
 
   useEffect(() => {
     const handler = () => {
@@ -35,6 +36,13 @@ export default function CarritoOverlay() {
     document.addEventListener('abrir-carrito', handler)
     return () => document.removeEventListener('abrir-carrito', handler)
   }, [abrirCarrito])
+  useEffect(() => {
+    if (evento) {
+      setTimeout(() => {
+        document.dispatchEvent(new Event('abrir-catalogo'))
+      }, 0)
+    }
+  }, [evento])
 
   if (!panelAbierto) return null
 
@@ -66,9 +74,13 @@ export default function CarritoOverlay() {
                 onClick={() => {
                   cerrarCarrito()
 
-                  setTimeout(() => {
-                    document.dispatchEvent(new Event('abrir-catalogo'))
-                  }, 0)
+                  if (evento)
+                    setTimeout(() => {
+                      document.dispatchEvent(new Event('abrir-catalogo'))
+                    }, 0)
+                  else {
+                    pedirSeleccionEvento()
+                  }
                 }}
               >
                 Ir al catálogo

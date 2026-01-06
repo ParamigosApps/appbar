@@ -442,7 +442,7 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
             <button id="transfer" type="button" class="method-btn method-transfer" ${
               disponiblesAhora <= 0 ? 'disabled' : ''
             }>
-              TRANSFERENCIA
+              Transferencia
             </button>
           </div>`
         }

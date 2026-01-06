@@ -35,8 +35,12 @@ export function CatalogoProvider({ children }) {
   const [catalogoVisible, setCatalogoVisible] = useState(false)
 
   const { agregarProducto, abrirCarrito } = useCarrito()
-  const { evento, seleccionarEvento, validarEventoVigente } = useEvento()
-  const { pedirSeleccionEvento } = useEvento()
+  const {
+    evento,
+    seleccionarEvento,
+    validarEventoVigente,
+    pedirSeleccionEvento,
+  } = useEvento()
   // ======================================================
   // CARGAR CATÁLOGO DESDE FIREBASE SIN MOSTRAR
   // ======================================================

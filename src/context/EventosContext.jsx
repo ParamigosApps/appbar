@@ -208,6 +208,7 @@ export function EventoProvider({ children }) {
     }
 
     seleccionarEvento(eventoFinal)
+
     return eventoFinal
   }
 

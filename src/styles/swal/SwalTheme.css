@@ -916,12 +916,28 @@
 }
 
 .lote-select-cant {
-  padding: 6px 14px;
+  width: 48px;
+  max-height: 48px;
+  min-width: 48px;
+  max-width: 48px;
+
+  display: inline-block !important; /* 🔑 CLAVE */
+  flex: 0 0 48px; /* 🔑 CLAVE */
+
+  box-sizing: border-box;
+  overflow: hidden; /* 🔑 evita recalculo */
+  white-space: nowrap;
+
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
   font-size: 0.85rem;
+  padding: 6px 14px;
   border-radius: 8px;
   border: 1px solid #d1d5db;
-  font-weight: 600;
-  background: #ffffff;
+  align-items: center;
+  justify-content: center;
 }
 
 .lote-info-left {
