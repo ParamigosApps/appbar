@@ -213,9 +213,10 @@ function PedidoCard({ pedido, onEliminar, onExpirar }) {
                   ? '#fac834'
                   : '#ddd',
               padding: '3px 8px',
-              borderRadius: 6,
+              color: pedido.estado === 'retirado' ? '#555' : '#fff',
+              borderRadius: 10,
               fontSize: 12,
-              fontWeight: 600,
+              fontWeight: 700,
             }}
           >
             {pedido.estado.toUpperCase()}

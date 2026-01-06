@@ -98,6 +98,7 @@ export function CatalogoProvider({ children }) {
   `,
 
       showCancelButton: true,
+      reverseButtons: true,
       confirmButtonText: 'Agregar al carrito',
       cancelButtonText: 'Cancelar',
 
@@ -152,6 +153,7 @@ export function CatalogoProvider({ children }) {
       html: `<p style="margin-top:4px;font-size:18px;font-weight:600;text-align:center;">${producto.nombre} x${producto.enCarrito} agregado.</p>`,
       icon: 'success',
       showCancelButton: true,
+      reverseButtons: true,
       confirmButtonText: 'Ir al carrito',
       cancelButtonText: 'Seguir comprando',
 

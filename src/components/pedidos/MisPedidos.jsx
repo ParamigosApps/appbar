@@ -24,7 +24,6 @@ export default function MisPedidos() {
   const [pagados, setPagados] = useState([])
   const [retirados, setRetirados] = useState([])
 
-  const expirados = pedidos.filter(p => p.estado === 'expirado')
   const [, setTick] = useState(0)
 
   // ==========================================
@@ -36,7 +35,7 @@ export default function MisPedidos() {
     const pedidos = await traerPedidos(user.uid)
     const pendientesDb = await traerPedidosPendientes(user.uid)
 
-    setPagados(pedidos.filter(p => p.estado === 'pagado'))
+    setPagados(pedidos.filter(p => p.estado === 'pagado' && p.pagado === true))
     setRetirados(pedidos.filter(p => p.estado === 'retirado'))
     setPendientes(pendientesDb.filter(p => p.estado === 'pendiente'))
   }

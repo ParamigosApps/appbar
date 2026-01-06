@@ -304,6 +304,8 @@ export function CarritoProvider({ children }) {
         </div>
       </div>
 
+<div class="metodos-pago-box">
+  <p class="metodos-title">¿Cómo querés pagar?</p>
       <div class="metodos-wrapper mt-3 mb-5">
         <!-- MERCADO PAGO -->
         <button
@@ -327,7 +329,7 @@ export function CarritoProvider({ children }) {
           Pago en caja
         </button>
       </div>
-
+      </div>
     </div>
   `,
 

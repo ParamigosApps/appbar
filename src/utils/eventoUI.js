@@ -62,19 +62,41 @@ export function renderEventoHtml(evento) {
       ${evento.nombre.toUpperCase()}
     </div>
 
-    <div style="
-      margin-top:6px;
-      padding:6px 10px;
-      width:auto;
-      background:#fff7ed;
-      border-left:3px solid #f59e0b;
-      border-radius:4px;
-      font-size:12px;
-      color:#92400e;
-      text-align:center;
-    ">
-      ⚠️ Verificá que sea el evento correcto antes de continuar.
-    </div>
+<div id="swal-content-resumencompra" style="
+  margin: 8px 12px;
+  padding: 8px 10px;
+  background: #fff7ed;
+  border-left: 4px solid #f59e0b;
+  border-radius: 6px;
+  color: #92400e;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  justify-content: center;
+">
+  <span style="
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #f59e0b;
+    color: #fff;
+    font-weight: 600;
+    font-size: 11px;
+    flex-shrink: 0;
+  ">
+    !
+  </span>
+
+  <span style="white-space: nowrap;">
+    Verificá que el evento seleccionado sea el correcto antes de continuar.
+  </span>
+</div>
+
+
   `
 }
 function calcularArrancaEn(fecha) {

@@ -375,8 +375,8 @@
 select {
   color: #2d2d2d !important; /* texto apagado */
   border-color: #b5b5b5 !important;
-  font-size: 1.1rem !important;
-  font-weight: 700 !important;
+  font-size: 0.95rem !important;
+  font-weight: 650 !important;
 }
 
 select:disabled {

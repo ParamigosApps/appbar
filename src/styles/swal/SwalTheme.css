@@ -122,13 +122,6 @@
   margin-bottom: 12px;
 }
 
-/* Más columnas en pantallas grandes */
-@media (min-width: 600px) {
-  .lotes-wrapper {
-    grid-template-columns: 1fr 1fr;
-  }
-}
-
 /* ---- Card ---- */
 .lote-card {
   display: block !important;
@@ -369,6 +362,11 @@
   text-align: left;
 }
 
+#transfer {
+  font-size: 1.25rem !important;
+  font-weight: 600;
+  padding-bottom: 2px;
+}
 /* Monto */
 .transfer-monto {
   font-size: 1.05rem;
@@ -476,13 +474,14 @@
 .info-limites-box {
   background: #f7f8fc;
   border: 1px solid #dfe3f0;
-  padding: 12px 14px;
+  padding: 10px 6px;
   border-radius: 12px;
   margin-bottom: 16px;
-  font-size: 0.9rem;
-  max-width: 350px;
+  font-size: 0.85rem;
+  max-width: 420px;
   max-height: 130;
   margin: 0 auto;
+  text-align: left;
 }
 
 .limite-row {
@@ -490,6 +489,11 @@
   justify-content: space-between;
   padding: 4px 0;
   border-bottom: 1px solid #e7e7e7;
+}
+.limite-row span.value {
+  white-space: nowrap;
+  min-width: 65px;
+  text-align: right;
 }
 
 .limite-row:last-child {
@@ -867,7 +871,6 @@
 }
 
 .swal-event-title {
-  font-size: 1.35rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -1041,4 +1044,34 @@
   font-size: 11px;
   padding: 3px 8px;
   border-radius: 999px;
+}
+
+#swal-content-resumencompra {
+  font-size: clamp(0.5rem, 1.85vw, 0.82rem);
+}
+
+.metodos-pago-box {
+  margin-top: 16px;
+  padding: 6px 0px;
+  max-height: 120px;
+  padding-bottom: 2px;
+  border-radius: 12px;
+  background: #f8f9fa;
+}
+
+.metodos-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  text-align: center;
+  color: #333;
+
+  /* tipografía adaptable */
+  font-size: 1.1rem;
+}
+
+/* Más columnas en pantallas grandes */
+@media (min-width: 600px) {
+  .lotes-wrapper {
+    grid-template-columns: 1fr 1fr;
+  }
 }
