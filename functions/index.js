@@ -253,6 +253,11 @@ exports.procesarEntradasGratis = onDocumentCreated(
     const data = snap.data()
     const { eventoId, loteIndice, cantidad, usuarioId } = data
 
+    if (data.estado === 'error') {
+      console.log('ℹ️ Entrada gratis en estado error, no reprocesar')
+      return
+    }
+
     // ⛔ Idempotencia dura
     if (data.estado === 'procesado' || data.estado === 'procesando') {
       console.log('ℹ️ Entrada gratis ya tomada')
@@ -263,6 +268,7 @@ exports.procesarEntradasGratis = onDocumentCreated(
     if (!eventoId || !Number.isFinite(qty) || qty <= 0 || !usuarioId) {
       await snap.ref.update({
         estado: 'error',
+        notificado: false,
         error: 'datos_invalidos',
       })
       return
@@ -339,9 +345,30 @@ exports.procesarEntradasGratis = onDocumentCreated(
     } catch (err) {
       console.error('❌ procesarEntradasGratis error:', err)
 
+      let errorCode = 'ERROR_GENERICO'
+      let errorMsg = err.message || 'Error desconocido'
+
+      // 🎯 Clasificación estable para frontend
+      if (
+        errorMsg.includes('sin_cupos') ||
+        errorMsg.includes('cupos') ||
+        errorMsg.includes('límite') ||
+        errorMsg.includes('maximo')
+      ) {
+        errorCode = 'SIN_CUPOS'
+        errorMsg = 'No hay cupos disponibles para este lote'
+      }
+
       await snap.ref.update({
         estado: 'error',
-        error: err.message || 'error_desconocido',
+        notificado: false,
+
+        // 👤 humano
+        error: errorMsg,
+
+        // 🔑 estable para UI
+        errorCode,
+
         errorAt: now,
       })
     }

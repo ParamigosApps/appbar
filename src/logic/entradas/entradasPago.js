@@ -493,6 +493,7 @@ export async function manejarTransferencia({
         cancelButton: 'swal-btn-cancel',
       },
       buttonsStyling: false,
+      reverseButtons: true,
       timerProgressBar: true,
     })
 

@@ -48,7 +48,7 @@ export function CatalogoProvider({ children }) {
   async function cargarCatalogo() {
     try {
       const snap = await getDocs(collection(db, 'productos'))
-      console.log('📦 productos firestore:', snap.size)
+
       const lista = snap.docs.map(doc => new Producto(doc.id, doc.data()))
       setProductos(lista)
     } catch (err) {

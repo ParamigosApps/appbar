@@ -6,6 +6,8 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import {
   collection,
   getDocs,
+  doc,
+  updateDoc,
   query,
   where,
   onSnapshot,
@@ -57,7 +59,95 @@ export function EntradasProvider({ children }) {
   const [historialEntradas, setHistorialEntradas] = useState([])
   const [loadingEventos, setLoadingEventos] = useState(true)
   const { user } = useAuth()
-  const [loading, setLoading] = useState(true)
+  const [flujoPagoActivo, setFlujoPagoActivo] = useState(false)
+
+  function renderResultadoEntradas({ evento, exitosas, fallidas }) {
+    // -----------------------------
+    // ✅ AGRUPAR EXITOSAS POR LOTE
+    // -----------------------------
+    const okAgrupadas = {}
+
+    exitosas.forEach(e => {
+      const nombreLote = e.lote?.nombre || e.loteNombre || e.nombre || 'Entrada'
+
+      okAgrupadas[nombreLote] =
+        (okAgrupadas[nombreLote] || 0) + Number(e.cantidad || 0)
+    })
+
+    const okHtml = Object.entries(okAgrupadas)
+      .map(([nombre, cant]) => `<li><b>${nombre}</b> x${cant}</li>`)
+      .join('')
+
+    // -----------------------------
+    // ❌ AGRUPAR FALLIDAS POR LOTE + ERROR
+    // -----------------------------
+    const errAgrupadas = {}
+
+    fallidas.forEach(e => {
+      const nombreLote = e.lote?.nombre || e.loteNombre || e.nombre || 'Entrada'
+
+      const error = e.error || 'No se pudo generar la entrada'
+
+      const key = `${nombreLote}__${error}`
+
+      if (!errAgrupadas[key]) {
+        errAgrupadas[key] = {
+          nombreLote,
+          error,
+          cantidad: 0,
+        }
+      }
+
+      errAgrupadas[key].cantidad += Number(e.cantidad || 0)
+    })
+
+    const errHtml = Object.values(errAgrupadas)
+      .map(
+        e => `
+        <li>
+          <b>${e.nombreLote}</b> x${e.cantidad}<br/>
+          <small style="color:#b00020;">
+            Motivo: ${e.error}
+          </small>
+        </li>
+      `
+      )
+      .join('')
+
+    // -----------------------------
+    // 🎨 HTML FINAL
+    // -----------------------------
+    return `
+    <div style="text-align:center; margin-bottom:10px;">
+      <h2 style="margin-bottom:4px;">🎟 ${evento?.nombre || 'Evento'}</h2>
+      ${
+        evento?.fechaInicio
+          ? `<small>${formatearSoloFecha(evento.fechaInicio)}</small>`
+          : ''
+      }
+    </div>
+
+    ${
+      okHtml
+        ? `
+        <h4 style="margin-top:16px;">Entradas generadas</h4>
+        <ul style="text-align:left;">${okHtml}</ul>
+      `
+        : ''
+    }
+
+    ${
+      errHtml
+        ? `
+        <h4 style="margin-top:16px; color:#b00020;">
+          ⚠️ Entradas no generadas
+        </h4>
+        <ul style="text-align:left;">${errHtml}</ul>
+      `
+        : ''
+    }
+  `
+  }
 
   // ----------------------------------------------------------
   // CARGAR HISTORIAL DE ENTRADAS USADAS
@@ -124,21 +214,151 @@ export function EntradasProvider({ children }) {
   // CARGAR ENTRADAS USUARIO
   // ----------------------------------------------------------
   useEffect(() => {
-    if (!user) {
+    if (!user || misEntradas.length === 0) return
+    if (flujoPagoActivo) return
+
+    // 🚫 No notificar en páginas de resultado de pago
+    if (window.location.pathname.includes('pago-resultado')) return
+
+    const nuevasGratis = misEntradas.filter(
+      e =>
+        e.metodo === 'free' &&
+        e._notificada !== true &&
+        !entradasPendientes.some(
+          p => p.estado === 'error' && p.usuarioId === user.uid
+        )
+    )
+
+    if (nuevasGratis.length === 0) return
+    if (Swal.isVisible()) return
+
+    Swal.fire({
+      icon: 'success',
+      title: '🎟 Entradas listas',
+      text: 'Tus entradas gratuitas ya fueron generadas.',
+      confirmButtonText: 'Ver mis entradas',
+      buttonsStyling: false,
+      customClass: {
+        confirmButton: 'swal-btn-confirm',
+      },
+    })
+  }, [misEntradas, flujoPagoActivo])
+
+  // ----------------------------------------------------------
+  // ESCUCHAR ENTRADAS GENERADAS (REALTIME)
+  // ----------------------------------------------------------
+  useEffect(() => {
+    if (!user?.uid) {
       setMisEntradas([])
-      setEntradasUsadas([])
       return
     }
-    cargarEntradasUsuario(user.uid)
-    cargarEntradasUsadas(user.uid)
-  }, [user])
 
-  async function cargarEntradasUsuario(uid) {
-    const snap = await getDocs(
-      query(collection(db, 'entradas'), where('usuarioId', '==', uid))
+    const q = query(
+      collection(db, 'entradas'),
+      where('usuarioId', '==', user.uid)
     )
-    setMisEntradas(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-  }
+
+    const unsub = onSnapshot(q, snap => {
+      setMisEntradas(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+    })
+
+    return unsub
+  }, [user])
+  // ----------------------------------------------------------
+  // ESCUCHAR ENTRADAS PENDIENTES (PAGAS + GRATIS)
+  // ----------------------------------------------------------
+  useEffect(() => {
+    if (!user?.uid) {
+      setEntradasPendientes([])
+      return
+    }
+
+    const qPagas = query(
+      collection(db, 'entradasPendientes'),
+      where('usuarioId', '==', user.uid)
+    )
+
+    const qGratis = query(
+      collection(db, 'entradasGratisPendientes'),
+      where('usuarioId', '==', user.uid)
+    )
+
+    const unsubPagas = onSnapshot(qPagas, snap => {
+      const pagas = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+
+      setEntradasPendientes(prev => {
+        const soloGratis = prev.filter(p => p._tipo === 'gratis')
+        return [...soloGratis, ...pagas]
+      })
+    })
+
+    const unsubGratis = onSnapshot(qGratis, snap => {
+      const gratis = snap.docs.map(d => ({
+        id: d.id,
+        ...d.data(),
+        _tipo: 'gratis',
+      }))
+
+      setEntradasPendientes(prev => {
+        const soloPagas = prev.filter(p => p._tipo !== 'gratis')
+        return [...soloPagas, ...gratis]
+      })
+    })
+
+    return () => {
+      unsubPagas()
+      unsubGratis()
+    }
+  }, [user])
+  // ----------------------------------------------------------
+  // 🚨 ESCUCHAR ERRORES EN ENTRADAS GRATIS
+  // ----------------------------------------------------------
+  useEffect(() => {
+    if (!user?.uid) return
+    if (flujoPagoActivo) return
+    if (window.location.pathname.includes('/pago-resultado')) return
+
+    const gratis = entradasPendientes.filter(e => e._tipo === 'gratis')
+    if (gratis.length === 0) return
+
+    const todasResueltas = gratis.every(
+      e => e.estado === 'procesado' || e.estado === 'error'
+    )
+
+    if (!todasResueltas) return
+
+    const exitosas = gratis.filter(e => e.estado === 'procesado')
+    const fallidas = gratis.filter(e => e.estado === 'error' && !e.notificado)
+
+    if (Swal.isVisible()) return
+    if (exitosas.length === 0 && fallidas.length === 0) return
+
+    Swal.fire({
+      icon: fallidas.length > 0 ? 'warning' : 'success',
+      title: 'Resultado de tus entradas',
+      html: renderResultadoEntradas({ exitosas, fallidas }),
+      showCancelButton: true,
+      confirmButtonText: 'Ir a mis entradas',
+      cancelButtonText: 'Cerrar',
+      buttonsStyling: false,
+      reverseButtons: true,
+      customClass: {
+        confirmButton: 'swal-btn-confirm',
+        cancelButton: 'swal-btn-cancel',
+      },
+    }).then(res => {
+      if (res.isConfirmed) {
+        document.dispatchEvent(new Event('abrir-mis-entradas'))
+      }
+    })
+
+    // 🔐 marcar errores como notificados
+    fallidas.forEach(f =>
+      updateDoc(doc(db, 'entradasGratisPendientes', f.id), {
+        notificado: true,
+      })
+    )
+  }, [entradasPendientes, flujoPagoActivo])
 
   async function cargarEntradasUsadas(uid) {
     try {
@@ -151,19 +371,28 @@ export function EntradasProvider({ children }) {
     }
   }
 
-  // ----------------------------------------------------------
-  // ESCUCHAR ENTRADAS PENDIENTES
-  // ----------------------------------------------------------
-  useEffect(() => {
-    if (!user) return
-    const q = query(
-      collection(db, 'entradasPendientes'),
-      where('usuarioId', '==', user.uid)
-    )
-    return onSnapshot(q, snap => {
-      setEntradasPendientes(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    })
-  }, [user])
+  function generarEntradasGratis({
+    evento,
+    usuarioId,
+    usuarioNombre,
+    usuarioEmail,
+    gratis,
+  }) {
+    for (const g of gratis) {
+      // 🔥 SOLO ENCOLA, NO ESPERA
+      pedirEntradaFreeConLote({
+        evento,
+        loteSel: g.lote,
+        usuarioId,
+        usuarioNombre,
+        usuarioEmail,
+        cantidadSel: g.cantidad,
+      })
+    }
+
+    // UI feedback inmediato
+    return true
+  }
 
   function construirDescripcionEntradas(detalles) {
     return detalles
@@ -172,15 +401,6 @@ export function EntradasProvider({ children }) {
         return `${d.cantidad} ${d.nombre} ($${total.toLocaleString('es-AR')})`
       })
       .join('\n')
-  }
-
-  async function recargarPendientes(uid) {
-    const snap = await getDocs(
-      query(collection(db, 'entradasPendientes'), where('usuarioId', '==', uid))
-    )
-    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-    setEntradasPendientes(data)
-    return data
   }
 
   function renderResumenEntradas({ gratis = [], pagas = [] }) {
@@ -251,7 +471,8 @@ export function EntradasProvider({ children }) {
 
       const usuarioId = payload.usuarioId || user?.uid
       const usuarioNombre =
-        payload.usuarioNombre || user?.displayName || 'Usuario'
+        payload.usuarioNombre ?? user?.displayName ?? user?.email ?? 'Usuario'
+
       const usuarioEmail = user?.email || null
 
       if (!usuarioId) {
@@ -353,9 +574,14 @@ export function EntradasProvider({ children }) {
 
         const seleccion = await abrirSeleccionLotesMultiPro(
           eventoParaSeleccion,
-          lotesInfoConUsuario
+          lotesInfoConUsuario,
+          {
+            entradasUsuarioPorLote,
+            pendientesUsuarioPorLote,
+          }
         )
-
+        console.log('entradasUsuarioPorLote', entradasUsuarioPorLote)
+        console.log('pendientesUsuarioPorLote', pendientesUsuarioPorLote)
         if (!seleccion) return
 
         // ----------------------------------------------------------
@@ -369,85 +595,38 @@ export function EntradasProvider({ children }) {
           s => Number(normalizarPrecio(s.lote.precio)) > 0
         )
 
-        // ----------------------------------------------------------
-        // 🟢 CREAR ENTRADAS GRATIS (SIEMPRE, HAYA O NO PAGO)
-        // ----------------------------------------------------------
-        const soloEntradasFree = gratis.length > 0 && pagas.length === 0
-
         if (gratis.length > 0) {
-          // 👉 Mostrar loading SOLO si luego va a haber pago
-
           try {
-            showLoading({
-              title: 'Cargando entradas',
-              text: 'Estamos creando tus entradas..',
+            await generarEntradasGratis({
+              evento: eventoCompleto,
+              usuarioId,
+              usuarioNombre,
+              usuarioEmail,
+              gratis,
             })
-            for (const g of gratis) {
-              await pedirEntradaFreeConLote({
-                evento: eventoCompleto,
-                loteSel: g.lote,
-                usuarioId,
-                usuarioNombre,
-                usuarioEmail,
-                cantidadSel: g.cantidad,
 
-                // 🔑 CLAVE
-                noMostrarSwal: !soloEntradasFree, // ❌ ocultar swal si hay pago
-                mostrarQrAlGenerar: false,
+            if (pagas.length > 0) setFlujoPagoActivo(true)
 
-                cargarEntradasUsuario,
-              })
-            }
-          } finally {
-            if (!soloEntradasFree) {
-              hideLoading()
-            }
+            await Swal.fire({
+              icon: 'info',
+              title: 'Entradas en proceso',
+              html: `
+              <p>Tus entradas se están generando.</p>
+              <p>Esto puede demorar unos segundos.</p>
+              <p><b>Las vas a ver automáticamente en “Mis Entradas”.</b></p>
+            `,
+              confirmButtonText: 'Aceptar',
+              buttonsStyling: false,
+              customClass: {
+                confirmButton: 'swal-btn-confirm',
+              },
+            })
+          } catch (e) {
+            console.error('❌ Error generando entradas gratis:', e)
           }
+
+          if (pagas.length === 0) return
         }
-
-        // ----------------------------------------------------------
-        // 🟢 AVISO: ENTRADAS GRATIS GENERADAS (ANTES DEL PAGO)
-        // ----------------------------------------------------------
-        if (gratis.length > 0 && pagas.length > 0) {
-          const totalGratis = gratis.reduce(
-            (acc, g) => acc + Number(g.cantidad || 0),
-            0
-          )
-
-          const resAviso = await Swal.fire({
-            title: 'Entradas gratis generadas',
-            html: `
-      <p>
-        Se generaron <b>${totalGratis}</b>
-        ${totalGratis === 1 ? 'entrada gratuita' : 'entradas gratuitas'}.
-      </p>
-      <p class="mt-2">
-        A continuación podrás realizar el pago de las entradas restantes.
-      </p>
-    `,
-            icon: 'success',
-            confirmButtonText: 'Continuar al pago',
-            allowOutsideClick: false,
-            allowEscapeKey: false,
-            buttonsStyling: false,
-            customClass: {
-              confirmButton: 'swal-btn-confirm',
-            },
-          })
-
-          if (!resAviso.isConfirmed) return
-        }
-
-        // ----------------------------------------------------------
-        // 📦 ENTRADAS GRATIS (PENDIENTES A POST-PAGO)
-        // ----------------------------------------------------------
-        const entradasGratisPendientes = gratis.map(s => ({
-          lote: s.lote,
-          cantidad: Number(s.cantidad),
-        }))
-
-        // ⛔ seguridad adicional
-        if (pagas.length === 0) return
 
         // ----------------------------------------------------------
         // 💳 DETALLE DE ENTRADAS PAGAS
@@ -602,7 +781,6 @@ export function EntradasProvider({ children }) {
           usuarioId,
           usuarioNombre,
           eventoId: evento.id,
-          entradasGratisPendientes,
           detallesPagos,
         })
       }
@@ -644,7 +822,6 @@ export function EntradasProvider({ children }) {
           maxUser,
           cantidadSel: resResumen.cantidad || 1,
           mostrarQrReact,
-          cargarEntradasUsuario,
         })
       }
 
@@ -711,9 +888,11 @@ export function EntradasProvider({ children }) {
         eventoId: evento.id,
       })
     } catch (err) {
+      setFlujoPagoActivo(false)
       console.error('❌ ERROR pedirEntrada:', err)
       Swal.fire('Error', 'Ocurrió un error inesperado.', 'error')
     } finally {
+      setFlujoPagoActivo(false)
       hideLoading()
     }
   }
@@ -733,8 +912,6 @@ export function EntradasProvider({ children }) {
         historialEntradas,
 
         pedirEntrada,
-        cargarEntradasUsuario,
-        recargarPendientes,
         cargarEntradasUsadas,
         cargarHistorial,
       }}

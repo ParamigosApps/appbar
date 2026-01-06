@@ -1091,3 +1091,16 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+.entrada.error {
+  opacity: 0.7;
+  color: #ff6b6b;
+}
+.badge-error {
+  background: #ff6b6b;
+  color: white;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-left: 6px;
+}

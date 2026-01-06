@@ -10,8 +10,10 @@ import { formatearFechaEventoDescriptiva } from '../utils/utils.js'
 // CREAR THEME
 // ======================================================================
 function crearSwalConTheme(theme = 'light') {
+  const themeClass = typeof theme === 'string' && theme.trim() ? theme : 'light'
+
   document.body.classList.remove('light', 'dark')
-  document.body.classList.add(theme)
+  document.body.classList.add(themeClass)
 
   return Swal.mixin({
     customClass: {
@@ -28,11 +30,13 @@ function crearSwalConTheme(theme = 'light') {
 // SELECCIÓN MULTI LOTE — PRO (MISMO DISEÑO, CON CANTIDADES)
 // ======================================================================
 
-export async function abrirSeleccionLotesMultiPro(
-  evento,
-  lotes,
-  theme = 'light'
-) {
+export async function abrirSeleccionLotesMultiPro(evento, lotes, options = {}) {
+  const {
+    theme = 'light',
+    entradasUsuarioPorLote = {},
+    pendientesUsuarioPorLote = {},
+  } = options
+
   const MySwal = crearSwalConTheme(theme)
 
   // 🔒 Normalizar estado con string
@@ -165,7 +169,7 @@ export async function abrirSeleccionLotesMultiPro(
             const badgeConsumicion = l.incluyeConsumicion
               ? `<span class="lote-badge badge-consu-ok">🍸 CON CONSUMICIÓN</span>`
               : `<span class="lote-badge badge-consu-no">SIN CONSUMICIÓN</span>`
-
+            /*
             const disponiblesAhora = calcularDisponiblesAhora({
               evento,
               hayLotes: true,
@@ -176,6 +180,23 @@ export async function abrirSeleccionLotesMultiPro(
                 ? Number(l.cantidad)
                 : Infinity,
               maxCantidad: Infinity, // ⛔ NUNCA limitar por maxCantidad en lotes
+            })
+            */
+            const idx = String(l.index)
+
+            const disponiblesAhora = calcularDisponiblesAhora({
+              evento,
+              hayLotes: true,
+              limiteUsuario:
+                Number(l.maxPorUsuario) > 0
+                  ? Number(l.maxPorUsuario)
+                  : Infinity,
+              totalObtenidas: Number(entradasUsuarioPorLote[idx] || 0),
+              totalPendientes: Number(pendientesUsuarioPorLote[idx] || 0),
+              cuposLote: Number.isFinite(l.cantidad)
+                ? Number(l.cantidad)
+                : Infinity,
+              maxCantidad: Infinity,
             })
 
             const maxSeleccionable = disponiblesAhora

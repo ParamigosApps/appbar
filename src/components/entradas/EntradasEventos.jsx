@@ -9,8 +9,6 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import Swal from 'sweetalert2'
 import { abrirLoginGlobal } from '../../utils/utils'
 
-import { enableNetwork, disableNetwork } from 'firebase/firestore'
-
 export default function EntradasEventos() {
   const { user, adminUser } = useAuth()
 
@@ -179,7 +177,7 @@ export default function EntradasEventos() {
 
                   return
                 }
-                console.log('USER:', user?.uid)
+                console.log('CLICK comprar')
                 pedirEntrada(evento, {
                   usuarioId,
                   usuarioNombre,
