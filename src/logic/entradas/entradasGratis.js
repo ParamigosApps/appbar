@@ -47,16 +47,8 @@ export async function pedirEntradaFreeConLote({
     return Swal.fire('Límite alcanzado', 'No tenés cupos.', 'info')
   }
 
-  // ======================================================
-  // ⏳ LOADING
-  // ======================================================
-  showLoading({
-    title: 'Generando entradas',
-    text: 'Estamos procesando tus entradas gratuitas…',
-  })
-
   try {
-    // 👉 SOLO PEDIDO (NO crear entradas acá)
+    // 👉 1️⃣ CREAR DOC (SOLO FIRESTORE)
     await addDoc(collection(db, 'entradasGratisPendientes'), {
       eventoId: evento.id,
       loteIndice: loteIndex,
@@ -68,23 +60,25 @@ export async function pedirEntradaFreeConLote({
       origen: 'frontend',
     })
 
+    // 👉 2️⃣ CERRAR LOADING ANTES DE CUALQUIER UI
+    hideLoading()
+
+    // 👉 3️⃣ AHORA SÍ UI
     await Swal.fire({
       icon: 'success',
       title: 'Entradas en proceso',
       html: `
-        <p style="font-size:16px;text-align:center;">
-          Tus <b>${cantidad}</b> entrada(s) para <b>${evento.nombre}</b>
-          se están generando.<br/>
-          Las recibirás por mail y en <b>Mis Entradas</b> en unos instantes 🎟️
-        </p>
-      `,
+      <p style="font-size:16px;text-align:center;">
+        Tus <b>${cantidad}</b> entrada(s) para <b>${evento.nombre}</b>
+        se están generando.<br/>
+        Las recibirás por mail y en <b>Mis Entradas</b> 🎟️
+      </p>
+    `,
       confirmButtonText: 'Ir a Mis Entradas',
-      customClass: {
-        confirmButton: 'swal-btn-confirm',
-      },
+      customClass: { confirmButton: 'swal-btn-confirm' },
       buttonsStyling: false,
     })
-    hideLoading()
+
     document.dispatchEvent(new Event('abrir-mis-entradas'))
   } catch (err) {
     hideLoading()

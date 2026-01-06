@@ -551,6 +551,7 @@ export async function swalEntradasGeneradas({ eventoNombre, cantidad }) {
     },
 
     buttonsStyling: false,
+    buttonreverse: true,
     timer: 3500,
     timerProgressBar: true,
   })
