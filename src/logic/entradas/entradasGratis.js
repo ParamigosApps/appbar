@@ -87,9 +87,9 @@ export async function pedirEntradaFreeConLote({
     cantidad,
 
     // 🔑 DUEÑO REAL
-    usuarioId: cliente.uid,
-    usuarioNombre: cliente.nombre,
-    usuarioEmail: cliente.email,
+    usuarioId,
+    usuarioNombre: usuarioNombre || '',
+    usuarioEmail: usuarioEmail || '',
 
     creadoEn: serverTimestamp(),
     origen: 'frontend',
