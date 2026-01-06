@@ -325,9 +325,11 @@ exports.procesarEntradasGratis = onDocumentCreated(
       // 🎟️ CREAR ENTRADAS (una por una)
       for (let i = 0; i < qty; i++) {
         await crearEntradaBaseAdmin({
-          usuarioId,
+          // 👤 DUEÑO REAL
+          usuarioId: data.usuarioId,
           usuarioNombre: data.usuarioNombre || '',
           usuarioEmail: data.usuarioEmail || '',
+          // 🎟️ DETALLES ENTRADA
           evento,
           lote,
           loteIndice,

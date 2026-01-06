@@ -85,9 +85,12 @@ export async function pedirEntradaFreeConLote({
     eventoId: evento.id,
     loteIndice: loteIndex,
     cantidad,
-    usuarioId,
-    usuarioNombre,
-    usuarioEmail,
+
+    // 🔑 DUEÑO REAL
+    usuarioId: cliente.uid,
+    usuarioNombre: cliente.nombre,
+    usuarioEmail: cliente.email,
+
     creadoEn: serverTimestamp(),
     origen: 'frontend',
   })
