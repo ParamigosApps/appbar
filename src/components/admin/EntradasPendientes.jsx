@@ -14,7 +14,7 @@ import {
   swalError,
   swalSuccess,
 } from '../../utils/swalUtils'
-
+import { toastSuccess } from '../../utils/toastifyUtils'
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
 import { db } from '../../Firebase'
 
@@ -482,10 +482,10 @@ async function handleAprobarLote(lote) {
     visto: false,
   })
 
-  Swal.fire(
-    'Lote aprobado',
-    `${lote.cantidad} entradas aprobadas correctamente.`,
-    'success'
+  toastSuccess(
+    `${lote.cantidad} ${
+      lote.cantidad === 1 ? 'entrada' : 'entradas'
+    } aprobadas correctamente`
   )
 }
 

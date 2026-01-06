@@ -3,7 +3,14 @@ import Swal from 'sweetalert2'
 import { calcularCuposEvento } from '../entradas/entradasEventos.js'
 import { showLoading, hideLoading } from '../../services/loadingService.js'
 
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore'
+import {
+  addDoc,
+  collection,
+  query,
+  where,
+  onSnapshot,
+  serverTimestamp,
+} from 'firebase/firestore'
 import { db } from '../../Firebase.js'
 
 function normalizarCantidad(cantidad, max = 9999) {
@@ -12,7 +19,35 @@ function normalizarCantidad(cantidad, max = 9999) {
   if (v > max) v = max
   return v
 }
+export function esperarEntradasGeneradas({
+  eventoId,
+  usuarioId,
+  cantidadEsperada,
+  loteIndice,
+}) {
+  return new Promise(resolve => {
+    const q = query(
+      collection(db, 'entradas'),
+      where('eventoId', '==', eventoId),
+      where('usuarioId', '==', usuarioId),
+      ...(Number.isFinite(loteIndice)
+        ? [where('loteIndice', '==', loteIndice)]
+        : [])
+    )
 
+    const unsub = onSnapshot(q, snap => {
+      const total = snap.docs.reduce(
+        (a, d) => a + Number(d.data().cantidad || 1),
+        0
+      )
+
+      if (total >= cantidadEsperada) {
+        unsub()
+        resolve(snap.docs.map(d => d.data()))
+      }
+    })
+  })
+}
 export async function pedirEntradaFreeConLote({
   evento,
   loteSel,
@@ -48,7 +83,11 @@ export async function pedirEntradaFreeConLote({
   }
 
   try {
-    // 👉 1️⃣ CREAR DOC (SOLO FIRESTORE)
+    showLoading({
+      title: 'Generando entradas',
+      text: 'Estamos creando tus entradas gratuitas…',
+    })
+
     await addDoc(collection(db, 'entradasGratisPendientes'), {
       eventoId: evento.id,
       loteIndice: loteIndex,
@@ -59,22 +98,27 @@ export async function pedirEntradaFreeConLote({
       creadoEn: serverTimestamp(),
       origen: 'frontend',
     })
+    // ⏳ ESPERAR ENTRADAS REALES
+    await esperarEntradasGeneradas({
+      eventoId: evento.id,
+      usuarioId,
+      cantidadEsperada: cantidad,
+      loteIndice: loteIndex,
+    })
 
-    // 👉 2️⃣ CERRAR LOADING ANTES DE CUALQUIER UI
     hideLoading()
 
-    // 👉 3️⃣ AHORA SÍ UI
     await Swal.fire({
       icon: 'success',
-      title: 'Entradas en proceso',
+      title: 'Entradas generadas',
       html: `
       <p style="font-size:16px;text-align:center;">
-        Tus <b>${cantidad}</b> entrada(s) para <b>${evento.nombre}</b>
-        se están generando.<br/>
-        Las recibirás por mail y en <b>Mis Entradas</b> 🎟️
+        🎟️ <b>${cantidad}</b> entradas gratuitas<br/>
+        ${loteSel?.nombre ? `Lote: <b>${loteSel.nombre}</b><br/>` : ''}
+        generadas correctamente.
       </p>
     `,
-      confirmButtonText: 'Ir a Mis Entradas',
+      confirmButtonText: 'Continuar',
       customClass: { confirmButton: 'swal-btn-confirm' },
       buttonsStyling: false,
     })
@@ -159,8 +203,6 @@ export async function entregarEntradasGratisPostPago({
   usuarioNombre,
   usuarioEmail,
   entradasGratisPendientes,
-  mostrarQrReact,
-  cargarEntradasUsuario,
 }) {
   if (!Array.isArray(entradasGratisPendientes)) return
 

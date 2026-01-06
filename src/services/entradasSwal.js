@@ -34,7 +34,7 @@ export async function abrirSeleccionLotesMultiPro(
   theme = 'light'
 ) {
   const MySwal = crearSwalConTheme(theme)
-  console.log('EVENTO EN SWAL:', evento)
+
   // 🔒 Normalizar estado con string
   const estado = {}
 
@@ -176,14 +176,6 @@ export async function abrirSeleccionLotesMultiPro(
                 ? Number(l.cantidad)
                 : Infinity,
               maxCantidad: Infinity, // ⛔ NUNCA limitar por maxCantidad en lotes
-            })
-            console.log('[SWAL MULTI]', {
-              lote: l.nombre,
-              disponiblesAhora,
-              maxPorUsuario: l.maxPorUsuario,
-              usadas: l.usadasPorUsuario,
-              pendientes: l.pendientesPorUsuario,
-              stock: l.cantidad,
             })
 
             const maxSeleccionable = disponiblesAhora
@@ -345,12 +337,6 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
     precioUnitario,
     esGratis: esGratisProp,
   } = opciones
-  console.log({
-    lote: lote.nombre,
-    limiteUsuario,
-    totalObtenidas,
-    totalPendientes,
-  })
 
   const precioBase =
     typeof precioUnitario === 'number'
@@ -371,7 +357,6 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
 
   let cantidad = 1
   let metodoSeleccionado = null
-  console.log(totalObtenidas)
 
   const res = await MySwal.fire({
     title: `<span class="swal-title-main">${evento.nombre.toUpperCase()}</span>`,
@@ -551,7 +536,7 @@ export async function swalEntradasGeneradas({ eventoNombre, cantidad }) {
     },
 
     buttonsStyling: false,
-    buttonreverse: true,
+    reverseButtons: true,
     timer: 3500,
     timerProgressBar: true,
   })
