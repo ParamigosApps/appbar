@@ -33,9 +33,10 @@ export function CatalogoProvider({ children }) {
   const [productos, setProductos] = useState([])
   const [categoriaActiva, setCategoriaActiva] = useState('Todos')
   const [catalogoVisible, setCatalogoVisible] = useState(false)
-  const [totalFirestore, setTotalFirestore] = useState(0)
+
   const { agregarProducto, abrirCarrito } = useCarrito()
   const { evento, seleccionarEvento, validarEventoVigente } = useEvento()
+  const { pedirSeleccionEvento } = useEvento()
   // ======================================================
   // CARGAR CATÁLOGO DESDE FIREBASE SIN MOSTRAR
   // ======================================================
@@ -62,16 +63,31 @@ export function CatalogoProvider({ children }) {
     if (producto.stock <= 0) return
 
     if (!evento) {
-      await Swal.fire({
+      const res = await Swal.fire({
         title: 'Evento requerido',
         text: 'Seleccioná un evento antes de agregar productos.',
         icon: 'warning',
-        confirmButtonText: 'Aceptar',
+        confirmButtonText: 'Seleccionar evento',
+        showCancelButton: true,
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+        allowOutsideClick: true,
+        allowEscapeKey: true,
+
         customClass: {
           confirmButton: 'swal-btn-confirm',
+          cancelButton: 'swal-btn-cancel',
         },
         buttonsStyling: false,
       })
+
+      if (res.isConfirmed) {
+        await pedirSeleccionEvento()
+      } else {
+        // ❌ canceló, tocó fuera o apretó ESC
+        document.dispatchEvent(new Event('cerrar-catalogo'))
+      }
+
       return
     }
 

@@ -47,7 +47,7 @@ export function CarritoProvider({ children }) {
   const { user } = useAuth()
   const { abrirPendientes } = usePedidos() || {}
 
-  const { evento, seleccionarEvento, pedirSeleccionEvento } = useEvento()
+  const { evento, pedirSeleccionEvento } = useEvento()
   const [carrito, setCarrito] = useState(
     JSON.parse(localStorage.getItem('carrito')) || []
   )
