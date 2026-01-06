@@ -274,6 +274,43 @@ export function EntradasProvider({ children }) {
         cantidad: Number(l.cantidad || 0),
       }))
 
+      // ==========================================================
+      // 🧮 MAPAS DE CUPOS POR LOTE (CLAVE)
+      // ==========================================================
+      const entradasUsuarioPorLote = {}
+      const pendientesUsuarioPorLote = {}
+
+      lotesInfoConUsuario.forEach(l => {
+        const idx = Number.isFinite(l.index)
+          ? l.index
+          : Number.isFinite(l.loteIndice)
+          ? l.loteIndice
+          : null
+
+        if (idx === null) return
+        console.table({
+          lote: l.nombre,
+          stock: l.cantidad,
+          maxPorUsuario: l.maxPorUsuario,
+          usadas: l.usadasPorUsuario,
+          pendientes: l.pendientesPorUsuario,
+          permitidoPorUsuario:
+            l.maxPorUsuario > 0
+              ? l.maxPorUsuario -
+                Number(l.usadasPorUsuario || 0) -
+                Number(l.pendientesPorUsuario || 0)
+              : '∞',
+        })
+
+        // ✔ usadas CONFIRMADAS por lote
+        entradasUsuarioPorLote[idx] = Number(l.usadasPorUsuario || 0)
+
+        // ✔ pendientes por lote (si existen)
+        pendientesUsuarioPorLote[idx] = entradasPendientes
+          .filter(p => p.loteIndice === idx)
+          .reduce((acc, p) => acc + Number(p.cantidad || 0), 0)
+      })
+
       const eventoCompleto = {
         ...eventoData,
         ...evento,
@@ -282,7 +319,11 @@ export function EntradasProvider({ children }) {
         horaFin: eventoData?.horaFin || evento.horaFin || '',
       }
 
-      if (maxUser <= 0) {
+      // ⛔ SOLO bloquear por límite GLOBAL si NO hay lotes
+      if (
+        maxUser <= 0 &&
+        (!Array.isArray(lotesInfo) || lotesInfo.length === 0)
+      ) {
         await Swal.fire({
           title: 'Límite alcanzado',
           text: 'Ya alcanzaste el máximo de entradas permitidas.',

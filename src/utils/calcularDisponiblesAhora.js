@@ -1,9 +1,10 @@
 // --------------------------------------------------------------
-// utils/calcularDisponiblesAhora.js — PASSLINE PRO 2025
+// utils/calcularDisponiblesAhora.js — PASSLINE PRO 2025 (SYNC)
 // --------------------------------------------------------------
-/*
+
 export function calcularDisponiblesAhora({
   evento,
+  hayLotes = false,
   limiteUsuario = 0,
   totalObtenidas = 0,
   totalPendientes = 0,
@@ -11,90 +12,58 @@ export function calcularDisponiblesAhora({
   maxCantidad = Infinity,
 }) {
   // ------------------------------------------------------------
-  // 1️⃣ Límite por evento
+  // 1️⃣ Límite efectivo
+  // - Con lotes: SOLO manda el lote
+  // - Sin lotes: manda el evento
   // ------------------------------------------------------------
-  const limiteEvento =
-    Number(evento?.entradasPorUsuario) > 0
-      ? Number(evento.entradasPorUsuario)
-      : Infinity
+  let limiteEfectivo
+
+  if (hayLotes === true) {
+    // 🔒 JAMÁS mirar el evento cuando hay lotes
+    limiteEfectivo =
+      Number.isFinite(limiteUsuario) && limiteUsuario > 0
+        ? Number(limiteUsuario)
+        : Infinity
+  } else {
+    limiteEfectivo =
+      Number.isFinite(evento?.entradasPorUsuario) &&
+      evento.entradasPorUsuario > 0
+        ? Number(evento.entradasPorUsuario)
+        : Infinity
+  }
 
   // ------------------------------------------------------------
-  // 2️⃣ Límite real (override solo si viene explícito)
+  // 2️⃣ Disponible por usuario
   // ------------------------------------------------------------
-  const limiteReal =
-    Number(limiteUsuario) > 0 ? Number(limiteUsuario) : limiteEvento
+  const usados = Number(totalObtenidas || 0) + Number(totalPendientes || 0)
 
-  // ------------------------------------------------------------
-  // 3️⃣ Disponible por usuario
-  // ------------------------------------------------------------
-  const disponiblesPorUsuario =
-    limiteReal === Infinity
-      ? Infinity
-      : Math.max(limiteReal - totalObtenidas - totalPendientes, 0)
-
-  // ------------------------------------------------------------
-  // 4️⃣ Disponible por lote (YA ES RESTANTE GLOBAL)
-  // ------------------------------------------------------------
-  const disponiblesPorLote = Number.isFinite(cuposLote)
-    ? Math.max(cuposLote, 0)
-    : Infinity
-
-  // ------------------------------------------------------------
-  // 5️⃣ Resultado final
-  // ------------------------------------------------------------
-  return Math.max(
-    0,
-    Math.min(disponiblesPorUsuario, disponiblesPorLote, maxCantidad)
-  )
-}
-*/
-
-// --------------------------------------------------------------
-// utils/calcularDisponiblesAhora.js — PASSLINE PRO 2025 (SYNC)
-// --------------------------------------------------------------
-
-export function calcularDisponiblesAhora({
-  evento,
-  limiteUsuario = 0, // maxPorUsuario del lote (si existe)
-  totalObtenidas = 0, // desde Firestore (entradas)
-  totalPendientes = 0, // desde Firestore (pendientes + gratis)
-  cuposLote = Infinity, // evento.lotes[loteIndice].cantidad
-  maxCantidad = Infinity, // límite UI (select, etc.)
-}) {
-  // ------------------------------------------------------------
-  // 1️⃣ Límite por evento (global)
-  // ------------------------------------------------------------
-  const limiteEvento =
-    Number(evento?.entradasPorUsuario) > 0
-      ? Number(evento.entradasPorUsuario)
-      : Infinity
-
-  // ------------------------------------------------------------
-  // 2️⃣ Límite efectivo por usuario
-  // - Prioridad: lote > evento
-  // ------------------------------------------------------------
-  const limiteEfectivo =
-    Number(limiteUsuario) > 0 ? Number(limiteUsuario) : limiteEvento
-
-  // ------------------------------------------------------------
-  // 3️⃣ Disponible real por usuario
-  // ------------------------------------------------------------
   const disponiblesPorUsuario =
     limiteEfectivo === Infinity
       ? Infinity
-      : Math.max(limiteEfectivo - totalObtenidas - totalPendientes, 0)
+      : Math.max(limiteEfectivo - usados, 0)
 
   // ------------------------------------------------------------
-  // 4️⃣ Disponible por lote (global ya descontado)
+  // 3️⃣ Disponible por lote (global)
   // ------------------------------------------------------------
   const disponiblesPorLote =
-    Number.isFinite(cuposLote) && cuposLote >= 0 ? cuposLote : Infinity
+    Number.isFinite(cuposLote) && cuposLote >= 0 ? Number(cuposLote) : Infinity
 
   // ------------------------------------------------------------
-  // 5️⃣ Resultado final
+  // 4️⃣ Resultado final
   // ------------------------------------------------------------
-  return Math.max(
-    0,
-    Math.min(disponiblesPorUsuario, disponiblesPorLote, maxCantidad)
-  )
+  console.log('CACACA' + limiteUsuario)
+  if (hayLotes === true) {
+    // evento queda TOTALMENTE ignorado
+    return Math.max(
+      0,
+      Math.min(
+        Number.isFinite(limiteUsuario) && limiteUsuario > 0
+          ? limiteUsuario - usados
+          : Infinity,
+        disponiblesPorLote
+      )
+    )
+  }
+
+  return Math.max(0, Math.min(disponiblesPorUsuario, maxCantidad))
 }

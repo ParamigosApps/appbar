@@ -133,6 +133,59 @@ export default function CrearEvento({ setSeccion = () => {} }) {
     setLotes(prev => prev.filter(l => l.id !== id))
   }
 
+  // --------------------------------------------------------------
+  // VALIDAR HORARIOS DE LOTES VS HORARIO DEL EVENTO
+  // --------------------------------------------------------------
+  function validarHorasLotesVsEvento() {
+    if (!lotes.length) return true
+
+    const inicioEvento = new Date(`${form.fechaInicio}T${form.horaInicio}:00`)
+    const finEvento = new Date(`${form.fechaFin}T${form.horaFin}:00`)
+
+    if (isNaN(inicioEvento) || isNaN(finEvento)) {
+      Swal.fire(
+        'Error en horarios',
+        'El horario del evento es inválido.',
+        'error'
+      )
+      return false
+    }
+
+    for (const lote of lotes) {
+      const nombre = lote.nombre || 'Lote sin nombre'
+
+      if (!lote.desdeHora || !lote.hastaHora) {
+        Swal.fire(
+          'Error en lotes',
+          `El lote "${nombre}" debe tener horario de ingreso completo.`,
+          'error'
+        )
+        return false
+      }
+
+      // 🔹 Construimos fechas reales para el lote
+      let desde = new Date(`${form.fechaInicio}T${lote.desdeHora}:00`)
+      let hasta = new Date(`${form.fechaInicio}T${lote.hastaHora}:00`)
+
+      // 🔁 Si el lote cruza medianoche
+      if (hasta <= desde) {
+        hasta.setDate(hasta.getDate() + 1)
+      }
+
+      // ❌ Fuera del rango del evento
+      if (desde < inicioEvento || hasta > finEvento) {
+        Swal.fire(
+          'Horario inválido',
+          `El horario del lote "${nombre}" debe estar dentro del horario del evento.`,
+          'error'
+        )
+        return false
+      }
+    }
+
+    return true
+  }
+
   function validarLotes(entradasMaximasNum) {
     if (!lotes.length) return true
 
@@ -289,7 +342,16 @@ export default function CrearEvento({ setSeccion = () => {} }) {
     const ok = await crearEvento(data, imagen)
 
     if (ok) {
-      Swal.fire('Listo', 'Evento creado correctamente.', 'success')
+      Swal.fire({
+        icon: 'success',
+        title: 'Listo',
+        text: 'Evento creado correctamente.',
+        confirmButtonText: 'Aceptar',
+        buttonsStyling: false,
+        customClass: {
+          confirmButton: 'swal-btn-confirm',
+        },
+      })
 
       // Reset
       setForm({
@@ -635,8 +697,8 @@ export default function CrearEvento({ setSeccion = () => {} }) {
                         }
                       />
                       <p className="text-muted small mt-1 mb-0">
-                        Recomendación: <strong>4 entradas</strong> para lotes
-                        gratuitos y <strong>8 entradas</strong> para lotes
+                        Recomendación: <strong>2 a 4 entradas</strong> para
+                        lotes gratuitos y <strong>8 entradas</strong> para lotes
                         pagos.
                       </p>
                     </div>

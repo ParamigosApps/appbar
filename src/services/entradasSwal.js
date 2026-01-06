@@ -3,7 +3,7 @@
 // --------------------------------------------------------------
 
 import Swal from 'sweetalert2'
-import { formatearSoloFecha } from '../utils/utils.js'
+
 import { calcularDisponiblesAhora } from '../utils/calcularDisponiblesAhora.js'
 import { formatearFechaEventoDescriptiva } from '../utils/utils.js'
 // ======================================================================
@@ -22,20 +22,6 @@ function crearSwalConTheme(theme = 'light') {
     buttonsStyling: false,
     heightAuto: false,
   })
-}
-
-function estadoLote(l, evento) {
-  if (!evento?.fecha) return 'invalido'
-
-  const hoy = new Date()
-  hoy.setHours(0, 0, 0, 0)
-
-  const fechaEvento = new Date(evento.fecha)
-  fechaEvento.setHours(0, 0, 0, 0)
-
-  if (fechaEvento.getTime() === hoy.getTime()) return 'hoy'
-  if (fechaEvento > hoy) return 'proximo'
-  return 'pasado'
 }
 
 // ======================================================================
@@ -180,9 +166,27 @@ export async function abrirSeleccionLotesMultiPro(
               ? `<span class="lote-badge badge-consu-ok">🍸 CON CONSUMICIÓN</span>`
               : `<span class="lote-badge badge-consu-no">SIN CONSUMICIÓN</span>`
 
-            const maxSeleccionable = Number.isFinite(Number(l.cantidad))
-              ? Number(l.cantidad)
-              : 0
+            const disponiblesAhora = calcularDisponiblesAhora({
+              evento,
+              hayLotes: true,
+              limiteUsuario: Number(l.maxPorUsuario || 0),
+              totalObtenidas: Number(l.usadasPorUsuario || 0),
+              totalPendientes: Number(l.pendientesPorUsuario || 0),
+              cuposLote: Number.isFinite(l.cantidad)
+                ? Number(l.cantidad)
+                : Infinity,
+              maxCantidad: Infinity, // ⛔ NUNCA limitar por maxCantidad en lotes
+            })
+            console.log('[SWAL MULTI]', {
+              lote: l.nombre,
+              disponiblesAhora,
+              maxPorUsuario: l.maxPorUsuario,
+              usadas: l.usadasPorUsuario,
+              pendientes: l.pendientesPorUsuario,
+              stock: l.cantidad,
+            })
+
+            const maxSeleccionable = disponiblesAhora
 
             const opcionesCantidad =
               maxSeleccionable === 0
@@ -341,6 +345,12 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
     precioUnitario,
     esGratis: esGratisProp,
   } = opciones
+  console.log({
+    lote: lote.nombre,
+    limiteUsuario,
+    totalObtenidas,
+    totalPendientes,
+  })
 
   const precioBase =
     typeof precioUnitario === 'number'
@@ -351,9 +361,10 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
 
   const disponiblesAhora = calcularDisponiblesAhora({
     evento,
-    limiteUsuario,
-    totalObtenidas,
-    totalPendientes,
+    hayLotes: true, // 🔑 CLAVE
+    limiteUsuario, // lote.maxPorUsuario
+    totalObtenidas, // SOLO de este lote
+    totalPendientes, // SOLO de este lote
     cuposLote: cuposReales,
     maxCantidad,
   })
@@ -383,9 +394,9 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
 
           <div class="limite-row">
             <span class="label infoMaximoEntradas">Máximo por cuenta:</span>
-            <span class="value infoMaximoEntradas">
-              ${evento.entradasPorUsuario ?? '—'}
-            </span>
+          <span class="value infoMaximoEntradas">
+            ${limiteUsuario > 0 ? limiteUsuario : '—'}
+          </span>
           </div>
 
           ${

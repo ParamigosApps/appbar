@@ -127,7 +127,7 @@ export async function calcularCuposEvento(eventoId, usuarioId) {
     // 🔑 DISPONIBLE FINAL REAL
     const disponiblesFinal = Math.max(
       0,
-      Math.min(restantesLote, disponiblesPorLoteUsuario, maxUser)
+      Math.min(restantesLote, disponiblesPorLoteUsuario)
     )
 
     return {
