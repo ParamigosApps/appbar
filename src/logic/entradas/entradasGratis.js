@@ -1,8 +1,4 @@
 import Swal from 'sweetalert2'
-import { crearEntradaBase } from '../../services/crearEntradaBase.js'
-import { firmarEntradaCorta } from '../../services/firmarEntrada.js'
-import { enviarEntradasPorMail } from '../../services/mailEntradasService.js'
-import { updateDoc } from 'firebase/firestore'
 
 import { calcularCuposEvento } from '../entradas/entradasEventos.js'
 import { showLoading, hideLoading } from '../../services/loadingService.js'
@@ -72,8 +68,6 @@ export async function pedirEntradaFreeConLote({
       origen: 'frontend',
     })
 
-    hideLoading()
-
     await Swal.fire({
       icon: 'success',
       title: 'Entradas en proceso',
@@ -90,7 +84,7 @@ export async function pedirEntradaFreeConLote({
       },
       buttonsStyling: false,
     })
-
+    hideLoading()
     document.dispatchEvent(new Event('abrir-mis-entradas'))
   } catch (err) {
     hideLoading()
@@ -176,31 +170,26 @@ export async function entregarEntradasGratisPostPago({
 }) {
   if (!Array.isArray(entradasGratisPendientes)) return
 
-  for (const g of entradasGratisPendientes) {
-    // 👉 SI TIENE LOTE
-    if (g.lote) {
-      await pedirEntradaFreeConLote({
-        evento,
-        loteSel: g.lote,
-        usuarioId,
-        usuarioNombre,
-        usuarioEmail,
-        cantidadSel: g.cantidad,
-        mostrarQrAlGenerar: mostrarQrReact,
-        noMostrarSwal: true,
-        cargarEntradasUsuario,
-      })
-    }
-    // 👉 SIN LOTE
-    else {
-      await pedirEntradaFreeSinLote({
+  await Promise.all(
+    entradasGratisPendientes.map(g => {
+      if (g.lote) {
+        return pedirEntradaFreeConLote({
+          evento,
+          loteSel: g.lote,
+          usuarioId,
+          usuarioNombre,
+          usuarioEmail,
+          cantidadSel: g.cantidad,
+        })
+      }
+
+      return pedirEntradaFreeSinLote({
         evento,
         usuarioId,
         usuarioNombre,
         usuarioEmail,
         cantidadSel: g.cantidad,
-        cargarEntradasUsuario,
       })
-    }
-  }
+    })
+  )
 }

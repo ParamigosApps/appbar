@@ -784,7 +784,7 @@ export default function MenuAcordeon() {
                   )}
 
                   {/* 👤 USUARIO LOGUEADO */}
-                  {(user?.nombre || user?.displayName) && (
+                  {(user?.nombre || user?.displayName) && !loading && (
                     <div className="d-flex flex-column align-items-center gap-1">
                       {/* 👋 SALUDO + EDITAR */}
                       <p className="fw-bold fs-5 mb-0 d-flex align-items-center gap-2">

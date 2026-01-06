@@ -51,7 +51,7 @@ export function calcularDisponiblesAhora({
   // ------------------------------------------------------------
   // 4️⃣ Resultado final
   // ------------------------------------------------------------
-  console.log('CACACA' + limiteUsuario)
+
   if (hayLotes === true) {
     // evento queda TOTALMENTE ignorado
     return Math.max(
