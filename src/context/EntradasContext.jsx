@@ -333,10 +333,13 @@ export function EntradasProvider({ children }) {
     if (Swal.isVisible()) return
     if (exitosas.length === 0 && fallidas.length === 0) return
 
+    const eventoId = gratis[0]?.eventoId
+    const evento = eventos.find(e => e.id === eventoId) || null
+
     Swal.fire({
       icon: fallidas.length > 0 ? 'warning' : 'success',
       title: 'Resultado de tus entradas',
-      html: renderResultadoEntradas({ exitosas, fallidas }),
+      html: renderResultadoEntradas({ evento, exitosas, fallidas }),
       showCancelButton: true,
       confirmButtonText: 'Ir a mis entradas',
       cancelButtonText: 'Cerrar',
