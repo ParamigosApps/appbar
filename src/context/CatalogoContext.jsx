@@ -41,9 +41,14 @@ export function CatalogoProvider({ children }) {
     validarEventoVigente,
     pedirSeleccionEvento,
   } = useEvento()
-  // ======================================================
-  // CARGAR CATÁLOGO DESDE FIREBASE SIN MOSTRAR
-  // ======================================================
+
+  function mostrarCatalogo() {
+    setCatalogoVisible(true)
+  }
+
+  function ocultarCatalogo() {
+    setCatalogoVisible(false)
+  }
 
   async function cargarCatalogo() {
     try {
@@ -88,7 +93,6 @@ export function CatalogoProvider({ children }) {
       if (res.isConfirmed) {
         await pedirSeleccionEvento()
       } else {
-        // ❌ canceló, tocó fuera o apretó ESC
         document.dispatchEvent(new Event('cerrar-catalogo'))
       }
 
@@ -202,10 +206,9 @@ export function CatalogoProvider({ children }) {
   // FILTRADO
   // ======================================================
   const productosFiltrados = useMemo(() => {
-    if (!catalogoVisible) return []
     if (categoriaActiva === 'Todos') return productos
     return productos.filter(p => p.categoria === categoriaActiva)
-  }, [productos, categoriaActiva, catalogoVisible])
+  }, [productos, categoriaActiva])
 
   // ======================================================
   // MOSTRAR / OCULTAR
@@ -363,9 +366,11 @@ export function CatalogoProvider({ children }) {
         categoriaActiva,
         catalogoVisible,
         productosFiltrados,
+        mostrarCatalogo,
+        ocultarCatalogo,
+        toggleCatalogo,
         abrirProductoDetalle,
         seleccionarCategoria,
-        toggleCatalogo,
       }}
     >
       {children}

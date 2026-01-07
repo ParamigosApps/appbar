@@ -111,40 +111,6 @@ export async function abrirSeleccionLotesMultiPro(evento, lotes, options = {}) {
                   )
                 : 0
 
-            // 🔑 estado visual
-            const mostrarBarra = porcentaje <= 30
-            let estadoStock = 'ok'
-            let textoStock = 'Disponibilidad alta'
-
-            if (porcentaje === 0) {
-              estadoStock = 'critical'
-              textoStock = 'Agotado'
-            } else if (porcentaje <= 15) {
-              estadoStock = 'critical'
-              textoStock = '¡QUEDAN POCAS ENTRADAS!'
-            } else if (porcentaje <= 30) {
-              estadoStock = 'warning'
-              textoStock = '¡SE ESTAN AGOTANDO!'
-            }
-
-            // 🔑 HTML FINAL
-            const barraStockHtml = mostrarBarra
-              ? `
-              <div class="stock-box stock-${estadoStock}">
-                <div class="stock-header">
-                  <span class="stock-text">${textoStock}</span>
-                </div>
-
-                <div class="stock-bar-row">
-                  <div class="stock-bar">
-                    <div class="stock-bar-fill" style="width:${porcentaje}%"></div>
-                  </div>
-                  <span class="stock-meta">${porcentaje}%</span>
-                </div>
-              </div>
-            `
-              : ''
-
             // FIN BARRA STOCK
             const id = String(l.index)
 
@@ -169,19 +135,7 @@ export async function abrirSeleccionLotesMultiPro(evento, lotes, options = {}) {
             const badgeConsumicion = l.incluyeConsumicion
               ? `<span class="lote-badge badge-consu-ok">🍸 CON CONSUMICIÓN</span>`
               : `<span class="lote-badge badge-consu-no">SIN CONSUMICIÓN</span>`
-            /*
-            const disponiblesAhora = calcularDisponiblesAhora({
-              evento,
-              hayLotes: true,
-              limiteUsuario: Number(l.maxPorUsuario || 0),
-              totalObtenidas: Number(l.usadasPorUsuario || 0),
-              totalPendientes: Number(l.pendientesPorUsuario || 0),
-              cuposLote: Number.isFinite(l.cantidad)
-                ? Number(l.cantidad)
-                : Infinity,
-              maxCantidad: Infinity, // ⛔ NUNCA limitar por maxCantidad en lotes
-            })
-            */
+
             const idx = String(l.index)
 
             const disponiblesAhora = calcularDisponiblesAhora({
@@ -198,8 +152,42 @@ export async function abrirSeleccionLotesMultiPro(evento, lotes, options = {}) {
                 : Infinity,
               maxCantidad: Infinity,
             })
+            const agotadoGlobal = restantes <= 0
+            const agotadoUsuario = disponiblesAhora <= 0 && restantes > 0
 
-            const maxSeleccionable = disponiblesAhora
+            const mostrarBarra = porcentaje <= 30
+            let estadoStock = 'ok'
+            let textoStock = 'Disponibilidad alta'
+
+            if (agotadoGlobal) {
+              estadoStock = 'critical'
+              textoStock = '¡LOTE AGOTADO!'
+            } else if (agotadoUsuario) {
+              estadoStock = 'warning'
+              textoStock = '¡ALCANZASTE TU LÍMITE!'
+            } else if (porcentaje <= 30) {
+              estadoStock = 'warning'
+              textoStock = '¡SE ESTÁ AGOTANDO!'
+            }
+
+            // 🔑 HTML FINAL
+            const barraStockHtml = mostrarBarra
+              ? `
+              <div class="stock-box stock-${estadoStock}">
+                <div class="stock-header">
+                  <span class="stock-text">${textoStock}</span>
+                </div>
+
+                <div class="stock-bar-row">
+                  <div class="stock-bar">
+                    <div class="stock-bar-fill" style="width:${porcentaje}%"></div>
+                  </div>
+                  <span class="stock-meta">${porcentaje}%</span>
+                </div>
+              </div>
+            `
+              : ''
+            const maxSeleccionable = Math.max(0, disponiblesAhora)
 
             const opcionesCantidad =
               maxSeleccionable === 0
@@ -213,69 +201,80 @@ export async function abrirSeleccionLotesMultiPro(evento, lotes, options = {}) {
                   ].join('')
 
             return `
-<div class="lote-card lote-multi" data-id="${id}">
+<div class="lote-card lote-multi mb-2" data-id="${id}">
+  <!-- STOCK OVERLAY -->
+
+
   <div class="lote-nombre-principal">
     <span class="lote-label">LOTE:</span> ${l.nombre.toUpperCase()}
   </div>
 
-${
-  descripcion
-    ? `<div class="lote-desc">
-         <span class="lote-label">DESCRIPCIÓN:</span>
-         ${descripcion}
-       </div>`
-    : ``
-}
+  ${
+    descripcion
+      ? `<div class="lote-desc">
+           <span class="lote-label">DESCRIPCIÓN:</span>
+           ${descripcion}
+         </div>`
+      : ''
+  }
 
-<div class="lote-horario-box">
-  <span class="lote-label">LÍMITE DE INGRESO:</span>
-
-  <div class="lote-horario-row">
-    <strong class="lote-hora">
-      ${l.hastaHora ? `${l.hastaHora}hs` : '-'}
-    </strong>
-
-    ${
-      l.hastaHora
-        ? `<span class="lote-badge ${claseIngreso}">
-            ${badgeIngreso}
-          </span>`
-        : ''
-    }
-  </div>
-</div>
-<div class="lote-info-left">
-  <div class="lote-costo-row">
-    <span class="lote-label">COSTO:</span>
-
-    <div class="lote-badges-inline">
-      ${precioHtml}
-      ${badgeConsumicion}
+  <div class="lote-horario-box">
+    <span class="lote-label">LÍMITE DE INGRESO:</span>
+    <div class="lote-horario-row">
+      <strong class="lote-hora">
+        ${l.hastaHora ? `${l.hastaHora}hs` : '-'}
+      </strong>
+      ${
+        l.hastaHora
+          ? `<span class="lote-badge ${claseIngreso}">
+              ${badgeIngreso}
+            </span>`
+          : ''
+      }
     </div>
   </div>
 
-<div class="lote-genero-row">
-  <span class="lote-label">${
-    l.genero != 'hombres' && l.genero != 'mujeres' ? 'GÉNERO: ' : 'EXCLUSIVO:'
-  }</span>
-  ${badgeGenero}
-</div>
+  <div class="lote-info-left">
+    <div class="lote-costo-row">
+      <span class="lote-label">COSTO:</span>
+      <div class="lote-badges-inline">
+        ${precioHtml}
+        ${badgeConsumicion}
+      </div>
+    </div>
 
-</div>
+    <div class="lote-genero-row">
+      <span class="lote-label">${
+        l.genero !== 'hombres' && l.genero !== 'mujeres'
+          ? 'GÉNERO:'
+          : 'EXCLUSIVO:'
+      }</span>
+      ${badgeGenero}
+    </div>
+      <div class="lote-stock-overlay">
+    ${barraStockHtml || ''}
+  </div>
+  </div>
 
-${barraStockHtml}
-
+  <!-- FOOTER -->
   <div class="lote-footer-flex">
     <div class="lote-cantidad-box">
       <label class="lote-label">CANTIDAD</label>
-<select
-  class="lote-select-cant"
-  data-id="${id}"
-  ${maxSeleccionable === 0 ? 'disabled' : ''}
->
-  ${opcionesCantidad}
-</select>
+      <select
+        class="lote-select-cant"
+        data-id="${id}"
+        ${agotadoGlobal || agotadoUsuario ? 'disabled' : ''}
+      >
+        ${opcionesCantidad}
+      </select>
 
+      ${
+        agotadoUsuario
+          ? `<div class="lote-hint warning">
+               Ya alcanzaste el máximo permitido para este lote
+             </div>`
+          : ''
+      }
     </div>
   </div>
 </div>

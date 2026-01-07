@@ -59,6 +59,7 @@ export default function MenuAcordeon() {
     categoriaActiva,
     seleccionarCategoria,
     toggleCatalogo,
+    mostrarCatalogo,
     productosFiltrados,
     catalogoVisible,
     abrirProductoDetalle,
@@ -111,6 +112,16 @@ export default function MenuAcordeon() {
     document.addEventListener('abrir-catalogo', handler)
     return () => document.removeEventListener('abrir-catalogo', handler)
   }, [])
+  useEffect(() => {
+    if (!evento) return
+
+    // Abrir acordeón catálogo
+    setAbierto('catalogo')
+
+    // Mostrar catálogo completo
+    seleccionarCategoria('Todos')
+    toggleCatalogo(true)
+  }, [evento])
 
   // ------------------------------------------------------------
   // NUEVO: Evento global "abrir-mis-entradas"
@@ -187,7 +198,10 @@ export default function MenuAcordeon() {
                 <div className="accordion-body d-grid gap-3">
                   <button
                     className="btn btn-outline-dark w-100"
-                    onClick={toggleCatalogo}
+                    onClick={() => {
+                      seleccionarCategoria('Todos')
+                      mostrarCatalogo()
+                    }}
                   >
                     Ver catálogo completo
                   </button>

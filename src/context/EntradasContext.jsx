@@ -763,7 +763,7 @@ export function EntradasProvider({ children }) {
           </div>
         </div>
       `
-        const descripcionEntradas = construirDescripcionEntradas(detallesPagos)
+        // const descripcionEntradas = construirDescripcionEntradas(detallesPagos)
 
         const metodoPago = await Swal.fire({
           title: '',
@@ -774,15 +774,14 @@ export function EntradasProvider({ children }) {
       gratis,
       pagas: detallesPagos,
     })}
-<p style="white-space: pre-line; font-weight: 500; margin-top: 12px;">
-  ${descripcionEntradas}
-</p>
 
-    <p class="total-box">
-      Total a pagar: <b>$${totalPagos.toLocaleString('es-AR')}</b>
+    <p class="total-box mt-2">
+      <b>TOTAL: $${totalPagos.toLocaleString('es-AR')}</b>
     </p>
 
-    <div class="metodos-wrapper mt-3 mb-4">
+    <div class="metodos-pago-box">
+  <p class="metodos-title">¿Cómo querés pagar?</p>
+      <div class="metodos-wrapper mt-3 mb-5">
       <button id="mp" class="method-btn method-mp only-logo">
         <img
           src="https://http2.mlstatic.com/frontend-assets/ui-navigation/5.18.9/mercadopago/logo__large.png"
@@ -793,8 +792,11 @@ export function EntradasProvider({ children }) {
       <button id="transfer" class="method-btn method-transfer">
         Transferencia
       </button>
+          </div>
+      </div>
     </div>
   `,
+
           showCancelButton: true,
           cancelButtonText: 'Cancelar',
           showConfirmButton: false,

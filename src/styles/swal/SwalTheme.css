@@ -115,9 +115,11 @@
 
 /* Contenedor de todas las cards de lote */
 .lotes-wrapper {
-  display: grid;
+  display: flex !important;
+  flex-direction: column !important;
   grid-template-columns: 1fr;
-  gap: 12px;
+  gap: 4px;
+  width: 100% !important;
   margin-top: 6px;
   margin-bottom: 12px;
 }
@@ -125,16 +127,16 @@
 /* ---- Card ---- */
 .lote-card {
   display: block !important;
-  flex-direction: column;
-  position: relative;
-
   background: linear-gradient(180deg, #ffffff 0%, #f5f7f9 100%);
   border: 1px solid #e5e7eb;
   border-radius: 14px;
-  padding: 2px 8px 32px !important; /* espacio p/ botón */
-
+  padding: 2px 8px 16px !important; /* espacio p/ botón */
   transition: 0.2s;
-  width: 100% !important;
+  width: 100%;
+  max-width: 100%;
+  min-width: 330px;
+
+  box-sizing: border-box;
   max-height: 220px;
   min-height: 190px;
   cursor: pointer;
@@ -609,19 +611,21 @@
 }
 .swal2-html-container {
   padding-top: 0.4rem !important;
+  max-width: 480px;
+  width: 100%;
+  max-width: 100%;
+  margin: auto;
 }
+
 .swal-lotes {
   text-align: left;
 }
 
 .swal-lotes .swal2-title,
 .swal-lotes .swal2-html-container {
-  text-align: left !important;
+  text-align: left;
 }
-.swal2-popup,
-.swal2-html-container {
-  text-align: center !important;
-}
+
 /* ===========================
    MERCADO PAGO BUTTON (FINAL)
 =========================== */
@@ -906,8 +910,8 @@
 
 .lote-cantidad-box {
   position: absolute;
-  top: 112px; /* ajustable */
-  right: 12px; /* ajustable */
+  top: 112px;
+  right: 12px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -1063,7 +1067,7 @@
 }
 
 #swal-content-resumencompra {
-  font-size: clamp(0.5rem, 1.85vw, 0.82rem);
+  font-size: clamp(0.4rem, 1.65vw, 0.72rem);
 }
 
 .metodos-pago-box {

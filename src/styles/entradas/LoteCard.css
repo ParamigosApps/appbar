@@ -17,13 +17,6 @@
   border-radius: 8px;
 }
 
-/* ---- Wrapper ---- */
-.lotes-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
 /* ---- Fecha ---- */
 .lote-fecha-top-abs {
   position: absolute;
@@ -44,10 +37,7 @@
   font-size: 1.2rem;
   font-weight: 800;
 }
-.swal2-html-container {
-  text-align: start !important;
-  padding: 0px;
-}
+
 /* ---- Horario ---- */
 .lote-horario-box {
   display: flex;
@@ -202,20 +192,6 @@
 /* ============================================================
    LOTES — FORZAR 1 POR LÍNEA
    ============================================================ */
-
-/* Contenedor de todos los lotes */
-.lotes-wrapper {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 16px !important;
-  width: 100% !important;
-}
-
-/* Por si tenían grid */
-.lotes-wrapper {
-  display: flex !important;
-  flex-direction: column !important;
-}
 
 /* Ajustar botón y footer */
 .lote-footer-flex {

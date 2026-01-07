@@ -19,6 +19,7 @@
 .swal2-popup,
 .swal2-container {
   z-index: 9001 !important;
+  padding: 16px 12px 12px 12px;
 }
 
 .carrito-panel.open {

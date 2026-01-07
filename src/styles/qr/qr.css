@@ -96,15 +96,11 @@
 }
 
 .qr-item {
-  position: relative;
-
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
-
-  padding: 16px 14px;
-  text-align: center;
+  padding: 22px 4px;
 }
 
 /* Label tipo "Entrada #1" */
@@ -130,7 +126,7 @@
 }
 
 .qr-box img {
-  width: 160px;
+  width: 200px;
 }
 /* Scroll cuando hay muchos QR */
 .qr-scroll {

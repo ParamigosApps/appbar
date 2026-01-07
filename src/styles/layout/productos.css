@@ -29,13 +29,7 @@
 .swal2-title {
   font-size: 22px !important;
   font-weight: 700 !important;
-  margin-bottom: 10px !important;
-}
-
-.swal2-html-container {
-  font-size: 16px !important;
-  font-weight: 500 !important;
-  margin-top: 10px !important;
+  margin: 10px 0px !important;
 }
 
 /* ------------------------------------------------------------
