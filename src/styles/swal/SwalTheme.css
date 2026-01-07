@@ -134,7 +134,7 @@
   transition: 0.2s;
   width: 100%;
   max-width: 100%;
-  min-width: 330px;
+  min-width: 310px;
 
   box-sizing: border-box;
   max-height: 220px;
@@ -142,6 +142,7 @@
   cursor: pointer;
   transition: filter 0.18s ease, transform 0.15s ease;
 }
+
 /* Header: nombre del ticket + precio */
 .lote-header {
   display: flex;
@@ -610,8 +611,7 @@
   margin-top: 18px;
 }
 .swal2-html-container {
-  padding-top: 0.4rem !important;
-  max-width: 480px;
+  padding: 0px !important;
   width: 100%;
   max-width: 100%;
   margin: auto;
