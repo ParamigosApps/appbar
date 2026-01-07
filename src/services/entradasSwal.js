@@ -35,6 +35,7 @@ export async function abrirSeleccionLotesMultiPro(evento, lotes, options = {}) {
     theme = 'light',
     entradasUsuarioPorLote = {},
     pendientesUsuarioPorLote = {},
+    usadosPorLote = {},
   } = options
 
   const MySwal = crearSwalConTheme(theme)
@@ -95,21 +96,13 @@ export async function abrirSeleccionLotesMultiPro(evento, lotes, options = {}) {
               }
             }
             // 🔑 total global REAL del lote
-            const totalLote = Number.isFinite(l.cantidadInicial)
-              ? l.cantidadInicial
-              : 0
+            const totalLote = Number(l.cantidadInicial || 0)
+            const usados = Number(l.usados || 0)
+            const restantes = Number(l.cantidad || 0)
 
-            // 🔑 restantes globales
-            const restantes = Number.isFinite(l.cantidad) ? l.cantidad : 0
-
-            // 🔑 porcentaje GLOBAL (no usuario)
+            // % de OCUPACIÓN (UI)
             const porcentaje =
-              totalLote > 0
-                ? Math.max(
-                    0,
-                    Math.min(100, Math.round((restantes / totalLote) * 100))
-                  )
-                : 0
+              totalLote > 0 ? Math.round((usados / totalLote) * 100) : 0
 
             // FIN BARRA STOCK
             const id = String(l.index)
@@ -147,12 +140,10 @@ export async function abrirSeleccionLotesMultiPro(evento, lotes, options = {}) {
                   : Infinity,
               totalObtenidas: Number(entradasUsuarioPorLote[idx] || 0),
               totalPendientes: Number(pendientesUsuarioPorLote[idx] || 0),
-              cuposLote: Number.isFinite(l.cantidad)
-                ? Number(l.cantidad)
-                : Infinity,
-              maxCantidad: Infinity,
+              cuposLote: restantes,
             })
-            const agotadoGlobal = restantes <= 0
+            const agotadoGlobal = usados >= totalLote
+
             const agotadoUsuario = disponiblesAhora <= 0 && restantes > 0
 
             const mostrarBarra = porcentaje <= 30

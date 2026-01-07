@@ -568,6 +568,7 @@ export function EntradasProvider({ children }) {
       // ==========================================================
       const entradasUsuarioPorLote = {}
       const pendientesUsuarioPorLote = {}
+      const usadosPorLote = {}
 
       lotesInfoConUsuario.forEach(l => {
         const idx = Number.isFinite(l.index)
@@ -598,6 +599,7 @@ export function EntradasProvider({ children }) {
         pendientesUsuarioPorLote[idx] = entradasPendientes
           .filter(p => p.loteIndice === idx)
           .reduce((acc, p) => acc + Number(p.cantidad || 0), 0)
+        usadosPorLote[idx] = Number(l.usados || 0)
       })
 
       const eventoCompleto = {
@@ -646,10 +648,10 @@ export function EntradasProvider({ children }) {
           {
             entradasUsuarioPorLote,
             pendientesUsuarioPorLote,
+            usadosPorLote,
           }
         )
-        console.log('entradasUsuarioPorLote', entradasUsuarioPorLote)
-        console.log('pendientesUsuarioPorLote', pendientesUsuarioPorLote)
+
         if (!seleccion) return
 
         // ----------------------------------------------------------

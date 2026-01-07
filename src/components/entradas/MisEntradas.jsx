@@ -4,6 +4,7 @@
 // --------------------------------------------------------------
 import React, { useEffect, useState, useRef, Fragment } from 'react'
 import {
+  doc,
   collection,
   onSnapshot,
   query,
@@ -71,6 +72,8 @@ export default function MisEntradas() {
   const [loading, setLoading] = useState(true)
   const [qrModal, setQrModal] = useState(null)
 
+  const eventosCache = useRef({})
+  const eventosUnsub = useRef({})
   // ============================================================
   // 🔥 ENTRADAS + PENDIENTES (SOLO UI, SIN NOTIFICAR)
   // ============================================================
@@ -78,7 +81,11 @@ export default function MisEntradas() {
     if (!user) return
 
     setLoading(true)
-    mapRef.current = {}
+    Object.values(mapRef.current).forEach(ev => {
+      Object.values(ev.lotes || {}).forEach(l => {
+        l.ticketsAprobados = []
+      })
+    })
 
     // -----------------------------
     // ENTRADAS APROBADAS
@@ -90,9 +97,6 @@ export default function MisEntradas() {
     )
 
     const unsubAprobadas = onSnapshot(qAprobadas, snap => {
-      // 🔥 LIMPIAR antes de reconstruir
-      mapRef.current = {}
-
       snap.forEach(docSnap => {
         const e = docSnap.data()
         const id = docSnap.id
@@ -117,6 +121,7 @@ export default function MisEntradas() {
         if (!mapRef.current[eventoKey].lotes[loteKey]) {
           mapRef.current[eventoKey].lotes[loteKey] = {
             lote: e.lote || null,
+            loteIndice: Number.isFinite(e.loteIndice) ? e.loteIndice : null,
             precioUnitario: precioEntrada,
             ticketsAprobados: [],
             ticketsPendientes: [],
@@ -127,6 +132,16 @@ export default function MisEntradas() {
           id,
           usado: e.usado === true,
         })
+
+        if (!eventosCache.current[e.eventoId]) {
+          eventosUnsub.current[e.eventoId] = onSnapshot(
+            doc(db, 'eventos', e.eventoId),
+            snap => {
+              eventosCache.current[e.eventoId] = snap.data()
+              setGrupos(Object.values(mapRef.current))
+            }
+          )
+        }
       })
     })
 
@@ -139,6 +154,11 @@ export default function MisEntradas() {
     )
 
     const unsubPendientes = onSnapshot(qPendientes, snap => {
+      Object.values(mapRef.current).forEach(ev => {
+        Object.values(ev.lotes || {}).forEach(l => {
+          l.ticketsPendientes = []
+        })
+      })
       snap.forEach(docSnap => {
         const p = docSnap.data()
         const id = docSnap.id
@@ -171,9 +191,6 @@ export default function MisEntradas() {
           }
         }
 
-        // 🔒 IMPORTANTE: limpiar pendientes del lote antes de volver a cargarlas
-        mapRef.current[eventoKey].lotes[loteKey].ticketsPendientes = []
-
         const cant = Number(p.cantidad) || 1
         for (let i = 0; i < cant; i++) {
           mapRef.current[eventoKey].lotes[loteKey].ticketsPendientes.push(
@@ -189,6 +206,13 @@ export default function MisEntradas() {
     return () => {
       unsubAprobadas()
       unsubPendientes()
+
+      Object.values(eventosUnsub.current).forEach(unsub => {
+        if (typeof unsub === 'function') unsub()
+      })
+
+      eventosUnsub.current = {}
+      eventosCache.current = {}
     }
   }, [user])
 
@@ -249,16 +273,17 @@ export default function MisEntradas() {
     return getPrecioLote(l) === 0
   }
 
-  function calcularPorcentajeDisponible(l) {
-    const total =
-      Number(l?.lote?.cantidadTotal) || Number(l?.lote?.cantidad) || 0
+  function calcularPorcentajeDisponible(eventoId, loteIndice) {
+    const evento = eventosCache.current[eventoId]
+    if (!evento || !Array.isArray(evento.lotes)) return null
 
-    if (!total) return null
+    const lote = evento.lotes[loteIndice]
+    if (!lote) return null
 
-    const usadas =
-      (l.ticketsAprobados?.length || 0) + (l.ticketsPendientes?.length || 0)
+    const total = Number(lote.cantidadInicial || 0)
+    const disponibles = Number(lote.cantidad || 0)
 
-    const disponibles = Math.max(total - usadas, 0)
+    if (total <= 0) return null
 
     return Math.round((disponibles / total) * 100)
   }
@@ -326,8 +351,15 @@ export default function MisEntradas() {
                       t => t.usado
                     ).length
                     const lenghDisponibles = l.ticketsAprobados.length - usadas
-                    const porcentaje = calcularPorcentajeDisponible(l)
-                    const mostrarBarra = porcentaje !== null && porcentaje <= 30
+                    const porcentaje = calcularPorcentajeDisponible(
+                      g.eventoId,
+                      l.loteIndice
+                    )
+
+                    const mostrarBarra =
+                      Number.isFinite(porcentaje) &&
+                      porcentaje <= 30 &&
+                      !esFreeLote(l)
 
                     const todasDisponibles = aprobadas > 0 && usadas === 0
                     const algunasDisponibles =
