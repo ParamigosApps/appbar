@@ -84,27 +84,33 @@ export async function calcularCuposEvento(eventoId, usuarioId) {
     Math.min(limitePorUsuario - totalUsuario, cupoRestanteEvento)
   )
 
-  // 6) CUPOS POR LOTE (CORRECTO)
+  // 6) CUPOS POR LOTE (FINAL: cantidadDisponible + cantidadUsada)
   const lotesInfo = lotes.map((lote, index) => {
     // Vendidas / pendientes del lote (GLOBAL)
-    const vend = vendidasSnap.docs.reduce(
+    const vendidasGlobal = vendidasSnap.docs.reduce(
       (a, d) =>
         d.data().loteIndice === index ? a + Number(d.data().cantidad || 1) : a,
       0
     )
 
-    const pend = pendientesSnap.docs.reduce(
+    const pendientesGlobal = pendientesSnap.docs.reduce(
       (a, d) =>
         d.data().loteIndice === index ? a + Number(d.data().cantidad || 1) : a,
       0
     )
 
-    const restantesLote = Math.max(
-      Number(lote.cantidad || 0) - (vend + pend),
-      0
-    )
+    // ✅ Total base (100%) del lote:
+    // - prioridad: cantidadInicial
+    // - fallback: cantidad (si algún evento viejo no tenía cantidadInicial)
+    const cantidadInicial = Number(lote.cantidadInicial ?? lote.cantidad ?? 0)
 
-    // 🔥 NUEVO: entradas del USUARIO en este lote
+    // ✅ Este es el dato derivado clave
+    const cantidadUsada = Math.max(0, vendidasGlobal + pendientesGlobal)
+
+    // ✅ Disponibles reales ahora
+    const cantidadDisponible = Math.max(0, cantidadInicial - cantidadUsada)
+
+    // Entradas del usuario en este lote (para límites)
     const userVendidasLote = userVendidasSnap.docs.reduce(
       (a, d) =>
         d.data().loteIndice === index ? a + Number(d.data().cantidad || 1) : a,
@@ -119,26 +125,31 @@ export async function calcularCuposEvento(eventoId, usuarioId) {
 
     const totalUsuarioLote = userVendidasLote + userPendientesLote
 
-    // 🔐 Límite por usuario del LOTE
     const limiteLote = Number(lote.maxPorUsuario) || Infinity
-
     const disponiblesPorLoteUsuario = Math.max(0, limiteLote - totalUsuarioLote)
 
-    // 🔑 DISPONIBLE FINAL REAL
-    const disponiblesFinal = Math.max(
+    // ✅ Lo que este usuario puede seleccionar hoy
+    const disponiblesUsuario = Math.max(
       0,
-      Math.min(restantesLote, disponiblesPorLoteUsuario)
+      Math.min(cantidadDisponible, disponiblesPorLoteUsuario)
     )
 
     return {
       ...lote,
       index,
 
-      // 🔑 CLAVE: el Swal usa `cantidad`
-      cantidad: disponiblesFinal,
+      // 🔒 Modelo nuevo (clarísimo)
+      cantidadInicial,
+      cantidadUsada,
+      cantidadDisponible,
 
-      // extras (debug / admin)
-      restantesLote,
+      // 🔐 Límite por usuario (para el select)
+      disponiblesUsuario,
+
+      // métricas útiles (opcional)
+      vendidasGlobal,
+      pendientesGlobal,
+
       maxPorUsuario: Number(lote.maxPorUsuario) || 0,
       totalUsuarioLote,
     }

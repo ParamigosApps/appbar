@@ -177,7 +177,7 @@ export default function EntradasEventos() {
 
                   return
                 }
-                console.log('CLICK comprar')
+                console.log('🎯 EVENTO ANTES DEL SWAL', evento.lotes)
                 pedirEntrada(evento, {
                   usuarioId,
                   usuarioNombre,

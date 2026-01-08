@@ -166,28 +166,6 @@
   border-radius: 8px;
 }
 
-/* ------------------------------------------------------------
-   RESPONSIVE
------------------------------------------------------------- */
-@media (max-width: 600px) {
-  .entradas-container {
-    gap: 12px;
-  }
-
-  .event-card {
-    padding: 8px;
-  }
-
-  .eventos-container h2,
-  .entradas-admin-page h2 {
-    font-size: 1.4rem;
-  }
-
-  .botones-entradas button {
-    width: 100%;
-  }
-}
-
 .lote-row {
   background: #f8f9fa;
   border-radius: 10px;
@@ -375,7 +353,7 @@
 select {
   color: #2d2d2d !important; /* texto apagado */
   border-color: #b5b5b5 !important;
-  font-size: 0.95rem !important;
+  font-size: clamp(0.65rem, 2.5vw, 0.9rem) !important;
   font-weight: 650 !important;
 }
 
@@ -445,3 +423,32 @@ select:disabled {
   font-size: 0.9rem;
   color: #065f46;
 }
+
+/* ------------------------------------------------------------
+   RESPONSIVE
+------------------------------------------------------------ */
+@media (max-width: 600px) {
+  .entradas-container {
+    gap: 12px;
+  }
+
+  .event-card {
+    padding: 8px;
+  }
+
+  .eventos-container h2,
+  .entradas-admin-page h2 {
+    font-size: 1.4rem;
+  }
+
+  .botones-entradas button {
+    width: 100%;
+  }
+}
+/* @media (max-width: 500px) {
+  select {
+    font-size: 0.65rem !important;
+    
+    font-weight: 650 !important;
+  }
+} */

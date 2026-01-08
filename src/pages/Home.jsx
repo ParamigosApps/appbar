@@ -29,12 +29,6 @@ export default function Home() {
       }, 0)
     }
 
-    const abrirPedidos = () => {
-      setTimeout(() => {
-        document.dispatchEvent(new Event('abrir-pedidos'))
-      }, 0)
-    }
-
     switch (aviso) {
       // ============================
       // 🎟️ ENTRADAS
@@ -67,7 +61,7 @@ export default function Home() {
         Swal.fire({
           icon: 'error',
           title: 'Pago rechazado',
-          text: 'No se realizó ningún cargo. Solo se generaron las entradas gratuitas.',
+          text: 'No se realizó ningún cargo.',
           confirmButtonText: 'Entendido',
           customClass: {
             confirmButton: 'swal-btn-confirm',
@@ -129,8 +123,8 @@ export default function Home() {
       <p style="text-align:center">
         El pedido fue generado como <b>pendiente</b> 
       </p>
-      <p style="font-size:14px;color:#555;text-align:center">
-        Podés verlo o completarlo desde el carrito.
+      <p style="font-size:14px;color:#555;text-align:center;margin-top:8px;">
+        Podés verlo desde el carrito.
       </p>
     `,
           confirmButtonText: 'Volver al carrito',
@@ -154,7 +148,7 @@ export default function Home() {
         Tu pedido fue generado como <b>pendiente</b>.
     </p>
       <p style="font-size:14px;color:#555;text-align:center">
-        Podés verlo o completarlo desde el carrito.
+        Podés verlo desde el carrito.
       </p>
     `,
           confirmButtonText: 'Ir al carrito',

@@ -35,7 +35,6 @@ export async function abrirSeleccionLotesMultiPro(evento, lotes, options = {}) {
     theme = 'light',
     entradasUsuarioPorLote = {},
     pendientesUsuarioPorLote = {},
-    usadosPorLote = {},
   } = options
 
   const MySwal = crearSwalConTheme(theme)
@@ -77,35 +76,45 @@ export async function abrirSeleccionLotesMultiPro(evento, lotes, options = {}) {
       <div class="lotes-wrapper">
         ${lotes
           .map(l => {
+            const total = Number(l.cantidadInicial || 0)
+            const disponibles = Number(l.cantidadDisponible || 0)
+
+            // ✅ % DISPONIBLE
+            const porcentaje =
+              total > 0 ? Math.round((disponibles / total) * 100) : 0
+
+            const restantes = disponibles
+
             // ================================
             // STOCK / DISPONIBILIDAD (POR LOTE)
             // ================================
             let badgeIngreso = ''
             let claseIngreso = 'badge-ingreso-ok'
+            const [h, m] = l.hastaHora.split(':').map(Number)
+            const minutos = h * 60 + m
 
             if (l.hastaHora) {
-              const [h, m] = l.hastaHora.split(':').map(Number)
-              const minutos = h * 60 + m
-
               // antes de las 02:00 → 120 minutos
-              if (minutos < 120) {
+              if (minutos < 121) {
                 claseIngreso = 'badge-ingreso-early'
-                badgeIngreso = '⚠ INGRESO TEMPRANO'
+                badgeIngreso = '¡ATENCIÓN!'
               } else {
                 badgeIngreso = 'INGRESO NORMAL'
               }
             }
-            // 🔑 total global REAL del lote
-            const totalLote = Number(l.cantidadInicial || 0)
-            const usados = Number(l.usados || 0)
-            const restantes = Number(l.cantidad || 0)
 
-            // % de OCUPACIÓN (UI)
-            const porcentaje =
-              totalLote > 0 ? Math.round((usados / totalLote) * 100) : 0
+            const mostrarIngresoLimite =
+              Number.isFinite(minutos) && minutos > 0 && minutos <= 120
 
             // FIN BARRA STOCK
             const id = String(l.index)
+
+            console.log('[STOCK LOTE]', {
+              lote: l.nombre,
+              cantidadInicial: l.cantidadInicial,
+              cantidadDisponible: l.cantidadDisponible,
+              porcentajeDisponible: porcentaje,
+            })
 
             const descripcion =
               l.descripcionLote || l.descripcion || l.descripcion_lote || ''
@@ -131,19 +140,12 @@ export async function abrirSeleccionLotesMultiPro(evento, lotes, options = {}) {
 
             const idx = String(l.index)
 
-            const disponiblesAhora = calcularDisponiblesAhora({
-              evento,
-              hayLotes: true,
-              limiteUsuario:
-                Number(l.maxPorUsuario) > 0
-                  ? Number(l.maxPorUsuario)
-                  : Infinity,
-              totalObtenidas: Number(entradasUsuarioPorLote[idx] || 0),
-              totalPendientes: Number(pendientesUsuarioPorLote[idx] || 0),
-              cuposLote: restantes,
-            })
-            const agotadoGlobal = usados >= totalLote
+            const disponiblesAhora = Number(
+              l.disponiblesUsuario ??
+                Math.min(restantes, Number(l.maxPorUsuario) || Infinity)
+            )
 
+            const agotadoGlobal = restantes <= 0
             const agotadoUsuario = disponiblesAhora <= 0 && restantes > 0
 
             const mostrarBarra = porcentaje <= 30
@@ -178,6 +180,7 @@ export async function abrirSeleccionLotesMultiPro(evento, lotes, options = {}) {
               </div>
             `
               : ''
+
             const maxSeleccionable = Math.max(0, disponiblesAhora)
 
             const opcionesCantidad =
@@ -209,22 +212,27 @@ export async function abrirSeleccionLotesMultiPro(evento, lotes, options = {}) {
       : ''
   }
 
+${
+  mostrarIngresoLimite
+    ? `
   <div class="lote-horario-box">
-    <span class="lote-label">LÍMITE DE INGRESO:</span>
+    <span class="lote-label">INGRESO LÍMITE:</span>
     <div class="lote-horario-row">
-      <strong class="lote-hora">
+      <strong class="lote-hora badge-hora">
         ${l.hastaHora ? `${l.hastaHora}hs` : '-'}
       </strong>
       ${
         l.hastaHora
-          ? `<span class="lote-badge ${claseIngreso}">
+          ? `<span class="lote-badge ${claseIngreso}" id="badge-ingreso">
               ${badgeIngreso}
             </span>`
           : ''
       }
     </div>
   </div>
-
+`
+    : ''
+}
   <div class="lote-info-left">
     <div class="lote-costo-row">
       <span class="lote-label">COSTO:</span>
@@ -295,6 +303,7 @@ export async function abrirSeleccionLotesMultiPro(evento, lotes, options = {}) {
           lote: l,
           cantidad: estado[String(l.index)],
         }))
+
         .filter(x => x.cantidad > 0)
 
       if (!seleccion.length) {

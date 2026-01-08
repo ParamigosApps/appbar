@@ -69,12 +69,16 @@ export async function pedirEntradaFreeConLote({
 
   const loteActual = lotesInfo.find(l => l.index === loteIndex)
 
-  if (!loteActual || loteActual.restantes <= 0) {
-    console.error('❌ Lote inválido o sin cupos restantes')
+  if (!loteActual || Number(loteActual.cantidadDisponible || 0) <= 0) {
+    console.error('❌ Lote inválido o sin cupos disponibles')
     return
   }
 
-  const maxPermitido = Math.min(loteActual.restantes, maxUser)
+  const maxPermitido = Math.min(
+    Number(loteActual.cantidadDisponible || 0),
+    Number(maxUser || 0)
+  )
+
   const cantidad = normalizarCantidad(cantidadSel, maxPermitido)
 
   if (cantidad <= 0) {

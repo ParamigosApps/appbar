@@ -114,6 +114,11 @@ export function AuthProvider({ children }) {
           allowOutsideClick: false,
           allowEscapeKey: false,
           confirmButtonText: 'Confirmar',
+          customClass: {
+            title: 'swal-title-custom',
+            confirmButton: 'swal-btn-confirm',
+          },
+          buttonsStyling: false,
         })
 
         if (!res.value) return

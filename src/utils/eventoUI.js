@@ -32,38 +32,30 @@ export function renderEventoHtml(evento) {
   // HTML final
   // -----------------------------
   return `
-    <div style="
+      <div style="
       text-align:center;
-      margin-bottom:10px;
       font-size:18px;
-      font-weight:800;
-      letter-spacing:0.4px;
-      color:#0f172a;
-    ">
-      🎟️ ${esHoy ? '<strong >HOY</strong> – ' : ''}
-      ${fechaTexto.toUpperCase()}
-    </div>
-
-    <div style="
-      text-align:center;
-      font-size:16px;
-      margin-bottom:8px;
-      color:#020617;
-    ">
-      ⏰ <strong>${horaTexto} HS</strong>
-    </div>
-
-    <div style="
-      text-align:center;
-      font-size:17px;
       font-weight:800;
       margin-bottom:12px;
     ">
-      ${evento.nombre.toUpperCase()}
+      🎟️ <strong >${evento.nombre.toUpperCase()}</strong>
+    </div>
+    <div style="
+      text-align:center;
+      margin-bottom:10px;
+      font-size:16px;
+      font-weight:700;
+      letter-spacing:0.4px;
+      color:#0f172a;
+    ">
+      ${esHoy ? '<strong >HOY</strong> – ' : ''}
+      ${fechaTexto.toUpperCase()} - ${horaTexto} HS
     </div>
 
+
+
+
 <div id="swal-content-resumencompra" style="
-  margin: 8px 12px;
   padding: 8px 10px;
   background: #fff7ed;
   border-left: 4px solid #f59e0b;

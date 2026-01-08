@@ -225,6 +225,8 @@ export default function EditarEvento({ editarId, setSeccion }) {
                 id: idx + '-' + Date.now(),
                 ...l,
 
+                descripcion: l.descripcion || l.descripcionLote || '',
+
                 cantidadInicial,
                 cantidad,
 
@@ -697,6 +699,65 @@ export default function EditarEvento({ editarId, setSeccion }) {
               <small className="text-muted d-block text-end">
                 Limite de caracteres: {(lote.descripcion || '').length}/80
               </small>
+              {/* ================= PRECIO + GÉNERO + CONSUMICIÓN ================= */}
+              <div className="row g-2 mt-2 mb-2">
+                {/* PRECIO */}
+                <div className="col-md-4">
+                  <label className="form-label m-0">Precio del lote</label>
+                  <input
+                    type="number"
+                    className="form-control form-control-sm"
+                    min={0}
+                    value={Number(lote.precio) || 0}
+                    onChange={e =>
+                      actualizarLote(
+                        lote.id,
+                        'precio',
+                        Number(e.target.value) || 0
+                      )
+                    }
+                  />
+                  <small className="text-muted">$0 para lote gratuito</small>
+                </div>
+
+                {/* GÉNERO */}
+                <div className="col-md-4">
+                  <label className="form-label m-0">Género</label>
+                  <select
+                    className="form-select form-select-sm"
+                    value={lote.genero || 'todos'}
+                    onChange={e =>
+                      actualizarLote(lote.id, 'genero', e.target.value)
+                    }
+                  >
+                    <option value="todos">Todos</option>
+                    <option value="hombres">Hombres</option>
+                    <option value="mujeres">Mujeres</option>
+                  </select>
+                </div>
+
+                {/* CONSUMICIÓN */}
+                <div className="col-md-4">
+                  <label className="form-label m-0">Consumición</label>
+                  <div className="form-check mt-1">
+                    <input
+                      type="checkbox"
+                      className="form-check-input"
+                      checked={!!lote.incluyeConsumicion}
+                      onChange={e =>
+                        actualizarLote(
+                          lote.id,
+                          'incluyeConsumicion',
+                          e.target.checked
+                        )
+                      }
+                    />
+                    <label className="form-check-label small">
+                      🍸 Incluye consumición
+                    </label>
+                  </div>
+                </div>
+              </div>
 
               {/* EJEMPLO: si tenés inputs de horario, limitarlos por horaInicio */}
               <div className="row g-2 mb-2">

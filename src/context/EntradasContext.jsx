@@ -43,7 +43,15 @@ import { mostrarResultadoEntradasGratis } from '../utils/swalUtils'
 // CONTEXTO
 // --------------------------------------------------------------
 const EntradasContext = createContext()
-export const useEntradas = () => useContext(EntradasContext)
+export const useEntradas = () => {
+  const ctx = useContext(EntradasContext)
+  if (!ctx) {
+    throw new Error(
+      'useEntradas debe usarse dentro de EntradasProvider (import/context duplicado)'
+    )
+  }
+  return ctx
+}
 
 // --------------------------------------------------------------
 // PROVIDER
@@ -201,10 +209,6 @@ export function EntradasProvider({ children }) {
     cargar()
   }, [])
 
-  // ----------------------------------------------------------
-  // CARGAR HISTORIAL ENTRADAS USUARIO
-  // ----------------------------------------------------------
-
   useEffect(() => {
     if (!user?.uid) {
       setHistorialEntradas([])
@@ -214,12 +218,6 @@ export function EntradasProvider({ children }) {
     cargarHistorial(user.uid)
   }, [user])
 
-  // ----------------------------------------------------------
-  // CARGAR ENTRADAS USUARIO
-  // ----------------------------------------------------------
-  // ----------------------------------------------------------
-  // 🚨 RESULTADO FINAL ENTRADAS GRATIS (UN SOLO SWAL)
-  // ----------------------------------------------------------
   useEffect(() => {
     if (!user?.uid) return
     if (flujoPagoActivo) return
@@ -477,7 +475,7 @@ export function EntradasProvider({ children }) {
     <div class="limite-row entrada gratis">
       <span class="label">
         ${g.lote.nombre} x<span class="cantidad">${g.cantidad}</span>
-        <span class="badge-generadas">Confirmado</span>
+        <span class="badge-generadas">En proceso</span>
       </span>
       <span class="value gratis-text">GRATIS</span>
     </div>
@@ -558,9 +556,8 @@ export function EntradasProvider({ children }) {
       // 🔑 Asegurar datos por usuario en cada lote
       const lotesInfoConUsuario = lotesInfo.map(l => ({
         ...l,
-        usadasPorUsuario: Number(l.usadasPorUsuario || 0),
-        maxPorUsuario: Number(l.maxPorUsuario || 0),
-        cantidad: Number(l.cantidad || 0),
+        cantidad: Number(l.cantidad), // stock global REAL
+        disponiblesUsuario: Number(l.disponiblesUsuario), // NUEVO
       }))
 
       // ==========================================================
@@ -580,16 +577,11 @@ export function EntradasProvider({ children }) {
         if (idx === null) return
         console.table({
           lote: l.nombre,
-          stock: l.cantidad,
+          cantidadInicial: l.cantidadInicial,
+          cantidad: l.cantidad,
           maxPorUsuario: l.maxPorUsuario,
           usadas: l.usadasPorUsuario,
           pendientes: l.pendientesPorUsuario,
-          permitidoPorUsuario:
-            l.maxPorUsuario > 0
-              ? l.maxPorUsuario -
-                Number(l.usadasPorUsuario || 0) -
-                Number(l.pendientesPorUsuario || 0)
-              : '∞',
         })
 
         // ✔ usadas CONFIRMADAS por lote

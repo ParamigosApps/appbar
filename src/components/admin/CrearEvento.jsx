@@ -320,7 +320,7 @@ export default function CrearEvento({ setSeccion = () => {} }) {
       horaFin: form.horaFin,
 
       entradasMaximasEvento: entradasMax,
-      entradasPorUsuario: Number(form.entradasPorUsuario) || 1,
+      entradasPorUsuario: Number(form.entradasPorUsuario) || 2,
 
       lotes: lotes.map(l => ({
         nombre: (l.nombre || '').trim(),
