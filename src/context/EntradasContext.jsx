@@ -460,22 +460,26 @@ export function EntradasProvider({ children }) {
     return true
   }
 
-  function construirDescripcionEntradas(detalles) {
-    return detalles
-      .map(d => {
-        const total = d.precio * d.cantidad
-        return `${d.cantidad} ${d.nombre} ($${total.toLocaleString('es-AR')})`
-      })
-      .join('\n')
-  }
-
   function renderResumenEntradas({ gratis = [], pagas = [] }) {
     const rowsGratis = gratis.map(g => {
+      const loteIndice = Number.isFinite(g.lote?.index)
+        ? g.lote.index
+        : Number.isFinite(g.lote?.loteIndice)
+        ? g.lote.loteIndice
+        : null
+
+      const aprobadas = misEntradas.filter(
+        e => e.eventoId === g.eventoId && e.loteIndice === loteIndice
+      ).length
+
+      const estado = aprobadas >= g.cantidad ? 'Aprobada' : 'En proceso'
+      const clase = estado === 'Aprobada' ? 'badge-aprobada' : 'badge-generadas'
+
       return `
     <div class="limite-row entrada gratis">
       <span class="label">
         ${g.lote.nombre} x<span class="cantidad">${g.cantidad}</span>
-        <span class="badge-generadas">En proceso</span>
+        <span class="${clase}">${estado}</span>
       </span>
       <span class="value gratis-text">GRATIS</span>
     </div>
@@ -757,7 +761,6 @@ export function EntradasProvider({ children }) {
           </div>
         </div>
       `
-        // const descripcionEntradas = construirDescripcionEntradas(detallesPagos)
 
         const metodoPago = await Swal.fire({
           title: '',

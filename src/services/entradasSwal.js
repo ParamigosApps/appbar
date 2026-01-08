@@ -77,13 +77,12 @@ export async function abrirSeleccionLotesMultiPro(evento, lotes, options = {}) {
         ${lotes
           .map(l => {
             const total = Number(l.cantidadInicial || 0)
+            const restantes = Number(l.cantidadDisponible || 0)
             const disponiblesAhora = Number(l.disponiblesUsuario || 0)
 
-            // ✅ % DISPONIBLE
+            // % DISPONIBLE (visual)
             const porcentaje =
-              total > 0 ? Math.round((disponibles / total) * 100) : 0
-
-            const restantes = disponibles
+              total > 0 ? Math.round((restantes / total) * 100) : 0
 
             // ================================
             // STOCK / DISPONIBILIDAD (POR LOTE)
@@ -140,11 +139,6 @@ export async function abrirSeleccionLotesMultiPro(evento, lotes, options = {}) {
 
             const idx = String(l.index)
 
-            const disponiblesAhora = Number(
-              l.disponiblesUsuario ??
-                Math.min(restantes, Number(l.maxPorUsuario) || Infinity)
-            )
-
             const agotadoGlobal = restantes <= 0
             const agotadoUsuario = disponiblesAhora <= 0 && restantes > 0
 
@@ -163,6 +157,7 @@ export async function abrirSeleccionLotesMultiPro(evento, lotes, options = {}) {
               textoStock = '¡SE ESTÁ AGOTANDO!'
             }
 
+            console.log(agotadoUsuario)
             // 🔑 HTML FINAL
             const barraStockHtml = mostrarBarra
               ? `
@@ -267,13 +262,6 @@ ${
         ${opcionesCantidad}
       </select>
 
-      ${
-        agotadoUsuario
-          ? `<div class="lote-hint warning">
-               Ya alcanzaste el máximo permitido para este lote
-             </div>`
-          : ''
-      }
     </div>
   </div>
 </div>
@@ -344,16 +332,10 @@ ${
 export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
   const MySwal = crearSwalConTheme(theme)
 
-  const cuposReales = Number.isFinite(lote?.cantidad)
-    ? Number(lote.cantidad)
-    : Infinity
-
   const {
-    maxCantidad = 99,
     limiteUsuario = 0,
     totalObtenidas = 0,
     totalPendientes = 0,
-    cuposLote = 0,
     precioUnitario,
     esGratis: esGratisProp,
   } = opciones
@@ -365,15 +347,7 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
 
   const esGratis = esGratisProp ?? precioBase === 0
 
-  const disponiblesAhora = calcularDisponiblesAhora({
-    evento,
-    hayLotes: true, // 🔑 CLAVE
-    limiteUsuario, // lote.maxPorUsuario
-    totalObtenidas, // SOLO de este lote
-    totalPendientes, // SOLO de este lote
-    cuposLote: cuposReales,
-    maxCantidad,
-  })
+  const disponiblesAhora = Number(lote.disponiblesUsuario || 0)
 
   let cantidad = 1
   let metodoSeleccionado = null

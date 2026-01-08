@@ -68,7 +68,7 @@ export default function MenuAcordeon() {
   const { eventos, misEntradas } = useEntradas()
 
   const {
-    user,
+    firebaseUser,
     loginSettings,
     loginGoogle,
     loginFacebook,
@@ -480,7 +480,7 @@ export default function MenuAcordeon() {
                   {/* HISTORIAL */}
                   {entradasInterno === 'historial' && (
                     <div className="bg-light p-3 rounded">
-                      {!user && !loading && (
+                      {!firebaseUser && !loading && (
                         <p className="text-center text-danger mt-3">
                           Debés iniciar sesión para ver tu historial de
                           entradas.
@@ -493,7 +493,7 @@ export default function MenuAcordeon() {
                         </p>
                       )}
 
-                      {user && (
+                      {firebaseUser && (
                         <>
                           <hr />
                           <h6 className="fw-semibold mb-3">
@@ -632,8 +632,8 @@ export default function MenuAcordeon() {
                     </p>
                   )}
 
-                  {/* 🔐 LOGIN (cuando NO hay user y terminó loading) */}
-                  {!loading && !user && (
+                  {/* 🔐 LOGIN (cuando NO hay firebaseUser y terminó loading) */}
+                  {!loading && !firebaseUser && (
                     <>
                       {loginSettings.google && (
                         <button
@@ -717,7 +717,7 @@ export default function MenuAcordeon() {
                   )}
 
                   {/* 📞 LOGIN TELÉFONO */}
-                  {!loading && !user && mostrarTelefono && (
+                  {!loading && !firebaseUser && mostrarTelefono && (
                     <section
                       className="auth-telefono-container mt-4 mx-auto rounded-3 border"
                       style={{ maxWidth: 360 }}
@@ -841,61 +841,67 @@ export default function MenuAcordeon() {
                   )}
 
                   {/* 👤 USUARIO LOGUEADO */}
-                  {(user?.nombre || user?.displayName) && !loading && (
-                    <div className="d-flex flex-column align-items-center gap-1">
-                      {/* 👋 SALUDO + EDITAR */}
-                      <p className="fw-bold fs-5 mb-0 d-flex align-items-center gap-2">
-                        Hola, {user.nombre || user.displayName}
-                        {puedeEditarPerfil(user) && (
-                          <span
-                            role="button"
-                            title="Editar nombre y email"
-                            style={{ cursor: 'pointer', fontSize: '0.9em' }}
-                            onClick={async () => {
-                              const { editarPerfilUsuario } = await import(
-                                '../../services/perfilUsuario.js'
-                              )
-
-                              const res = await editarPerfilUsuario({
-                                uid: user.uid,
-                                nombreActual: user.nombre || user.displayName,
-                                emailActual: user.email || '',
-                                telefono: user.phoneNumber || '',
-                              })
-
-                              if (res) {
-                                window.dispatchEvent(
-                                  new Event('perfil-actualizado')
+                  {(firebaseUser?.nombre || firebaseUser?.displayName) &&
+                    !loading && (
+                      <div className="d-flex flex-column align-items-center gap-1">
+                        {/* 👋 SALUDO + EDITAR */}
+                        <p className="fw-bold fs-5 mb-0 d-flex align-items-center gap-2">
+                          Hola,{' '}
+                          {firebaseUser.nombre || firebaseUser.displayName}
+                          {puedeEditarPerfil(firebaseUser) && (
+                            <span
+                              role="button"
+                              title="Editar nombre y email"
+                              style={{ cursor: 'pointer', fontSize: '0.9em' }}
+                              onClick={async () => {
+                                const { editarPerfilUsuario } = await import(
+                                  '../../services/perfilUsuario.js'
                                 )
-                              }
-                            }}
-                          >
-                            ✏️
-                          </span>
-                        )}
-                      </p>
 
-                      {/* 📧 EMAIL */}
-                      {user.email && (
-                        <p className="text-muted small mb-0">{user.email}</p>
-                      )}
+                                const res = await editarPerfilUsuario({
+                                  uid: firebaseUser.uid,
+                                  nombreActual:
+                                    firebaseUser.nombre ||
+                                    firebaseUser.displayName,
+                                  emailActual: firebaseUser.email || '',
+                                  telefono: firebaseUser.phoneNumber || '',
+                                })
 
-                      {/* 📞 TELÉFONO */}
-                      {user.phoneNumber && (
-                        <p className="text-muted small mb-1">
-                          {user.phoneNumber}
+                                if (res) {
+                                  window.dispatchEvent(
+                                    new Event('perfil-actualizado')
+                                  )
+                                }
+                              }}
+                            >
+                              ✏️
+                            </span>
+                          )}
                         </p>
-                      )}
 
-                      {/* 🚪 CERRAR SESIÓN */}
-                      <button
-                        className="btn btn-outline-dark btn-sm mt-2"
-                        onClick={logout}
-                      >
-                        Cerrar sesión
-                      </button>
-                    </div>
-                  )}
+                        {/* 📧 EMAIL */}
+                        {firebaseUser.email && (
+                          <p className="text-muted small mb-0">
+                            {firebaseUser.email}
+                          </p>
+                        )}
+
+                        {/* 📞 TELÉFONO */}
+                        {firebaseUser.phoneNumber && (
+                          <p className="text-muted small mb-1">
+                            {firebaseUser.phoneNumber}
+                          </p>
+                        )}
+
+                        {/* 🚪 CERRAR SESIÓN */}
+                        <button
+                          className="btn btn-outline-dark btn-sm mt-2"
+                          onClick={logout}
+                        >
+                          Cerrar sesión
+                        </button>
+                      </div>
+                    )}
                   <div id="recaptcha-container"></div>
                 </div>
               </div>

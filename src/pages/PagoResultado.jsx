@@ -17,7 +17,9 @@ const MAX_INTENTOS = 40 // ~2 minutos
 function normalizarEstado(raw) {
   const s = (raw || '').toLowerCase()
 
-  if (['aprobado', 'approved', 'success'].includes(s)) return 'aprobado'
+  if (['aprobado', 'approved', 'success', 'pagado', 'paid'].includes(s)) {
+    return 'aprobado'
+  }
   if (
     [
       'rechazado',
