@@ -1,7 +1,7 @@
 // --------------------------------------------------------------
 // src/services/entradasAdmin.js — ADMIN ENTRADAS (PENDIENTES)
 // --------------------------------------------------------------
-import { auth, db } from '../Firebase.js'
+import { auth, db, functions } from '../Firebase.js'
 import {
   addDoc,
   getDoc,
@@ -13,7 +13,7 @@ import {
   updateDoc,
   serverTimestamp,
 } from 'firebase/firestore'
-
+import { httpsCallable } from 'firebase/functions'
 import {
   generarEntradaQr,
   subirQrGeneradoAFirebase,
@@ -21,6 +21,9 @@ import {
 
 import { enviarMail } from '../services/mailService.js'
 import { mailEntradasAprobadas } from '../services/mailTemplates.js'
+
+const descontarCuposAdmin = httpsCallable(functions, 'descontarCuposAdmin')
+
 // --------------------------------------------------------------
 // Utils
 // --------------------------------------------------------------
@@ -183,13 +186,27 @@ export async function aprobarEntrada(entrada) {
       }
     }
 
-    // ----------------------------------------------------------
-    // 1️⃣ Crear entradas reales
-    // ----------------------------------------------------------
-    // ----------------------------------------------------------
-    // 1️⃣ Crear entradas reales + generar QR
-    // ----------------------------------------------------------
     const qrsGenerados = []
+
+    // ----------------------------------------------------------
+    // 🔻 DESCONTAR CUPOS (ADMIN MANUAL)
+    // ----------------------------------------------------------
+    if (Number.isFinite(loteIndice)) {
+      try {
+        await descontarCuposAdmin({
+          eventoId,
+          loteIndice,
+          cantidad: cant,
+          usuarioId,
+          compraId: id,
+        })
+      } catch (err) {
+        console.error('❌ Error descontando cupos:', err)
+        throw new Error(
+          err?.message || 'No hay cupos disponibles para este lote'
+        )
+      }
+    }
 
     for (let i = 0; i < cant; i++) {
       // 1️⃣ Crear la entrada

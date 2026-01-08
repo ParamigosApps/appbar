@@ -65,12 +65,29 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
   // --------------------------------------------------
   // VALIDACIÓN
   // --------------------------------------------------
-  const { usuarioId, eventoId, itemsSolicitados = [] } = pago
+  // const { usuarioId, eventoId, itemsSolicitados = [] } = pago
 
-  if (!usuarioId || !eventoId || !Array.isArray(itemsSolicitados)) {
+  // if (!usuarioId || !eventoId || !Array.isArray(itemsSolicitados)) {
+  //   await pagoRef.update({
+  //     entradasPagasGeneradas: 'error',
+  //     entradasPagasError: 'Pago inválido',
+  //     entradasPagasErrorAt: serverTimestamp,
+  //   })
+  //   throw new Error('Pago inválido para generar entradas')
+  // }
+  const { usuarioId, eventoId } = pago
+
+  const itemsSolicitados =
+    Array.isArray(pago.itemsSolicitados) && pago.itemsSolicitados.length
+      ? pago.itemsSolicitados
+      : Array.isArray(pago.detallesPagos) && pago.detallesPagos.length
+      ? pago.detallesPagos
+      : []
+
+  if (!usuarioId || !eventoId || itemsSolicitados.length === 0) {
     await pagoRef.update({
       entradasPagasGeneradas: 'error',
-      entradasPagasError: 'Pago inválido',
+      entradasPagasError: 'Pago inválido (sin itemsSolicitados/detallesPagos)',
       entradasPagasErrorAt: serverTimestamp,
     })
     throw new Error('Pago inválido para generar entradas')
@@ -172,11 +189,10 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
       await batch.commit()
     }
 
-    // 🔻 DESCONTAR CUPOS SOLO SI LAS ENTRADAS YA SE CREARON
+    // 🔻 DESCONTAR CUPOS (UNA SOLA VEZ, IDÓMPOTENTE)
     for (const c of cuposADescontar) {
       await descontarCuposArray(c)
     }
-
     await pagoRef.update({
       entradasPagasGeneradas: true,
       entradasPagasAt: serverTimestamp,

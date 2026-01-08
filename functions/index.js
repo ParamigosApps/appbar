@@ -5,6 +5,7 @@ const {
   onDocumentUpdated,
 } = require('firebase-functions/v2/firestore')
 const { descontarCuposArray } = require('./utils/descontarCuposArray')
+const { onCall, HttpsError } = require('firebase-functions/v2/https')
 
 const { setGlobalOptions } = require('firebase-functions/v2')
 const admin = require('firebase-admin')
@@ -413,3 +414,15 @@ exports.procesarPagoMPFirestore = onDocumentUpdated(
     })
   }
 )
+
+exports.descontarCuposAdmin = onCall(async request => {
+  const { auth, data } = request
+
+  // 🔒 Solo admin (claim)
+  if (!auth?.token?.admin) {
+    throw new HttpsError('permission-denied', 'Solo admin')
+  }
+
+  // data debe incluir: eventoId, loteIndice, cantidad, usuarioId, compraId
+  return await descontarCuposArray(data)
+})
