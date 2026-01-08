@@ -74,14 +74,11 @@ export async function pedirEntradaFreeConLote({
     return
   }
 
-  const maxPermitido = Math.min(
-    Number(loteActual.cantidadDisponible || 0),
-    Number(maxUser || 0)
-  )
+  const maxPermitido = Number(loteActual.disponiblesUsuario || 0)
 
   const cantidad = normalizarCantidad(cantidadSel, maxPermitido)
 
-  if (cantidad <= 0) {
+  if (maxPermitido <= 0) {
     throw new Error('No tenés cupos disponibles para este lote')
   }
 

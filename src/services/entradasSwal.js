@@ -77,7 +77,7 @@ export async function abrirSeleccionLotesMultiPro(evento, lotes, options = {}) {
         ${lotes
           .map(l => {
             const total = Number(l.cantidadInicial || 0)
-            const disponibles = Number(l.cantidadDisponible || 0)
+            const disponiblesAhora = Number(l.disponiblesUsuario || 0)
 
             // ✅ % DISPONIBLE
             const porcentaje =
