@@ -18,7 +18,7 @@ import facebookIcon from '../../assets/img/facebook.png'
 import { db } from '../../Firebase.js'
 import { doc, getDoc } from 'firebase/firestore'
 
-import { swalConfirmWarning } from '../../utils/swalUtils.js'
+import { swalLoginEmail } from '../../utils/swalUtils'
 // --------------------------------------------------------------
 // ÍCONOS DE CATEGORÍAS
 // --------------------------------------------------------------
@@ -80,6 +80,8 @@ export default function MenuAcordeon() {
     puedeEditarPerfil,
   } = useAuth()
   const contadorMisEntradas = misEntradas?.length ?? 0
+  const [bloqueoEnvioSms, setBloqueoEnvioSms] = useState(false)
+  const [segundosReenvio, setSegundosReenvio] = useState(0)
 
   // ------------------------------------------------------------
   // Evento global para abrir login
@@ -153,6 +155,36 @@ export default function MenuAcordeon() {
 
     cargarUbicacion()
   }, [])
+
+  // ⏳ CONTADOR REENVÍO SMS (fuente única de verdad)
+  useEffect(() => {
+    if (!smsEnviado) return
+
+    let delayTimer
+    let interval
+
+    // ⏱️ delay inicial de 2s antes de bloquear
+    delayTimer = setTimeout(() => {
+      setBloqueoEnvioSms(true)
+      setSegundosReenvio(30)
+
+      interval = setInterval(() => {
+        setSegundosReenvio(s => {
+          if (s <= 1) {
+            clearInterval(interval)
+            setBloqueoEnvioSms(false)
+            return 0
+          }
+          return s - 1
+        })
+      }, 1000)
+    }, 2000)
+
+    return () => {
+      clearTimeout(delayTimer)
+      clearInterval(interval)
+    }
+  }, [smsEnviado])
 
   // ------------------------------------------------------------
   // RENDER
@@ -647,23 +679,7 @@ export default function MenuAcordeon() {
                           setMostrarTelefono(false)
                           setSmsEnviado(false)
                           setSmsError(false)
-                          const res = await swalConfirmWarning({
-                            title: 'Ingresá tu correo electrónico',
-                            html: `
-                            <input
-                              id="swal-email-login"
-                              class="swal2-input"
-                              type="email"
-                              placeholder="tuemail@email.com"
-                            />
-                            <p style="font-size:12px;color:#777">
-                              Te enviaremos un enlace para iniciar sesión.
-                            </p>
-                          `,
-                            confirmText: 'Enviar enlace',
-                            cancelText: 'Cancelar',
-                            width: 380,
-                          })
+                          const res = await swalLoginEmail()
 
                           if (!res.isConfirmed) return
 
@@ -703,32 +719,54 @@ export default function MenuAcordeon() {
                   {/* 📞 LOGIN TELÉFONO */}
                   {!loading && !user && mostrarTelefono && (
                     <section
-                      className="auth-telefono-container mt-3 mx-auto p-3 rounded-3 border"
+                      className="auth-telefono-container mt-4 mx-auto rounded-3 border"
                       style={{ maxWidth: 360 }}
                     >
-                      <h6 className="fw-semibold mb-3 text-center">
-                        Verificación por teléfono
+                      <h6 className="fw-semibold mb-2 text-center">
+                        Iniciar sesión con teléfono
                       </h6>
-                      <div className="d-grid gap-2">
+                      <div className="d-grid gap-2 w-75 d-block mx-auto">
                         <input
                           id="phoneInput"
                           type="text"
                           className="form-control"
-                          placeholder="+5491123456789"
+                          placeholder="Ej: 1123456789"
                         />
 
                         <button
-                          className="btn btn-outline-dark"
+                          className="btn btn-outline-dark w-75 d-block mx-auto  mb-3"
+                          disabled={bloqueoEnvioSms}
                           onClick={async () => {
-                            const ok = await loginTelefonoEnviarCodigo(
-                              document.getElementById('phoneInput').value
-                            )
+                            if (bloqueoEnvioSms) return
 
-                            if (ok == true) setSmsEnviado(true)
-                            else if (ok != 'inexistente') setSmsError(true)
+                            const raw = document
+                              .getElementById('phoneInput')
+                              .value.trim()
+
+                            const telefono = raw.startsWith('+')
+                              ? raw
+                              : `+549${raw.replace(/\D/g, '')}`
+
+                            const ok = await loginTelefonoEnviarCodigo(telefono)
+
+                            if (ok === true) {
+                              setBloqueoEnvioSms(true)
+                              setSmsEnviado(true)
+                              setSmsError(false)
+                            } else {
+                              setSmsEnviado(false)
+                              setBloqueoEnvioSms(false)
+                              if (ok !== 'inexistente') setSmsError(true)
+                            }
                           }}
                         >
-                          Enviar código SMS
+                          {bloqueoEnvioSms && segundosReenvio === 0
+                            ? 'Enviando código…'
+                            : bloqueoEnvioSms
+                            ? `Reenviar en ${segundosReenvio}s`
+                            : smsEnviado
+                            ? 'Reenviar código'
+                            : 'Enviar código SMS'}
                         </button>
 
                         {smsEnviado && (
@@ -741,7 +779,7 @@ export default function MenuAcordeon() {
                             />
 
                             <button
-                              className="btn btn-outline-dark"
+                              className="btn swal-btn-confirm w-75 d-block mx-auto mb-3"
                               onClick={() =>
                                 loginTelefonoValidarCodigo(
                                   document.getElementById('codeInput').value
@@ -753,6 +791,7 @@ export default function MenuAcordeon() {
                           </>
                         )}
                       </div>
+                      <div className="form-divider my-2 w-75 d-block mx-auto" />
                       {!smsError && (
                         <p
                           className="small text-warning text-center mb-0"
@@ -760,11 +799,15 @@ export default function MenuAcordeon() {
                         >
                           ⚠️ En algunos celulares el SMS puede demorar o no
                           llegar.
-                          <br />
-                          Recomendamos usar correo electrónico o Google.
                         </p>
                       )}
-
+                      <p
+                        className="small text-muted text-center"
+                        style={{ fontSize: '11px' }}
+                      >
+                        Recomendados iniciar sesión con <b>Google</b> o{' '}
+                        <b>Email</b>.
+                      </p>
                       {smsError && (
                         <p
                           className="small text-danger text-center mb-0"
@@ -775,7 +818,7 @@ export default function MenuAcordeon() {
                           Por favor, prueba iniciar sesión con otro metodo.
                         </p>
                       )}
-                      <p className="recaptcha-legal">
+                      <p className="recaptcha-legal mt-0">
                         Este sitio está protegido por reCAPTCHA y se aplican la{' '}
                         <a
                           href="https://policies.google.com/privacy"

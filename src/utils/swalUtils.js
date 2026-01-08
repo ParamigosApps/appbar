@@ -204,6 +204,62 @@ export function swalEditarPerfil({
   })
 }
 
+// =====================================================
+// 📧 LOGIN POR EMAIL
+// =====================================================
+export function swalLoginEmail({
+  title = 'Ingresá tu correo electrónico',
+  confirmText = 'Enviar enlace',
+  cancelText = 'Cancelar',
+  width = 380,
+} = {}) {
+  return Swal.fire({
+    title,
+    html: `
+      <input
+        id="swal-email-login"
+        class="swal2-input"
+        type="email"
+        placeholder="tuemail@email.com"
+        autocomplete="email"
+      />
+      <p style="font-size:12px;color:#777">
+        Te enviaremos un enlace para iniciar sesión.
+      </p>
+    `,
+    width,
+
+    showCancelButton: true,
+    confirmButtonText: confirmText,
+    cancelButtonText: cancelText,
+    reverseButtons: true,
+
+    buttonsStyling: false,
+    customClass: {
+      confirmButton: 'swal-btn-confirm',
+      cancelButton: 'swal-btn-dark',
+    },
+
+    focusConfirm: false,
+
+    preConfirm: () => {
+      const email = document.getElementById('swal-email-login')?.value?.trim()
+
+      if (!email) {
+        Swal.showValidationMessage('Ingresá tu email')
+        return false
+      }
+
+      if (!/^\S+@\S+\.\S+$/.test(email)) {
+        Swal.showValidationMessage('Email inválido')
+        return false
+      }
+
+      return email
+    },
+  })
+}
+
 export function swalEventosNoVigentes({ eventos = [] }) {
   return Swal.fire({
     title: 'Sin eventos activos',
@@ -357,7 +413,6 @@ ${
     </div>`
     : ''
 }
-
   `
 
   // ==========================================================
