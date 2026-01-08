@@ -178,7 +178,7 @@ export async function crearPedido({
   // Expira en 15 min para mp/caja (liberación por cron/manual)
   const expiraEn =
     origenPago === 'mp' || origenPago === 'caja'
-      ? Timestamp.fromDate(new Date(Date.now() + 1 * 60 * 1000))
+      ? Timestamp.fromDate(new Date(Date.now() + 15 * 60 * 1000))
       : null
 
   // Perfil usuario (nombre/email)
