@@ -13,7 +13,7 @@ export default function PaymentListener({ pagoId }) {
 
       const pago = snap.data()
 
-      if (pago.estado === 'aprobado') {
+      if (pago.estado === 'aprobado' || pago.estado === 'pagado') {
         localStorage.removeItem('pagoIdEnProceso')
       }
 

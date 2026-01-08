@@ -183,7 +183,7 @@ export default async function handler(req, res) {
       await pagoRef.update({
         estado:
           payment.status === 'approved'
-            ? 'aprobado'
+            ? 'pagado'
             : payment.status === 'rejected' || payment.status === 'cancelled'
             ? 'rechazado'
             : 'pendiente',

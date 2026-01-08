@@ -69,7 +69,7 @@ async function marcarCompraPagadaDesdePago({ pagoId, compraId, payment }) {
   let pagado = false
 
   if (payment.status === 'approved') {
-    nuevoEstado = 'aprobado'
+    nuevoEstado = 'pagado'
     pagado = true
   } else if (payment.status === 'rejected' || payment.status === 'cancelled') {
     nuevoEstado = 'rechazado'
@@ -81,7 +81,7 @@ async function marcarCompraPagadaDesdePago({ pagoId, compraId, payment }) {
   // --------------------------------------------------
   await compraRef.update({
     // 🔑 estado de negocio
-    estado: pagado ? 'aprobado' : nuevoEstado,
+    estado: pagado ? 'apagado' : nuevoEstado,
     pagado: pagado,
 
     // 🔗 vínculo de pago

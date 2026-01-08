@@ -34,8 +34,6 @@ export async function mostrarQrCompraReact(pedido, onClose) {
         color: '#fff',
       }
 
-      const codigoValidacion = ticketId || numeroPedido
-
       return `
     <span style="
       display:inline-block;
@@ -68,14 +66,19 @@ export async function mostrarQrCompraReact(pedido, onClose) {
             </strong>
           </p>
 
-<p>
-  <strong>Estado:</strong>
-  ${badgeEstado(estado.toUpperCase())}
-</p>
+      <p>
+        <strong>Estado:</strong>
+        ${badgeEstado(estado.toUpperCase())}
+      </p>
 
           <p><strong>Cliente:</strong> ${usuarioNombre}</p>
           <p><strong>Lugar:</strong> ${lugar}</p>
-          <p><strong>Fecha:</strong> ${fechaHumana}</p>
+
+          ${
+            estado !== 'retirado'
+              ? `<p><strong>Fecha:</strong> ${fechaHumana}</p>`
+              : `<p><strong>Fecha de retiro:</strong> ${fechaHumana}</p>`
+          }
 
           <hr style="margin:10px 0">
 
@@ -108,29 +111,32 @@ export async function mostrarQrCompraReact(pedido, onClose) {
                   <p style="font-size:13px;color:#555;margin-top:6px">
                     Presentá este QR para retirar tu pedido
                   </p>
+
+                <p style="font-size:12px;color:#666">
+                ID código ingreso manual: 
+                
+                <span style="
+                  font-size:14px;
+                  font-weight:700;
+                  letter-spacing:0.7px;
+                  display:inline-block;
+                  margin-top:4px;
+                ">
+                  ${codigoValidacion}
+                </span>
+              </p>
                 </div>
+
+
               `
               : `
-            <p style="text-align:center;color:#999;margin:60px 0">
-              QR no disponible
+            <p style="text-align:center;color:#999;margin:48px 0;font-size:16px;font-weight:700;">
+              QR ya utilizado
             </p>
-
               `
           }
 
-        <p style="font-size:12px;color:#666">
-          ID código ingreso manual: 
-          
-          <span style="
-            font-size:14px;
-            font-weight:700;
-            letter-spacing:0.7px;
-            display:inline-block;
-            margin-top:4px;
-          ">
-            ${codigoValidacion}
-          </span>
-        </p>
+
 
 
 

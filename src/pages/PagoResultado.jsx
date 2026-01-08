@@ -96,7 +96,7 @@ export default function PagoResultado() {
         })
 
         // ------------------ APROBADO ------------------
-        if (estado === 'aprobado') {
+        if (estado === 'aprobado' || estado === 'pagado') {
           localStorage.setItem(
             'avisoPostPago',
             tipo === 'entrada' ? 'entrada_aprobada' : 'compra_aprobada'

@@ -155,7 +155,7 @@ exports.processWebhookEvent = onDocumentCreated(
           })
         } else if (payment.status === 'approved') {
           await pagoRef.update({
-            estado: 'aprobado',
+            estado: 'pagado',
             mpStatus: payment.status,
             mpDetail: payment.status_detail,
             mpPaymentId: payment.id,
@@ -231,8 +231,8 @@ exports.generarEntradasDesdePagoFirestore = onDocumentUpdated(
       console.log('after no existe')
       return
     }
-    if (after.estado !== 'aprobado') {
-      console.log('estado no es aprobado')
+    if (after.estado !== 'pagado') {
+      console.log('estado no es pagado')
       return
     }
     if (after.entradasPagasGeneradas === true) {
@@ -388,7 +388,7 @@ exports.procesarPagoMPFirestore = onDocumentUpdated(
     if (!after) return
 
     // Solo pagos MP aprobados
-    if (after.estado !== 'aprobado') return
+    if (after.estado !== 'pagado') return
     if (after.tipo !== 'compra') return
     if (!after.compraId) return
 

@@ -150,7 +150,7 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
           metodo: 'mp',
           precioUnitario: precio,
 
-          estado: 'aprobado',
+          estado: 'pagado',
           aprobadoPor: 'mercadopago',
           usado: false,
 
