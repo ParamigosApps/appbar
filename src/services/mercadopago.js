@@ -23,7 +23,7 @@ export async function crearPreferenciaEntrada({
     if (!usuarioId) {
       throw new Error('Usuario no autenticado')
     }
-    const COMISION_POR_ENTRADA = 1000
+    const COMISION_POR_ENTRADA = 1
 
     let total = 0
     let totalComision = 0

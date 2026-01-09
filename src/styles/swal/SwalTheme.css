@@ -1230,3 +1230,23 @@
     font-size: 13px;
   }
 }
+.total-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.total-line.muted {
+  color: #777;
+  font-size: 13px;
+}
+
+.total-divider {
+  margin: 6px 0;
+  border-top: 1px dashed #ddd;
+}
+
+.total-final {
+  font-size: 16px;
+}
