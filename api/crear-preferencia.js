@@ -12,51 +12,40 @@ function safeNum(v, fallback = 0) {
 }
 
 export default async function handler(req, res) {
-  console.log('📥 MP WEBHOOK RAW:', req.body)
   const reqId = `pref_${Date.now()}_${Math.random().toString(16).slice(2)}`
-  console.log(`🧾 [${reqId}] crear-preferencia IN`, {
-    method: req.method,
-    hasBody: !!req.body,
-  })
 
   if (req.method === 'GET') {
     return res.status(200).send('ok')
   }
 
-  // Aceptar solo POST para procesar
   if (req.method !== 'POST') {
     return res.status(200).send('ignored')
   }
 
-  // Validar body
   const body = req.body
   if (!body || typeof body !== 'object') {
     console.log(`❌ [${reqId}] body inválido`, { bodyType: typeof body })
     return res.status(400).json({ error: 'Body inválido' })
   }
 
-  // external_reference obligatoria
   const external_reference = safeStr(body.external_reference)
   if (!external_reference) {
     console.log(`❌ [${reqId}] falta external_reference`)
     return res.status(400).json({ error: 'external_reference es obligatoria' })
   }
 
-  // Token MP
   const ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN
   if (!ACCESS_TOKEN) {
     console.log(`❌ [${reqId}] MP_ACCESS_TOKEN faltante`)
     return res.status(500).json({ error: 'MP_ACCESS_TOKEN no configurado' })
   }
 
-  // Base URL (ojo: debe ser la URL pública FINAL)
   const baseUrl = process.env.PUBLIC_BASE_URL
   if (!baseUrl) {
     console.log(`❌ [${reqId}] PUBLIC_BASE_URL faltante`)
     return res.status(500).json({ error: 'PUBLIC_BASE_URL no configurada' })
   }
 
-  // Armar items
   let items = Array.isArray(body.items) ? body.items : []
 
   if (items.length === 0) {
@@ -146,6 +135,8 @@ export default async function handler(req, res) {
         external_reference,
         items,
         payer,
+
+        statement_descriptor: 'APPBAR EVENTOS',
 
         notification_url: `${baseUrl}/api/webhook-mp`,
 

@@ -284,7 +284,7 @@ ${
     confirmButtonText: 'Continuar',
     cancelButtonText: 'Cancelar',
     buttonsStyling: false,
-
+    reverseButtons: true,
     preConfirm: () => {
       const seleccion = lotes
         .map(l => ({
