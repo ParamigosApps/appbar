@@ -62,19 +62,6 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
     return
   }
 
-  // --------------------------------------------------
-  // VALIDACIÓN
-  // --------------------------------------------------
-  // const { usuarioId, eventoId, itemsSolicitados = [] } = pago
-
-  // if (!usuarioId || !eventoId || !Array.isArray(itemsSolicitados)) {
-  //   await pagoRef.update({
-  //     entradasPagasGeneradas: 'error',
-  //     entradasPagasError: 'Pago inválido',
-  //     entradasPagasErrorAt: serverTimestamp,
-  //   })
-  //   throw new Error('Pago inválido para generar entradas')
-  // }
   const { usuarioId, eventoId } = pago
 
   const itemsSolicitados =
@@ -125,6 +112,11 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
           usuarioId,
           compraId: pagoId, // USAR pagoId COMO ID ÚNICO PARA DESCUENTO
         })
+      }
+
+      // 🔻 DESCONTAR CUPOS (UNA SOLA VEZ, IDÓMPOTENTE)
+      for (const c of cuposADescontar) {
+        await descontarCuposArray(c)
       }
 
       for (let i = 0; i < cantidad; i++) {
@@ -189,10 +181,6 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
       await batch.commit()
     }
 
-    // 🔻 DESCONTAR CUPOS (UNA SOLA VEZ, IDÓMPOTENTE)
-    for (const c of cuposADescontar) {
-      await descontarCuposArray(c)
-    }
     await pagoRef.update({
       entradasPagasGeneradas: true,
       entradasPagasAt: serverTimestamp,

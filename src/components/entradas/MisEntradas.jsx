@@ -351,6 +351,7 @@ export default function MisEntradas() {
                       t => t.usado
                     ).length
                     const lenghDisponibles = l.ticketsAprobados.length - usadas
+                    const lenghPendientes = l.ticketsPendientes.length
                     const porcentaje = calcularPorcentajeDisponible(
                       g.eventoId,
                       l.loteIndice
@@ -361,11 +362,13 @@ export default function MisEntradas() {
                       porcentaje <= 30 &&
                       !esFreeLote(l)
 
-                    const todasDisponibles = aprobadas > 0 && usadas === 0
-                    const algunasDisponibles =
+                    const todasDisponibles =
                       aprobadas > 0 &&
-                      usadas < aprobadas &&
+                      usadas === 0 &&
                       l.ticketsPendientes.length == 0
+                    const algunasDisponibles =
+                      aprobadas > 0 && usadas < aprobadas
+
                     const todasUsadas = aprobadas > 0 && usadas === aprobadas
                     const algunasUsadas = usadas > 0 && usadas < aprobadas
 
@@ -375,13 +378,21 @@ export default function MisEntradas() {
                       aprobadas - usadas === 1
                         ? 'Entrada disponible'
                         : 'Entradas disponibles'
+                    const textoPendientes =
+                      l.ticketsPendientes.length === 1
+                        ? 'Pendiente'
+                        : 'Pendientes'
+
+                    const textoCortoUsadas = usadas === 1 ? 'Usada' : 'Usadas'
+                    const textoCortoDisponibles =
+                      aprobadas - usadas === 1 ? 'Disponible' : 'Disponibles'
 
                     const puedeAbrirQr = aprobadas > 0
 
                     // 🔑 KEY ESTABLE (NO usar solo index)
                     const loteKey =
                       l.lote?.id || l.lote?.nombre || `${g.eventoId}_${i}`
-
+                    console.log('caca' + algunasDisponibles)
                     return (
                       <Fragment key={loteKey}>
                         <div
@@ -437,21 +448,45 @@ export default function MisEntradas() {
                                 · Todas usadas
                               </span>
                             )}
-                            {algunasUsadas && (
-                              <span className="ms-2 text-danger fw-semibold">
-                                · {usadas} {textoUsadas}
-                              </span>
-                            )}
-                            {algunasDisponibles && !todasDisponibles && (
-                              <span className="ms-2 text-success fw-semibold">
-                                · {lenghDisponibles} {textoAlgunasDisponibles}
-                              </span>
-                            )}
-                            {pendientes > 0 && (
-                              <span className="ms-2 text-warning fw-semibold">
-                                · Pendientes de aprobación
-                              </span>
-                            )}
+                            {algunasDisponibles &&
+                              !todasDisponibles &&
+                              pendientes < 1 && (
+                                <span className="ms-2 text-success fw-semibold">
+                                  · {lenghDisponibles}
+                                  {textoAlgunasDisponibles}
+                                </span>
+                              )}
+                            {algunasDisponibles &&
+                              pendientes > 0 &&
+                              !algunasUsadas && (
+                                <span className="ms-2 d-inline-flex align-items-center gap-2">
+                                  <span className="text-success fw-semibold">
+                                    · {lenghDisponibles}{' '}
+                                    {textoAlgunasDisponibles}
+                                  </span>
+
+                                  <span className="text-warning fw-semibold">
+                                    · {lenghPendientes} {textoPendientes}
+                                  </span>
+                                </span>
+                              )}
+                            {algunasDisponibles &&
+                              pendientes > 0 &&
+                              algunasUsadas && (
+                                <span className="ms-2 d-inline-flex align-items-center gap-2">
+                                  <span className="text-success fw-semibold">
+                                    · {lenghDisponibles} {textoCortoDisponibles}
+                                  </span>
+
+                                  <span className=" text-danger fw-semibold">
+                                    · {usadas} {textoCortoUsadas}
+                                  </span>
+
+                                  <span className="text-warning fw-semibold">
+                                    · {lenghPendientes} {textoPendientes}
+                                  </span>
+                                </span>
+                              )}
                           </div>
 
                           {/* 🔴🟡 BARRA DE DISPONIBILIDAD */}

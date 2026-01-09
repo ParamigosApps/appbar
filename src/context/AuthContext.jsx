@@ -1615,6 +1615,8 @@ export function AuthProvider({ children }) {
         loginTelefonoValidarCodigo,
         loginEmailEnviarLink,
         logout,
+
+        puedeEditarPerfil,
       }}
     >
       {children}

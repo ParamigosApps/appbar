@@ -68,7 +68,7 @@ export default function MenuAcordeon() {
   const { eventos, misEntradas } = useEntradas()
 
   const {
-    firebaseUser,
+    user: firebaseUser,
     loginSettings,
     loginGoogle,
     loginFacebook,
@@ -79,6 +79,7 @@ export default function MenuAcordeon() {
     loading,
     puedeEditarPerfil,
   } = useAuth()
+
   const contadorMisEntradas = misEntradas?.length ?? 0
   const [bloqueoEnvioSms, setBloqueoEnvioSms] = useState(false)
   const [segundosReenvio, setSegundosReenvio] = useState(0)
