@@ -281,14 +281,6 @@
   color: #111827;
 }
 
-/* Resumen total */
-.total-box {
-  font-size: 0.95rem;
-  text-align: center;
-  margin-top: 8px;
-  color: #111827;
-}
-
 /* Métodos de pago: columnas de botones */
 .metodos-wrapper {
   display: flex;
@@ -1071,9 +1063,10 @@
 
 .metodos-pago-box {
   margin-top: 16px;
-  padding: 6px 0px;
+  margin: 16px auto 0 auto;
+  max-width: 420px;
+  padding: 6px 0px 6px 0;
   max-height: 120px;
-  padding-bottom: 2px;
   border-radius: 12px;
   background: #f8f9fa;
 }
@@ -1230,11 +1223,32 @@
     font-size: 13px;
   }
 }
+.total-box {
+  padding: 12px 14px;
+  margin: 16px auto 12px auto;
+  max-width: 420px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.04);
+}
+
 .total-line {
   display: flex;
   justify-content: space-between;
-  font-size: 14px;
-  margin-bottom: 4px;
+  padding: 6px 0;
+}
+
+.total-line span:last-child {
+  font-weight: 600;
+}
+
+.total-label {
+  color: #444;
+}
+
+.total-value {
+  font-weight: 600;
 }
 
 .total-line.muted {
@@ -1243,10 +1257,27 @@
 }
 
 .total-divider {
-  margin: 6px 0;
-  border-top: 1px dashed #ddd;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.12);
+  margin: 8px 0;
 }
 
-.total-final {
-  font-size: 16px;
+.total-line.total-final {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.total-line.total-final.solo {
+  font-size: 17px;
+}
+.checkout-box {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 12px 20px;
+  background: #fafafa;
+  border-radius: 14px;
+}
+
+.hint-padding {
+  margin-top: 6px; /* o 8px si querés un poco más de aire */
 }

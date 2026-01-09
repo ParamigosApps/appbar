@@ -4,7 +4,6 @@
 
 import Swal from 'sweetalert2'
 
-import { obtenerComisionEntrada } from '../config/comisiones.js'
 import { formatearFechaEventoDescriptiva } from '../utils/utils.js'
 
 function crearSwalConTheme(theme = 'light') {
@@ -266,8 +265,8 @@ ${
     </div>
 
     <!-- TOTAL -->
-    <div id="resumen-total" class="total-box">
-      Total: <b>$0</b>
+    <div id="resumen-total" class="d-block text-center" >
+      <span class="hint-padding muted small"> Primero seleccioná cantidad</span>
     </div>
   `
 
@@ -286,7 +285,7 @@ ${
           cantidad: estado[String(l.index)],
         }))
 
-        .filter(x => x.cantidad > 0)
+        .filter(x => x.cantidad > 0 && Number(x.lote?.precio) >= 0)
 
       if (!seleccion.length) {
         Swal.showValidationMessage('Seleccioná al menos una entrada')
@@ -299,21 +298,14 @@ ${
     didOpen: () => {
       const actualizarTotal = () => {
         let totalBase = 0
-        let cantidadTotal = 0
 
         lotes.forEach(l => {
           const cant = estado[String(l.index)]
           if (cant > 0) {
-            totalBase += Number(l.precio || 0) * cant
-            cantidadTotal += cant
+            const precio = Number(l.precio || 0)
+            totalBase += precio * cant
           }
         })
-
-        const comisionUnit = obtenerComisionEntrada({
-          evento,
-          lote: l,
-        })
-        const totalFinal = totalBase + totalComision
 
         const el = document.getElementById('resumen-total')
 
@@ -322,21 +314,7 @@ ${
           return
         }
 
-        el.innerHTML = `
-    <div class="total-line">
-      <span>Entradas</span>
-      <span>$${totalBase}</span>
-    </div>
-    <div class="total-line muted">
-      <span>Servicio AppBar</span>
-      <span>$${totalComision}</span>
-    </div>
-    <div class="total-divider"></div>
-    <div class="total-line total-final">
-      <b>Total</b>
-      <b>$${totalFinal}</b>
-    </div>
-  `
+        el.innerHTML = `Total: <b>$${totalBase.toLocaleString('es-AR')}</b>`
       }
 
       document.querySelectorAll('.lote-select-cant').forEach(select => {
@@ -484,21 +462,7 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
 
         total.innerHTML = esGratis
           ? `Total: <b>GRATIS</b>`
-          : `
-    <div class="total-line">
-      <span>Entrada</span>
-      <span>$${precioBase * cantidad}</span>
-    </div>
-    <div class="total-line muted">
-      <span>Servicio AppBar</span>
-      <span>$${cantidad * comisionUnit}</span>
-    </div>
-    <div class="total-divider"></div>
-    <div class="total-line total-final">
-      <b>Total</b>
-      <b>$${precioBase * cantidad + cantidad * comisionUnit}</b>
-    </div>
-  `
+          : `Total: <b>$${precioBase * cantidad}</b>`
       }
 
       document.getElementById('menos').onclick = () => {

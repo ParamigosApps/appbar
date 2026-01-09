@@ -324,12 +324,16 @@ export function mostrarResultadoEntradasGratis({
     okAgrupadas[loteKey].generadas += Number(e.cantidad || 1)
   })
 
-  const okHtml = Object.entries(okAgrupadas)
+  const okHtml = Object.values(okAgrupadas)
     .map(
-      ([nombre, info]) => `
+      info => `
       <div class="swal-row ok">
-        <div class="swal-row-title">${nombre}</div>
-        <div class="swal-row-value">x${info.generadas}</div>
+        <div class="swal-row-title">
+          ${info.lote || 'Entrada'}
+        </div>
+        <div class="swal-row-value">
+          x${Number(info.generadas || 0)}
+        </div>
       </div>
     `
     )

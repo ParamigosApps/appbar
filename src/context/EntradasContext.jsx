@@ -39,9 +39,9 @@ import {
 import { showLoading, hideLoading } from '../services/loadingService'
 import { formatearSoloFecha } from '../utils/utils'
 import { mostrarResultadoEntradasGratis } from '../utils/swalUtils'
-// --------------------------------------------------------------
-// CONTEXTO
-// --------------------------------------------------------------
+
+import { obtenerComisionEntrada } from '../config/comisiones.js'
+
 const EntradasContext = createContext()
 export const useEntradas = () => {
   const ctx = useContext(EntradasContext)
@@ -69,101 +69,6 @@ export function EntradasProvider({ children }) {
   const { user } = useAuth()
   const [flujoPagoActivo, setFlujoPagoActivo] = useState(false)
 
-  function renderResultadoEntradas({ evento, exitosas, fallidas }) {
-    // -----------------------------
-    // ✅ AGRUPAR EXITOSAS POR LOTE
-    // -----------------------------
-    const okAgrupadas = {}
-
-    exitosas.forEach(e => {
-      const nombreLote = e.lote?.nombre || e.loteNombre || e.nombre || 'Entrada'
-
-      okAgrupadas[nombreLote] =
-        (okAgrupadas[nombreLote] || 0) + Number(e.cantidad || 0)
-    })
-
-    const okHtml = Object.entries(okAgrupadas)
-      .map(([nombre, cant]) => `<li><b>${nombre}</b> x${cant}</li>`)
-      .join('')
-
-    // -----------------------------
-    // ❌ AGRUPAR FALLIDAS POR LOTE + ERROR
-    // -----------------------------
-    const errAgrupadas = {}
-
-    fallidas.forEach(e => {
-      const lote =
-        e.lote?.nombre || e.loteNombre || e.nombre || 'Entrada general'
-
-      const motivoBase = e.error || 'No se pudo generar la entrada'
-      const solicitadas = Number(e.cantidad || 0)
-      const permitidas = Number.isFinite(e.maxDisponible)
-        ? Number(e.maxDisponible)
-        : null
-
-      if (!errAgrupadas[lote]) {
-        errAgrupadas[lote] = {
-          lote,
-          solicitadas: 0,
-          permitidas,
-          motivoBase,
-        }
-      }
-
-      errAgrupadas[lote].solicitadas += solicitadas
-    })
-
-    const errHtml = Object.values(errAgrupadas)
-      .map(
-        e => `
-        <li>
-          <b>${e.nombreLote}</b> x${e.cantidad}<br/>
-          <small style="color:#b00020;">
-            Motivo: ${e.error}
-          </small>
-        </li>
-      `
-      )
-      .join('')
-
-    // -----------------------------
-    // 🎨 HTML FINAL
-    // -----------------------------
-    return `
-    <div style="text-align:center; margin-bottom:10px;">
-      <h2 style="margin-bottom:4px;">🎟 ${evento?.nombre || 'Evento'}</h2>
-      ${
-        evento?.fechaInicio
-          ? `<small>${formatearSoloFecha(evento.fechaInicio)}</small>`
-          : ''
-      }
-    </div>
-
-    ${
-      okHtml
-        ? `
-        <h4 style="margin-top:16px;">Entradas generadas</h4>
-        <ul style="text-align:left;">${okHtml}</ul>
-      `
-        : ''
-    }
-
-    ${
-      errHtml
-        ? `
-        <h4 style="margin-top:16px; color:#b00020;">
-          ⚠️ Entradas no generadas
-        </h4>
-        <ul style="text-align:left;">${errHtml}</ul>
-      `
-        : ''
-    }
-  `
-  }
-
-  // ----------------------------------------------------------
-  // CARGAR HISTORIAL DE ENTRADAS USADAS
-  // ----------------------------------------------------------
   async function cargarHistorial(uid) {
     try {
       const q = query(
@@ -228,6 +133,13 @@ export function EntradasProvider({ children }) {
     const gratis = entradasPendientes.filter(
       e => e._tipo === 'gratis' && !e.notificado
     )
+
+    // ⛔️ BLOQUEAR SWAL SI HAY PAGAS EN CURSO
+    const hayPagasPendientes = entradasPendientes.some(
+      e => e._tipo !== 'gratis'
+    )
+
+    if (hayPagasPendientes) return
 
     if (gratis.length === 0) return
 
@@ -720,14 +632,21 @@ export function EntradasProvider({ children }) {
             precio: normalizarPrecio(s.lote?.precio),
           }
         })
-        console.table(
-          detallesPagos.map(d => ({
-            nombre: d.nombre,
-            loteIndice: d.loteIndice,
-            cantidad: d.cantidad,
-            precio: d.precio,
-          }))
+
+        const totalBase = detallesPagos.reduce(
+          (acc, d) => acc + d.precio * d.cantidad,
+          0
         )
+
+        const totalComision = detallesPagos.reduce((acc, d) => {
+          const comisionUnit = obtenerComisionEntrada({
+            evento: eventoCompleto,
+            lote: d.lote,
+          })
+          return acc + comisionUnit * d.cantidad
+        }, 0)
+
+        const totalFinal = totalBase + totalComision
 
         const totalPagos = detallesPagos.reduce(
           (acc, d) => acc + d.precio * d.cantidad,
@@ -774,11 +693,43 @@ export function EntradasProvider({ children }) {
       pagas: detallesPagos,
     })}
 
-    <p class="total-box mt-2">
-      <b>TOTAL: $${totalPagos.toLocaleString('es-AR')}</b>
-    </p>
+<p <div class="total-box mt-2">
+  ${
+    totalComision > 0
+      ? `
+      <section class="checkout-box">
+        <div class="total-line">
+          <span class="total-label">Entradas</span>
+          <span class="total-value">$${totalBase.toLocaleString('es-AR')}</span>
+        </div>
 
-    <div class="metodos-pago-box">
+        <div class="total-line muted">
+          <span class="total-label">Costos de servicio</span>
+          <span class="total-value">$${totalComision.toLocaleString(
+            'es-AR'
+          )}</span>
+        </div>
+
+        <div class="total-divider"></div>
+
+        <div class="total-line total-final">
+          <span>Total a pagar</span>
+          <span>$${totalFinal.toLocaleString('es-AR')}</span>
+        </div>
+        </section>
+      `
+      : `
+        <div class="total-line total-final solo">
+          <span>Total</span>
+          <span>$${totalBase.toLocaleString('es-AR')}</span>
+        </div>
+      `
+  }
+</div>
+
+
+
+    <div class="metodos-pago-box ">
   <p class="metodos-title">¿Cómo querés pagar?</p>
       <div class="metodos-wrapper mt-3 mb-5">
       <button id="mp" class="method-btn method-mp only-logo">
@@ -846,7 +797,7 @@ export function EntradasProvider({ children }) {
 
         return manejarTransferencia({
           evento: eventoCompleto,
-          precio: totalPagos,
+          precio: totalFinal,
           cantidadSel: cantidadTotal,
           usuarioId,
           usuarioNombre,
