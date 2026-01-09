@@ -1042,10 +1042,10 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async fbUser => {
       if (fbUser) {
-        await fbUser.getIdToken(true)
         const token = await fbUser.getIdTokenResult()
-
-        console.log('🔐 CLAIMS ACTIVOS:', token.claims)
+        if (!token.claimsLoadedOnce) {
+          await fbUser.getIdToken(true)
+        }
 
         setEsAdminReal(token.claims.admin === true)
 
@@ -1126,11 +1126,12 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('perfil-actualizado', handler)
   }, [])
 
+  // 🔐 loading SOLO depende de Firebase Auth
   useEffect(() => {
-    if (authListo && permisosListos && loginSettings) {
+    if (authListo) {
       setLoading(false)
     }
-  }, [authListo, permisosListos, loginSettings])
+  }, [authListo])
 
   useEffect(() => {
     // 🔒 Esperar a que Auth esté listo Y definido
@@ -1142,8 +1143,6 @@ export function AuthProvider({ children }) {
 
   async function cargarAuthConfig() {
     try {
-      if (!auth.currentUser && auth.currentUser !== null) return
-
       const ref = doc(db, 'configuracion', 'auth')
       const snap = await getDoc(ref)
 
@@ -1260,6 +1259,7 @@ export function AuthProvider({ children }) {
           }),
         }).catch(err => console.warn('⚠️ Mail de bienvenida no enviado:', err))
       }
+      return { ok: true }
     } catch (err) {
       clearTimeout(loadingTimeout)
 
@@ -1268,8 +1268,9 @@ export function AuthProvider({ children }) {
       // ⛔ Canceló el popup → cerrar loading inmediato
       if (err.code === 'auth/popup-closed-by-user') {
         hideLoading()
-        return
+        return { ok: false, cancelado: true }
       }
+      return { ok: false, error: err }
     } finally {
       clearTimeout(loadingTimeout)
       hideLoading()

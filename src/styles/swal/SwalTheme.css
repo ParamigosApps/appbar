@@ -37,7 +37,9 @@
   text-align: left !important;
   color: #111827;
 }
-
+.swal-title-mb {
+  margin-bottom: 0.6rem; /* equivalente a mb-2 */
+}
 /* Subtítulo / texto bajo título */
 .swal-subtitle {
   font-size: 0.95rem;

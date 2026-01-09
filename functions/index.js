@@ -14,9 +14,6 @@ exports.setAdminClaim = require('./setAdminClaim').setAdminClaim
 const {
   generarEntradasPagasDesdePago,
 } = require('./generarEntradasPagasMercadoPago.js')
-const {
-  marcarCompraPagadaDesdePago,
-} = require('./generarCompraPagasMercadoPago.js')
 
 const { crearEntradaBaseAdmin } = require('./utils/crearEntradaBaseAdmin')
 
@@ -307,13 +304,6 @@ exports.procesarEntradasGratis = onDocumentCreated(
           throw new Error(`lote_${loteIndice}_inexistente`)
         }
         lote = evento.lotes[loteIndice]
-        console.log('🧪 descontarCuposArray params', {
-          eventoId,
-          loteIndice,
-          cantidad,
-          usuarioId,
-          compraId: snap.id,
-        })
 
         // 🔻 DESCONTAR CUPOS ANTES DE CREAR
         await descontarCuposArray({

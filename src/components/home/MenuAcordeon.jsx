@@ -39,6 +39,7 @@ const normalizar = str => String(str).toLowerCase()
 // COMPONENTE PRINCIPAL
 // --------------------------------------------------------------
 export default function MenuAcordeon() {
+  const primeraAperturaCatalogo = React.useRef(true)
   const [abierto, setAbierto] = useState(null)
   const [entradasInterno, setEntradasInterno] = useState(null)
   const [mostrarMapa, setMostrarMapa] = useState(false)
@@ -115,16 +116,18 @@ export default function MenuAcordeon() {
     document.addEventListener('abrir-catalogo', handler)
     return () => document.removeEventListener('abrir-catalogo', handler)
   }, [])
+
   useEffect(() => {
-    if (!evento) return
+    const handler = () => {
+      setAbierto('catalogo')
+      seleccionarCategoria('Todos')
+      mostrarCatalogo()
+    }
 
-    // Abrir acordeón catálogo
-    setAbierto('catalogo')
-
-    // Mostrar catálogo completo
-    seleccionarCategoria('Todos')
-    toggleCatalogo(true)
-  }, [evento])
+    document.addEventListener('abrir-catalogo-completo', handler)
+    return () =>
+      document.removeEventListener('abrir-catalogo-completo', handler)
+  }, [seleccionarCategoria, mostrarCatalogo])
 
   // ------------------------------------------------------------
   // NUEVO: Evento global "abrir-mis-entradas"
@@ -205,20 +208,27 @@ export default function MenuAcordeon() {
                   abierto === 'catalogo' ? '' : 'collapsed'
                 }`}
                 onClick={async () => {
-                  // Si NO está abierto todavía
                   if (abierto !== 'catalogo') {
-                    // 2️⃣ Hay eventos pero NO hay evento seleccionado → pedirlo
+                    // 1️⃣ Si no hay evento, pedirlo
                     if (!evento) {
                       const ok = await pedirSeleccionEvento()
-                      if (!ok) return // ⛔ si cancela, no abrir acordeón
+                      if (!ok) return
                     }
-                    // 1️⃣ No hay eventos vigentes → no abrir
+
+                    // 2️⃣ Si no hay eventos vigentes → no abrir
                     if (hayEventosVigentes === false) {
                       return
                     }
+
+                    // 🆕 3️⃣ PRIMERA VEZ → abrir catálogo completo
+                    if (primeraAperturaCatalogo.current) {
+                      seleccionarCategoria('Todos')
+                      mostrarCatalogo()
+                      primeraAperturaCatalogo.current = false
+                    }
                   }
 
-                  // 3️⃣ Abrir / cerrar acordeón normalmente
+                  // 4️⃣ Toggle normal
                   toggle('catalogo')
                 }}
               >
@@ -623,20 +633,26 @@ export default function MenuAcordeon() {
                 👤 Login / Usuario
               </button>
             </h2>
+
             {abierto === 'usuario' && (
               <div className="accordion-collapse show">
                 <div className="accordion-body text-center">
                   {/* ⏳ ESPERANDO FIREBASE */}
+
                   {loading && (
                     <p className="text-muted text-center">
                       Verificando sesión...
                     </p>
                   )}
-
+                  {!loginSettings && !loading && !firebaseUser && (
+                    <p className="text-muted text-center">
+                      Cargando inicio de sesión...
+                    </p>
+                  )}
                   {/* 🔐 LOGIN (cuando NO hay firebaseUser y terminó loading) */}
-                  {!loading && !firebaseUser && (
+                  {!loading && !firebaseUser && loginSettings && (
                     <>
-                      {loginSettings.google && (
+                      {loginSettings?.google && (
                         <button
                           className="google-btn d-block mx-auto mb-2"
                           onClick={() => {
@@ -651,7 +667,7 @@ export default function MenuAcordeon() {
                         </button>
                       )}
 
-                      {loginSettings.facebook && (
+                      {loginSettings?.facebook && (
                         <button
                           className="facebook-btn-small d-block mx-auto mb-3"
                           onClick={() => {
@@ -702,7 +718,7 @@ export default function MenuAcordeon() {
                         Correo electrónico / Contraseña
                       </button>
 
-                      {loginSettings.phone && (
+                      {loginSettings?.phone && (
                         <button
                           className="btn btn-outline-dark d-block mx-auto mb-2"
                           id="btn-telefono"

@@ -90,9 +90,67 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
 
   let batch = db.batch()
   let ops = 0
-  const cuposADescontar = []
 
   try {
+    // --------------------------------------------------
+    // 1) JUNTAR CUPOS A DESCONTAR (SIN CREAR ENTRADAS)
+    // --------------------------------------------------
+    const cuposADescontar = []
+
+    for (const item of itemsSolicitados) {
+      const cantidad = Number(item.cantidad) || 1
+
+      const loteIndice = Number.isFinite(item.loteIndice)
+        ? item.loteIndice
+        : Number.isFinite(item.index)
+        ? item.index
+        : null
+
+      if (!Number.isFinite(loteIndice)) {
+        await pagoRef.update({
+          entradasPagasGeneradas: 'error',
+          entradasPagasError: 'Pago inválido (loteIndice faltante)',
+          entradasPagasErrorAt: serverTimestamp,
+        })
+        throw new Error('Pago inválido: loteIndice faltante')
+      }
+
+      cuposADescontar.push({
+        eventoId,
+        loteIndice,
+        cantidad,
+        usuarioId,
+        compraId: pagoId,
+      })
+    }
+
+    // --------------------------------------------------
+    // 2) AGRUPAR CUPOS POR LOTE
+    // --------------------------------------------------
+    const mapa = {}
+
+    for (const c of cuposADescontar) {
+      const key = String(c.loteIndice)
+      if (!mapa[key]) mapa[key] = { ...c, cantidad: 0 }
+      mapa[key].cantidad += c.cantidad
+    }
+
+    // --------------------------------------------------
+    // 3) DESCONTAR CUPOS (HARD) ANTES DE CREAR ENTRADAS
+    // --------------------------------------------------
+    for (const c of Object.values(mapa)) {
+      await descontarCuposArray({
+        eventoId: c.eventoId,
+        loteIndice: c.loteIndice,
+        cantidad: c.cantidad,
+        usuarioId: c.usuarioId,
+        compraId: pagoId,
+      })
+    }
+
+    // --------------------------------------------------
+    // 4) CREAR ENTRADAS (YA CON CUPOS DESCONTADOS)
+    // --------------------------------------------------
     for (const item of itemsSolicitados) {
       const cantidad = Number(item.cantidad) || 1
       const precio = Number(item.precio) || 0
@@ -102,22 +160,6 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
         : Number.isFinite(item.index)
         ? item.index
         : null
-
-      // 🔻 ACUMULAR CUPOS A DESCONTAR (NO DESCONTAR TODAVÍA)
-      if (Number.isFinite(loteIndice)) {
-        cuposADescontar.push({
-          eventoId,
-          loteIndice,
-          cantidad,
-          usuarioId,
-          compraId: pagoId, // USAR pagoId COMO ID ÚNICO PARA DESCUENTO
-        })
-      }
-
-      // 🔻 DESCONTAR CUPOS (UNA SOLA VEZ, IDÓMPOTENTE)
-      for (const c of cuposADescontar) {
-        await descontarCuposArray(c)
-      }
 
       for (let i = 0; i < cantidad; i++) {
         const entradaRef = db.collection('entradas').doc()
@@ -177,10 +219,11 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
       }
     }
 
-    if (ops > 0) {
-      await batch.commit()
-    }
+    if (ops > 0) await batch.commit()
 
+    // --------------------------------------------------
+    // 5) MARCAR OK
+    // --------------------------------------------------
     await pagoRef.update({
       entradasPagasGeneradas: true,
       entradasPagasAt: serverTimestamp,

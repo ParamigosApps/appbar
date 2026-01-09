@@ -1,5 +1,3 @@
-// functions/utils/descontarCuposArray.js
-
 // --------------------------------------------------------------
 // functions/utils/descontarCuposArray.js — PASSLINE PRO 2025
 // --------------------------------------------------------------
@@ -10,7 +8,8 @@ async function descontarCuposArray({
   loteIndice,
   cantidad,
   usuarioId,
-  compraId, // 🔑 idempotencia (pago / compra / external_reference)
+  compraId,
+  permitirOverflow = false,
 }) {
   if (!eventoId || loteIndice == null || !cantidad || !usuarioId || !compraId) {
     throw new Error('Parámetros inválidos para descontar cupos')
@@ -27,7 +26,7 @@ async function descontarCuposArray({
 
   const descuentoProcesadoRef = eventoRef
     .collection('descuentosProcesados')
-    .doc(compraId)
+    .doc(`${compraId}_${loteIndice}`)
 
   await db.runTransaction(async tx => {
     // --------------------------------------------------
@@ -55,8 +54,13 @@ async function descontarCuposArray({
     const restantes = Number(lote.cantidad || 0)
     const maxPorUsuario = Number(lote.maxPorUsuario || 0)
 
+    let overflow = false
+
     if (restantes < cantidad) {
-      throw new Error('Cupos globales insuficientes')
+      if (!permitirOverflow) {
+        throw new Error('Cupos globales insuficientes')
+      }
+      overflow = true
     }
 
     // --------------------------------------------------
@@ -72,7 +76,8 @@ async function descontarCuposArray({
     // --------------------------------------------------
     // 🔻 Descontar cupo global
     // --------------------------------------------------
-    lote.cantidad = restantes - cantidad
+    lote.cantidad = Math.max(restantes - cantidad, 0)
+
     lotes[loteIndice] = lote
     tx.update(eventoRef, { lotes })
 
@@ -99,6 +104,7 @@ async function descontarCuposArray({
       loteIndice,
       cantidad,
       usuarioId,
+      overflow,
       procesadoEn: admin.firestore.FieldValue.serverTimestamp(),
     })
   })

@@ -39,7 +39,7 @@ export default function CarritoOverlay() {
   useEffect(() => {
     if (evento) {
       setTimeout(() => {
-        document.dispatchEvent(new Event('abrir-catalogo'))
+        document.dispatchEvent(new Event('abrir-catalogo-completo'))
       }, 0)
     }
   }, [evento])
@@ -76,7 +76,9 @@ export default function CarritoOverlay() {
 
                   if (evento)
                     setTimeout(() => {
-                      document.dispatchEvent(new Event('abrir-catalogo'))
+                      document.dispatchEvent(
+                        new Event('abrir-catalogo-completo')
+                      )
                     }, 0)
                   else {
                     pedirSeleccionEvento()

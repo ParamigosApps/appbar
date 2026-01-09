@@ -428,9 +428,9 @@
 
 /* Sello UTILIZADO */
 .qr-overlay-usado {
-  position: absolute;
-  top: 100px;
-  left: 50%;
+  position: relative;
+  top: 140px;
+  left: 50px;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.85);
   color: #fff;
@@ -443,6 +443,7 @@
 }
 /* Ocultar botones en usados */
 .qr-item button {
+  position: relative;
   padding: 8px 12px !important;
   font-weight: 700 !important;
   font-size: 0.9rem !important;

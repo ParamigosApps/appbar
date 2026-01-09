@@ -189,7 +189,10 @@ export function EventoProvider({ children }) {
       html,
       confirmButtonText: 'Continuar',
       buttonsStyling: false,
-      customClass: { confirmButton: 'swal-btn-confirm' },
+      customClass: {
+        title: 'swal-title-mb',
+        confirmButton: 'swal-btn-confirm',
+      },
       preConfirm: () => document.getElementById('evento-select')?.value,
     })
 

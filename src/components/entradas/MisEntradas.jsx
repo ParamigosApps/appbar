@@ -97,6 +97,13 @@ export default function MisEntradas() {
     )
 
     const unsubAprobadas = onSnapshot(qAprobadas, snap => {
+      // 🔥 LIMPIAR APROBADAS ANTES DE RECONSTRUIR
+      Object.values(mapRef.current).forEach(ev => {
+        Object.values(ev.lotes || {}).forEach(l => {
+          l.ticketsAprobados = []
+        })
+      })
+
       snap.forEach(docSnap => {
         const e = docSnap.data()
         const id = docSnap.id
@@ -116,13 +123,11 @@ export default function MisEntradas() {
           }
         }
 
-        const precioEntrada = Number(e.precioUnitario ?? e.precio ?? 0)
-
         if (!mapRef.current[eventoKey].lotes[loteKey]) {
           mapRef.current[eventoKey].lotes[loteKey] = {
             lote: e.lote || null,
             loteIndice: Number.isFinite(e.loteIndice) ? e.loteIndice : null,
-            precioUnitario: precioEntrada,
+            precioUnitario: Number(e.precioUnitario ?? e.precio ?? 0),
             ticketsAprobados: [],
             ticketsPendientes: [],
           }
@@ -132,17 +137,9 @@ export default function MisEntradas() {
           id,
           usado: e.usado === true,
         })
-
-        if (!eventosCache.current[e.eventoId]) {
-          eventosUnsub.current[e.eventoId] = onSnapshot(
-            doc(db, 'eventos', e.eventoId),
-            snap => {
-              eventosCache.current[e.eventoId] = snap.data()
-              setGrupos(Object.values(mapRef.current))
-            }
-          )
-        }
       })
+
+      setGrupos(Object.values(mapRef.current))
     })
 
     // -----------------------------
@@ -316,9 +313,6 @@ export default function MisEntradas() {
           <p className="text-center text-secondary">No tenés entradas aún.</p>
         ) : (
           grupos.map((g, idx) => {
-            const tieneEntradasAprobadas = Object.values(g.lotes).some(
-              l => l.ticketsAprobados.length > 0
-            )
             console.log(g.nombreEvento)
             return (
               <div key={idx} className="card p-3 shadow-sm rounded-4">
@@ -380,19 +374,22 @@ export default function MisEntradas() {
                         : 'Entradas disponibles'
                     const textoPendientes =
                       l.ticketsPendientes.length === 1
-                        ? 'Pendiente'
-                        : 'Pendientes'
+                        ? 'Entrada pendiente'
+                        : 'Entradas pendientes'
 
                     const textoCortoUsadas = usadas === 1 ? 'Usada' : 'Usadas'
                     const textoCortoDisponibles =
                       aprobadas - usadas === 1 ? 'Disponible' : 'Disponibles'
-
+                    const textoCortoPendientes =
+                      l.ticketsPendientes.length === 1
+                        ? 'Pendiente'
+                        : 'Pendientes'
                     const puedeAbrirQr = aprobadas > 0
 
                     // 🔑 KEY ESTABLE (NO usar solo index)
                     const loteKey =
                       l.lote?.id || l.lote?.nombre || `${g.eventoId}_${i}`
-                    console.log('caca' + algunasDisponibles)
+
                     return (
                       <Fragment key={loteKey}>
                         <div
@@ -450,10 +447,22 @@ export default function MisEntradas() {
                             )}
                             {algunasDisponibles &&
                               !todasDisponibles &&
+                              algunasUsadas &&
                               pendientes < 1 && (
                                 <span className="ms-2 text-success fw-semibold">
-                                  · {lenghDisponibles}
-                                  {textoAlgunasDisponibles}
+                                  · {lenghDisponibles} {textoAlgunasDisponibles}{' '}
+                                  <span className=" text-danger fw-semibold">
+                                    · {usadas} {textoUsadas}
+                                  </span>
+                                </span>
+                              )}
+                            {pendientes > 0 &&
+                              !algunasDisponibles &&
+                              !algunasUsadas && (
+                                <span className="ms-2 d-inline-flex align-items-center gap-2">
+                                  <span className="text-warning fw-semibold">
+                                    · {lenghPendientes} {textoPendientes}
+                                  </span>
                                 </span>
                               )}
                             {algunasDisponibles &&
@@ -466,7 +475,7 @@ export default function MisEntradas() {
                                   </span>
 
                                   <span className="text-warning fw-semibold">
-                                    · {lenghPendientes} {textoPendientes}
+                                    · {lenghPendientes} {textoCortoPendientes}
                                   </span>
                                 </span>
                               )}
@@ -483,7 +492,7 @@ export default function MisEntradas() {
                                   </span>
 
                                   <span className="text-warning fw-semibold">
-                                    · {lenghPendientes} {textoPendientes}
+                                    · {lenghPendientes} {textoCortoPendientes}
                                   </span>
                                 </span>
                               )}
