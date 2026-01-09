@@ -4,9 +4,8 @@
 
 import Swal from 'sweetalert2'
 
+import { obtenerComisionEntrada } from '../config/comisiones.js'
 import { formatearFechaEventoDescriptiva } from '../utils/utils.js'
-
-const COMISION_POR_ENTRADA = 1 // mismo valor que mercadopago.js
 
 function crearSwalConTheme(theme = 'light') {
   const themeClass = typeof theme === 'string' && theme.trim() ? theme : 'light'
@@ -310,9 +309,10 @@ ${
           }
         })
 
-        const totalComision =
-          totalBase === 0 ? 0 : cantidadTotal * COMISION_POR_ENTRADA
-
+        const comisionUnit = obtenerComisionEntrada({
+          evento,
+          lote: l,
+        })
         const totalFinal = totalBase + totalComision
 
         const el = document.getElementById('resumen-total')
@@ -491,12 +491,12 @@ export async function abrirResumenLote(evento, lote, opciones = {}, theme) {
     </div>
     <div class="total-line muted">
       <span>Servicio AppBar</span>
-      <span>$${cantidad * COMISION_POR_ENTRADA}</span>
+      <span>$${cantidad * comisionUnit}</span>
     </div>
     <div class="total-divider"></div>
     <div class="total-line total-final">
       <b>Total</b>
-      <b>$${precioBase * cantidad + cantidad * COMISION_POR_ENTRADA}</b>
+      <b>$${precioBase * cantidad + cantidad * comisionUnit}</b>
     </div>
   `
       }

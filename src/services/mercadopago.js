@@ -1,5 +1,7 @@
 // src/services/mercadopago.js
 
+import { obtenerComisionEntrada } from '../config/comisiones.js'
+
 function normalizarPrecio(valor) {
   if (!valor) return 0
   if (typeof valor === 'string') {
@@ -23,7 +25,9 @@ export async function crearPreferenciaEntrada({
     if (!usuarioId) {
       throw new Error('Usuario no autenticado')
     }
-    const COMISION_POR_ENTRADA = 1
+    const comisionPorEntrada = obtenerComisionEntrada({
+      evento: { id: eventoId },
+    })
 
     let total = 0
     let totalComision = 0
@@ -33,7 +37,11 @@ export async function crearPreferenciaEntrada({
       const cantidad = Math.max(1, Math.trunc(Number(i.cantidad)))
       const precioBase = normalizarPrecio(i.precio)
 
-      const comisionUnit = COMISION_POR_ENTRADA
+      const comisionUnit = obtenerComisionEntrada({
+        evento: { id: eventoId },
+        lote: i,
+      })
+
       const unitPrice = precioBase + comisionUnit
 
       totalBase += precioBase * cantidad
@@ -75,7 +83,7 @@ export async function crearPreferenciaEntrada({
           total,
           totalBase,
           totalComision,
-          comisionPorEntrada: COMISION_POR_ENTRADA,
+          comisionPorEntrada,
         },
       }),
     })
