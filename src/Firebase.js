@@ -6,6 +6,7 @@ import { initializeApp } from 'firebase/app'
 import { getFirestore } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 import { getStorage } from 'firebase/storage'
+import { getFunctions } from 'firebase/functions'
 
 // ⚠ Configuración REAL de tu proyecto
 const firebaseConfig = {
@@ -17,8 +18,21 @@ const firebaseConfig = {
   appId: '1:339569084886:web:xxxxxxxxxxxxxxxxxxxxxx',
 }
 
+// ----------------------------------------------------------
+// 🔥 Inicializar App (PRIMERO)
+// ----------------------------------------------------------
 const app = initializeApp(firebaseConfig)
 
+// ----------------------------------------------------------
+// 📦 Servicios Firebase
+// ----------------------------------------------------------
 export const auth = getAuth(app)
 export const db = getFirestore(app)
 export const storage = getStorage(app)
+
+// ----------------------------------------------------------
+// ☁️ Cloud Functions (Callable)
+// ----------------------------------------------------------
+export const functions = getFunctions(app, 'us-central1')
+
+export default app

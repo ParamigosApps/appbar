@@ -28,10 +28,11 @@ import LectorQr from './components/qr/LectorQr.jsx'
 import { ToastContainer } from 'react-toastify'
 import PagoResultado from './pages/PagoResultado.jsx'
 import PaymentListener from './context/PaymentListener'
+import { functions } from './Firebase.js'
 
 export default function App() {
   const pagoIdEnProceso = localStorage.getItem('pagoIdEnProceso')
-
+  console.log('🔥 FUNCTIONS:', functions)
   return (
     <>
       <NotificacionesListener />

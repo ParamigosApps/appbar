@@ -271,8 +271,7 @@ import { escucharCantidadEntradasPendientes } from '../services/entradasAdmin.js
 
 export default function AdminPage() {
   const navigate = useNavigate()
-  const { adminSession, firebaseUser, logout, esAdminTotal, tienePermiso } =
-    useAuth()
+  const { user: firebaseUser, esAdminReal, logout } = useAuth()
 
   const [seccion, setSeccion] = useState('menu')
   const [editarId, setEditarId] = useState(null)
@@ -280,17 +279,12 @@ export default function AdminPage() {
 
   const [entradasPendientes, setEntradasPendientes] = useState(0)
 
-  function acceso(mod) {
-    if (esAdminTotal()) return true
-    return tienePermiso(mod)
-  }
-
   useEffect(() => {
-    if (!esAdminTotal() && !tienePermiso('entradas')) return
+    if (!esAdminReal) return
 
     const unsub = escucharCantidadEntradasPendientes(setEntradasPendientes)
     return () => unsub && unsub()
-  }, [adminSession])
+  }, [esAdminReal])
 
   // --------------------------------------------------------------
   // Render dinámico
@@ -346,17 +340,12 @@ export default function AdminPage() {
 
         <div className="admin-user-info">
           <div className="user-name">
-            {adminSession?.email ||
-              firebaseUser?.displayName ||
-              firebaseUser?.email ||
-              'Usuario'}
+            {firebaseUser?.displayName || firebaseUser?.email || 'Usuario'}
           </div>
-          <div className="user-role">
-            Rol: {esAdminTotal() ? 'Administrador' : 'Empleado'}
-          </div>
+          <div className="user-role">Rol: Administrador</div>
         </div>
 
-        {acceso('eventos') && (
+        {esAdminReal && (
           <>
             <button
               className="side-btn"
@@ -380,7 +369,7 @@ export default function AdminPage() {
           </>
         )}
 
-        {acceso('entradas') && (
+        {esAdminReal && (
           <button
             className="side-btn side-btn-badge"
             onClick={() => {
@@ -395,7 +384,7 @@ export default function AdminPage() {
           </button>
         )}
 
-        {acceso('compras') && (
+        {esAdminReal && (
           <button
             className="side-btn"
             onClick={() => {
@@ -407,7 +396,7 @@ export default function AdminPage() {
           </button>
         )}
 
-        {acceso('dashboard') && (
+        {esAdminReal && (
           <button
             className="side-btn"
             onClick={() => {
@@ -419,7 +408,7 @@ export default function AdminPage() {
           </button>
         )}
 
-        {acceso('productos') && (
+        {esAdminReal && (
           <button
             className="side-btn"
             onClick={() => {
@@ -431,7 +420,7 @@ export default function AdminPage() {
           </button>
         )}
 
-        {acceso('empleados') && (
+        {esAdminReal && (
           <button
             className="side-btn"
             onClick={() => {
@@ -443,7 +432,7 @@ export default function AdminPage() {
           </button>
         )}
 
-        {acceso('qr') && (
+        {esAdminReal && (
           <button
             className="side-btn"
             onClick={() => navigate('/admin/qr-entradas')}
@@ -452,7 +441,7 @@ export default function AdminPage() {
           </button>
         )}
 
-        {acceso('caja') && (
+        {esAdminReal && (
           <button
             className="side-btn"
             onClick={() => navigate('/admin/qr-caja')}
@@ -461,7 +450,7 @@ export default function AdminPage() {
           </button>
         )}
 
-        {acceso('config') && (
+        {esAdminReal && (
           <button
             className="side-btn"
             onClick={() => {

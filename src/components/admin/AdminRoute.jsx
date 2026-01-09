@@ -34,6 +34,7 @@ export default function AdminRoute({ modulo }) {
   return <Outlet />
 }
 */
+/*
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 
@@ -62,5 +63,32 @@ export default function AdminRoute({ modulo }) {
     return <Navigate to="/" replace />
   }
 
+  return <Outlet />
+}
+*/
+
+// --------------------------------------------------------------
+// AdminRoute.jsx — FINAL (Firebase Custom Claims)
+// --------------------------------------------------------------
+
+import { Navigate, Outlet } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext.jsx'
+
+export default function AdminRoute() {
+  const { loading, esAdminReal } = useAuth()
+
+  // ⏳ Esperar a que Auth + claims estén listos
+  if (loading) {
+    return (
+      <div style={{ padding: 40, textAlign: 'center' }}>Cargando permisos…</div>
+    )
+  }
+
+  // ❌ No es admin real (claim)
+  if (!esAdminReal) {
+    return <Navigate to="/acceso" replace />
+  }
+
+  // ✅ Admin real → acceso total
   return <Outlet />
 }

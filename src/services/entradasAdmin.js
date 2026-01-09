@@ -2,6 +2,7 @@
 // src/services/entradasAdmin.js — ADMIN ENTRADAS (PENDIENTES)
 // --------------------------------------------------------------
 import { auth, db, functions } from '../Firebase.js'
+import { httpsCallable } from 'firebase/functions'
 import {
   addDoc,
   getDoc,
@@ -13,7 +14,7 @@ import {
   updateDoc,
   serverTimestamp,
 } from 'firebase/firestore'
-import { httpsCallable } from 'firebase/functions'
+
 import {
   generarEntradaQr,
   subirQrGeneradoAFirebase,
