@@ -209,6 +209,8 @@ export default async function handler(req, res) {
         totalBase,
         totalComision,
         comisionPorEntrada,
+        liquidado: false,
+        liquidacionId: null,
 
         processed: true,
         updatedAt: now,

@@ -849,3 +849,11 @@
   background-color: #dc2626 !important;
   color: #e7e7e7 !important;
 }
+
+.detalle-item.liquidado {
+  opacity: 0.6;
+}
+
+.detalle-item.pendiente {
+  font-weight: 600;
+}

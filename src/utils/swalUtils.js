@@ -305,18 +305,23 @@ export function mostrarResultadoEntradasGratis({
   const okAgrupadas = {}
 
   exitosas.forEach(e => {
-    const lote = e.lote?.nombre || e.loteNombre || e.nombre || 'Entrada general'
+    const loteKey =
+      e.lote?.id ||
+      e.loteIndice ||
+      `${e.lote?.nombre || e.loteNombre || e.nombre}-${e.lote?.genero || ''}`
 
-    if (!okAgrupadas[lote]) {
-      okAgrupadas[lote] = {
-        lote,
-        solicitadas: 0,
+    const loteNombre =
+      e.lote?.nombre || e.loteNombre || e.nombre || 'Entrada general'
+
+    if (!okAgrupadas[loteKey]) {
+      okAgrupadas[loteKey] = {
+        lote: loteNombre,
+        genero: e.lote?.genero || null,
         generadas: 0,
       }
     }
 
-    okAgrupadas[lote].solicitadas += Number(e.cantidad || 0)
-    okAgrupadas[lote].generadas += Number(e.cantidad || 0)
+    okAgrupadas[loteKey].generadas += Number(e.cantidad || 1)
   })
 
   const okHtml = Object.entries(okAgrupadas)
