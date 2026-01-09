@@ -122,10 +122,17 @@ export async function manejarMercadoPago({
         throw new Error(`Cantidad inválida: ${d.cantidad}`)
       }
 
+      const loteIndice = Number.isFinite(d.loteIndice)
+        ? d.loteIndice
+        : Number.isFinite(d.index)
+        ? d.index
+        : i
+
       return {
         nombre: d.nombre,
         precio: precioSeguro,
         cantidad: cantidadSegura,
+        loteIndice,
       }
     })
 

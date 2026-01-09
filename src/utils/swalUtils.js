@@ -321,12 +321,12 @@ export function mostrarResultadoEntradasGratis({
 
   const okHtml = Object.entries(okAgrupadas)
     .map(
-      ([nombre, cant]) => `
-    <div class="swal-row ok">
-      <div class="swal-row-title">${nombre}</div>
-      <div class="swal-row-value">x${cant}</div>
-    </div>
-  `
+      ([nombre, info]) => `
+      <div class="swal-row ok">
+        <div class="swal-row-title">${nombre}</div>
+        <div class="swal-row-value">x${info.generadas}</div>
+      </div>
+    `
     )
     .join('')
 

@@ -671,22 +671,24 @@ export function EntradasProvider({ children }) {
               gratis,
             })
 
-            if (pagas.length > 0) setFlujoPagoActivo(true)
-
-            await Swal.fire({
-              icon: 'info',
-              title: 'Entradas en proceso',
-              html: `
+            if (pagas.length > 0) {
+              setFlujoPagoActivo(true)
+            } else {
+              await Swal.fire({
+                icon: 'info',
+                title: 'Entradas en proceso',
+                html: `
               
               <p>Esto puede demorar unos segundos.</p>
               <p><b>Las vas a ver automáticamente en “Mis Entradas”.</b></p>
             `,
-              confirmButtonText: 'Aceptar',
-              buttonsStyling: false,
-              customClass: {
-                confirmButton: 'swal-btn-confirm',
-              },
-            })
+                confirmButtonText: 'Aceptar',
+                buttonsStyling: false,
+                customClass: {
+                  confirmButton: 'swal-btn-confirm',
+                },
+              })
+            }
           } catch (e) {
             console.error('❌ Error generando entradas gratis:', e)
           }
@@ -828,6 +830,7 @@ export function EntradasProvider({ children }) {
                 nombre: d.nombre,
                 cantidad: d.cantidad,
                 precio: d.precio,
+                loteIndice: d.loteIndice,
               })),
             },
           })
