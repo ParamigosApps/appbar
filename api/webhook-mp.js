@@ -58,9 +58,7 @@ export default async function handler(req, res) {
   let topic =
     body.type ||
     body.topic ||
-    (typeof body.action === 'string'
-      ? body.action.split('.')[0] // "payment.updated" → "payment"
-      : null) ||
+    (typeof body.action === 'string' ? body.action.split('.')[0] : null) ||
     req.query?.topic ||
     req.query?.type ||
     null
@@ -149,6 +147,27 @@ export default async function handler(req, res) {
 
       const payment = await mpRes.json()
 
+      const metadata = payment.metadata || {}
+
+      const totalComision = Number(metadata.totalComision || 0)
+      const totalBase = Number(metadata.totalBase || 0)
+      const comisionPorEntrada = Number(metadata.comisionPorEntrada || 0)
+      console.log('💰 metadata pago:', {
+        totalBase,
+        totalComision,
+        comisionPorEntrada,
+      })
+      if (
+        payment.status === 'approved' &&
+        totalBase + totalComision !== payment.transaction_amount
+      ) {
+        console.warn('⚠️ desglose inconsistente en webhook', {
+          totalBase,
+          totalComision,
+          transaction_amount: payment.transaction_amount,
+        })
+      }
+
       console.log('📄 payment MP:', {
         id: payment.id,
         status: payment.status,
@@ -184,6 +203,13 @@ export default async function handler(req, res) {
 
         mpStatus: payment.status,
         mpStatusDetail: payment.status_detail || null,
+
+        // 🔐 DESGLOSE REAL
+        totalCobrado: payment.transaction_amount,
+        totalBase,
+        totalComision,
+        comisionPorEntrada,
+
         processed: true,
         updatedAt: now,
       })

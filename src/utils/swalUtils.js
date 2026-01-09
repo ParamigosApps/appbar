@@ -428,6 +428,7 @@ ${
     buttonsStyling: false,
     reverseButtons: true,
     customClass: {
+      popup: 'swal-resultado-entradas',
       confirmButton: 'swal-btn-confirm',
       cancelButton: 'swal-btn-cancel',
     },

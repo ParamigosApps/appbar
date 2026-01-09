@@ -27,6 +27,7 @@ export default async function handler(req, res) {
     console.log(`❌ [${reqId}] body inválido`, { bodyType: typeof body })
     return res.status(400).json({ error: 'Body inválido' })
   }
+  const breakdown = body.breakdown || null
 
   const external_reference = safeStr(body.external_reference)
   if (!external_reference) {
@@ -130,11 +131,48 @@ export default async function handler(req, res) {
     const client = new MercadoPagoConfig({ accessToken: ACCESS_TOKEN })
     const preference = new Preference(client)
 
+    let calcTotal = 0
+
+    for (const it of items) {
+      calcTotal += it.unit_price * it.quantity
+    }
+    if (breakdown) {
+      const declaredTotal = safeNum(breakdown.total)
+      const declaredBase = safeNum(breakdown.totalBase)
+      const declaredComision = safeNum(breakdown.totalComision)
+
+      if (
+        declaredTotal !== calcTotal ||
+        declaredBase + declaredComision !== calcTotal
+      ) {
+        console.log(`❌ [${reqId}] breakdown inconsistente`, {
+          declaredTotal,
+          declaredBase,
+          declaredComision,
+          calcTotal,
+        })
+
+        return res.status(400).json({
+          error: 'Breakdown inconsistente',
+        })
+      }
+    }
+
     const pref = await preference.create({
       body: {
         external_reference,
         items,
         payer,
+
+        metadata: breakdown
+          ? {
+              tipo: 'entrada',
+              eventoId: body.eventoId || null,
+              totalBase: breakdown.totalBase,
+              totalComision: breakdown.totalComision,
+              comisionPorEntrada: breakdown.comisionPorEntrada,
+            }
+          : undefined,
 
         statement_descriptor: 'APPBAR EVENTOS',
 

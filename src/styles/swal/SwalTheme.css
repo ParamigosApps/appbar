@@ -1118,3 +1118,115 @@
   margin-top: 4px;
   color: #ffb74d;
 }
+
+/* =====================================================
+   RESULTADO ENTRADAS — SCOPE TOTAL
+   ===================================================== */
+
+.swal-resultado-entradas .swal-event-header {
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.swal-resultado-entradas .swal-event-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.swal-resultado-entradas .swal-event-header small {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: #777;
+}
+
+/* ================== BLOQUES ================== */
+
+.swal-resultado-entradas .swal-block {
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f8f9fa;
+}
+
+.swal-resultado-entradas .swal-block-title {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.swal-resultado-entradas .swal-block-title.success {
+  color: #1b7f3b;
+}
+
+.swal-resultado-entradas .swal-block-title.error {
+  color: #b02a37;
+}
+
+/* ================== FILAS ================== */
+
+.swal-resultado-entradas .swal-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+
+.swal-resultado-entradas .swal-row:last-child {
+  margin-bottom: 0;
+}
+
+/* ================== OK ================== */
+
+.swal-resultado-entradas .swal-row.ok {
+  background: linear-gradient(90deg, #e9f7ef, #f6fffa);
+  border-left: 4px solid #2fbf71;
+}
+
+.swal-resultado-entradas .swal-row.ok .swal-row-title {
+  font-weight: 600;
+  color: #1f7a4d;
+}
+
+.swal-resultado-entradas .swal-row.ok .swal-row-value {
+  font-weight: 700;
+  color: #2fbf71;
+}
+
+/* ================== ERROR ================== */
+
+.swal-resultado-entradas .swal-row.error {
+  background: linear-gradient(90deg, #fdecec, #fff5f5);
+  border-left: 4px solid #dc3545;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.swal-resultado-entradas .swal-row.error .swal-row-title {
+  font-weight: 600;
+  color: #842029;
+}
+
+.swal-resultado-entradas .swal-row-sub {
+  font-size: 13px;
+  color: #842029;
+}
+
+.swal-resultado-entradas .swal-row-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+/* ================== MOBILE ================== */
+
+@media (max-width: 480px) {
+  .swal-resultado-entradas .swal-row {
+    font-size: 13px;
+  }
+}

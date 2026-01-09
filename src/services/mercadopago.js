@@ -1,8 +1,5 @@
 // src/services/mercadopago.js
 
-// --------------------------------------------------
-// HELPERS
-// --------------------------------------------------
 function normalizarPrecio(valor) {
   if (!valor) return 0
   if (typeof valor === 'string') {
@@ -26,21 +23,29 @@ export async function crearPreferenciaEntrada({
     if (!usuarioId) {
       throw new Error('Usuario no autenticado')
     }
+    const COMISION_POR_ENTRADA = 1000
 
     let total = 0
+    let totalComision = 0
+    let totalBase = 0
 
     const itemsMP = items.map((i, idx) => {
       const cantidad = Math.max(1, Math.trunc(Number(i.cantidad)))
-      const precio = normalizarPrecio(i.precio)
+      const precioBase = normalizarPrecio(i.precio)
 
-      total += cantidad * precio
+      const comisionUnit = COMISION_POR_ENTRADA
+      const unitPrice = precioBase + comisionUnit
+
+      totalBase += precioBase * cantidad
+      totalComision += comisionUnit * cantidad
+      total += unitPrice * cantidad
 
       return {
         id: i.id || `entrada_${idx + 1}_${i.nombre}`,
         title: String(i.nombre),
         description: `Entrada ${i.nombre} - Evento ${eventoId}`,
         quantity: cantidad,
-        unit_price: precio,
+        unit_price: unitPrice,
         currency_id: 'ARS',
         category_id: 'tickets',
       }
@@ -64,6 +69,14 @@ export async function crearPreferenciaEntrada({
         usuarioNombre,
         items: itemsMP,
         imagenEventoUrl,
+
+        // 🔐 DESGLOSE FISCAL
+        breakdown: {
+          total,
+          totalBase,
+          totalComision,
+          comisionPorEntrada: COMISION_POR_ENTRADA,
+        },
       }),
     })
 
@@ -77,6 +90,8 @@ export async function crearPreferenciaEntrada({
     return {
       ...data,
       total,
+      totalBase,
+      totalComision,
     }
   } catch (err) {
     console.error('❌ crearPreferenciaEntrada ERROR:', err)
