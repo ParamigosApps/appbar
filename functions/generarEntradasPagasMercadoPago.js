@@ -7,6 +7,14 @@ const { descontarCuposArray } = require('./utils/descontarCuposArray')
 // 🎟️ GENERAR ENTRADAS PAGAS DESDE PAGO APROBADO
 // --------------------------------------------------
 async function generarEntradasPagasDesdePago(pagoId, pago) {
+  console.log('🟦 [PAGAS] generarEntradasPagasDesdePago INICIO', {
+    pagoId,
+    tipo: pago.tipo,
+    estado: pago.estado,
+    usuarioId: pago.usuarioId,
+    eventoId: pago.eventoId,
+    itemsSolicitados: pago.itemsSolicitados,
+  })
   if (pago.tipo !== 'entrada') {
     // MODIFICADO
     console.log('🧯 Skip: pago NO es entrada', {
@@ -134,6 +142,10 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
       if (!mapa[key]) mapa[key] = { ...c, cantidad: 0 }
       mapa[key].cantidad += c.cantidad
     }
+    console.log('🟦 [PAGAS] DESCONTAR CUPOS (ANTES)', {
+      pagoId,
+      mapa,
+    })
 
     // --------------------------------------------------
     // 3) DESCONTAR CUPOS (HARD) ANTES DE CREAR ENTRADAS
@@ -147,7 +159,9 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
         compraId: pagoId,
       })
     }
-
+    console.log('🟦 [PAGAS] DESCONTAR CUPOS OK', {
+      pagoId,
+    })
     // --------------------------------------------------
     // 4) CREAR ENTRADAS (YA CON CUPOS DESCONTADOS)
     // --------------------------------------------------
@@ -220,6 +234,9 @@ async function generarEntradasPagasDesdePago(pagoId, pago) {
     }
 
     if (ops > 0) await batch.commit()
+    console.log('🟦 [PAGAS] MARCANDO entradasPagasGeneradas = true', {
+      pagoId,
+    })
 
     // --------------------------------------------------
     // 5) MARCAR OK

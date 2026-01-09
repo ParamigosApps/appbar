@@ -179,6 +179,10 @@ export async function manejarMercadoPago({
     }
 
     const pagoRef = await addDoc(collection(db, 'pagos'), payloadPago)
+    console.log(`[${trace}] [MP][PAGO CREADO]`, {
+      pagoId: pagoRef.id,
+      payloadPago,
+    })
 
     const pagoId = pagoRef.id
 

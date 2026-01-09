@@ -11,6 +11,14 @@ async function descontarCuposArray({
   compraId,
   permitirOverflow = false,
 }) {
+  console.log('🟥 [CUPOS] INICIO descontarCuposArray', {
+    eventoId,
+    loteIndice,
+    cantidad,
+    usuarioId,
+    compraId,
+  })
+
   if (!eventoId || loteIndice == null || !cantidad || !usuarioId || !compraId) {
     throw new Error('Parámetros inválidos para descontar cupos')
   }
@@ -33,6 +41,15 @@ async function descontarCuposArray({
     // 🔒 Idempotencia total
     // --------------------------------------------------
     const procesadoSnap = await tx.get(descuentoProcesadoRef)
+    if (procesadoSnap.exists) {
+      console.warn('🟥 [CUPOS] YA PROCESADO – SKIP', {
+        eventoId,
+        loteIndice,
+        compraId,
+      })
+      return
+    }
+
     if (procesadoSnap.exists) return
 
     // --------------------------------------------------
@@ -79,6 +96,14 @@ async function descontarCuposArray({
     lote.cantidad = Math.max(restantes - cantidad, 0)
 
     lotes[loteIndice] = lote
+    console.log('🟥 [CUPOS] DESCONTANDO LOTE', {
+      eventoId,
+      loteIndice,
+      antes: restantes,
+      descuento: cantidad,
+      despues: Math.max(restantes - cantidad, 0),
+    })
+
     tx.update(eventoRef, { lotes })
 
     // --------------------------------------------------
@@ -106,6 +131,11 @@ async function descontarCuposArray({
       usuarioId,
       overflow,
       procesadoEn: admin.firestore.FieldValue.serverTimestamp(),
+    })
+    console.log('🟥 [CUPOS] DESCUENTO OK', {
+      eventoId,
+      loteIndice,
+      compraId,
     })
   })
 }
